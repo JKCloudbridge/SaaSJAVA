@@ -30,7 +30,7 @@ class ApplicationTilesIT extends SolutionSupport {
             "audit-management", "Audit Management", "supplier-management", "Supplier Management",
             "management-core", "Management Core");
     private static final Map<String, Integer> TABS = Map.of(DOCUMENTS, 8, "capa", 1, "audit-management", 1,
-            "supplier-management", 3, "management-core", 4);
+            "supplier-management", 3, "management-core", 9);
     private static final List<String> FOUR_OBJECTS = List.of("InspectionTemplate", "InspectionFill",
             "InspectionChangeRequest", "DepartmentGroup");
 

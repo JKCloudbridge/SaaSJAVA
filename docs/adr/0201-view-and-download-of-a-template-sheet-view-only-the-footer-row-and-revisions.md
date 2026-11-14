@@ -96,3 +96,6 @@ carries the template number and the revision, as on the paper form. People speak
 - A hand-made `.xlsx` that a person uploads comes back through the reader of ADR-0195 as before; the footer row is never part of an upload
   because it is not in the stored grid.
 - Rows of the file beyond the sheet's own limits cannot occur: the file is made from a stored grid, which the limits already bound.
+
+
+**Note (SH3, 2026-11-13):** the file is no longer written by `XlsxWriter`; see [ADR-0253](0253-workbook-files-through-a-library-reading-by-stream-guards-first-and-what-it-reverses.md), section "Built in SH3". The decisions about who may download, the footer row and the page description stand; the page description now comes from `PrintRules`.

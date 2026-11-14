@@ -210,7 +210,9 @@
           <groupId>org.apache.maven.plugins</groupId>
           <artifactId>maven-failsafe-plugin</artifactId>
           <configuration>
-            <argLine>-Duser.timezone=UTC -Djdk.httpclient.allowRestrictedHeaders=host -javaagent:${settings.localRepository}/org/mockito/mockito-core/${mockito.version}/mockito-core-${mockito.version}.jar</argLine>
+            <!-- The integration tests share one JVM and keep many application contexts and second instances alive; the
+                 default heap (a quarter of the machine) ran out late in the run and failed unrelated tests. -->
+            <argLine>-Xmx3g -Duser.timezone=UTC -Djdk.httpclient.allowRestrictedHeaders=host -javaagent:${settings.localRepository}/org/mockito/mockito-core/${mockito.version}/mockito-core-${mockito.version}.jar</argLine>
           </configuration>
         </plugin>
         <plugin>

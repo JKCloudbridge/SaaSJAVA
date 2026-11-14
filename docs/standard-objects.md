@@ -134,7 +134,7 @@ Says which group of people belongs to a department of a location, for publishing
 |----------|-------|------|----------|--------|---------|
 | `name` | Name | TEXT | yes |  | up to 120 characters |
 | `location` | Location | PICKLIST | yes |  | the organization owns the list; starting values: PLANT1, PLANT2, HEAD; values are short codes |
-| `department` | Department | PICKLIST | yes |  | the organization owns the list; starting values: PRD, QLT, MNT, STR, HR, FIN; depends on `location`; values are short codes |
+| `department` | Department | PICKLIST | yes |  | the organization owns the list; starting values: PRD, QLT, MNT, STR, HR, FIN, PLANTHEAD; depends on `location`; values are short codes |
 | `groupId` | Group | LOOKUP | yes |  | points to `Group` |
 
 ## EnvironmentChangeRequest
@@ -150,6 +150,7 @@ The record that sends a change request of the Environment Management application
 | `name` | Change request name | TEXT |  |  | up to 160 characters; written by the platform only |
 | `templateId` | Template | TEXT |  |  | up to 36 characters; written by the platform only |
 | `status` | Status | TEXT |  |  | up to 20 characters; written by the platform only |
+| `application` | Application | TEXT |  |  | up to 60 characters; written by the platform only |
 
 ## EnvironmentFill
 
@@ -164,6 +165,7 @@ A fill-in of a template of the Environment Management application. Its records a
 | `name` | Fill-in name | TEXT |  |  | up to 160 characters; written by the platform only |
 | `templateId` | Template | TEXT |  |  | up to 36 characters; written by the platform only |
 | `status` | Status | TEXT |  |  | up to 20 characters; written by the platform only |
+| `application` | Application | TEXT |  |  | up to 60 characters; written by the platform only |
 
 ## EnvironmentTemplate
 
@@ -186,6 +188,7 @@ A template of the Environment Management application. Its records are kept for g
 | `number` | Document number | TEXT |  | yes | up to 40 characters; written by the platform only |
 | `revision` | Revision number | TEXT |  |  | up to 10 characters; written by the platform only |
 | `lastRevisedAt` | Last revised on | TEXT |  |  | up to 40 characters; written by the platform only |
+| `application` | Application | TEXT |  |  | up to 60 characters; written by the platform only |
 
 ## Group
 
@@ -212,6 +215,7 @@ The record that sends a change request of the Quality Management System applicat
 | `name` | Change request name | TEXT |  |  | up to 160 characters; written by the platform only |
 | `templateId` | Template | TEXT |  |  | up to 36 characters; written by the platform only |
 | `status` | Status | TEXT |  |  | up to 20 characters; written by the platform only |
+| `application` | Application | TEXT |  |  | up to 60 characters; written by the platform only |
 
 ## InspectionFill
 
@@ -226,6 +230,7 @@ A fill-in of a template of the Quality Management System application. Its record
 | `name` | Fill-in name | TEXT |  |  | up to 160 characters; written by the platform only |
 | `templateId` | Template | TEXT |  |  | up to 36 characters; written by the platform only |
 | `status` | Status | TEXT |  |  | up to 20 characters; written by the platform only |
+| `application` | Application | TEXT |  |  | up to 60 characters; written by the platform only |
 
 ## InspectionTemplate
 
@@ -248,6 +253,7 @@ A template of the Quality Management System application. Its records are kept fo
 | `number` | Document number | TEXT |  | yes | up to 40 characters; written by the platform only |
 | `revision` | Revision number | TEXT |  |  | up to 10 characters; written by the platform only |
 | `lastRevisedAt` | Last revised on | TEXT |  |  | up to 40 characters; written by the platform only |
+| `application` | Application | TEXT |  |  | up to 60 characters; written by the platform only |
 
 ## LicenceType
 

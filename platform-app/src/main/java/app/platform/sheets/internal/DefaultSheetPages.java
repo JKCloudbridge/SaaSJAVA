@@ -33,15 +33,18 @@ class DefaultSheetPages implements SheetPages {
     private static final int MOST_CELLS = 5_000;
 
     private final SpreadsheetImporter importer;
+    private final WorkbookWriter writer;
     private final JsonMapper json = JsonMapper.builder().build();
 
-    DefaultSheetPages(SpreadsheetImporter importer) {
+    DefaultSheetPages(SpreadsheetImporter importer, WorkbookWriter writer) {
         this.importer = importer;
+        this.writer = writer;
     }
 
     @Override
     public byte[] xlsx(Page page) {
-        return new XlsxWriter().write(gridOf(page), "", true);
+        // A page of its own (FA8): no band of column labels above it and no footer row below it.
+        return writer.write(List.of(new WorkbookWriter.Page(null, gridOf(page), null, null, "", true)), null).bytes();
     }
 
     @Override
@@ -51,7 +54,7 @@ class DefaultSheetPages implements SheetPages {
 
     @Override
     public PrintSettings print(Page page) {
-        return XlsxWriter.printSettings(gridOf(page));
+        return PrintRules.settings(gridOf(page));
     }
 
     @Override

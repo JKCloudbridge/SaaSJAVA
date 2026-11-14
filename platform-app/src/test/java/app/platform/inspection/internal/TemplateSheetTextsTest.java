@@ -81,4 +81,32 @@ class TemplateSheetTextsTest {
         assertThat(Templates.lastRevisedAt(java.util.Map.of("lastRevisedAt", "not a time"))).isNull();
         assertThat(Templates.lastRevisedAt(java.util.Map.of())).isNull();
     }
+
+    /** The cases the browser reads too (MC1, ADR-0257): the footer with the day, in the zone of each case. */
+    @Test
+    void theFooterWithTheDayIsWrittenAsTheSharedCasesSay() throws java.io.IOException {
+        int checked = 0;
+        try (java.io.InputStream in = getClass().getResourceAsStream("/inspection/footer-cases.txt")) {
+            assertThat(in).isNotNull();
+            for (String line : new String(in.readAllBytes(), java.nio.charset.StandardCharsets.UTF_8).split("\\R")) {
+                if (line.isBlank() || line.startsWith("#")) {
+                    continue;
+                }
+                String[] part = line.split("\\|", -1);
+                String number = part[0].strip();
+                int revision = Integer.parseInt(part[1].strip());
+                java.time.LocalDate day = part[2].isBlank() ? null : java.time.Instant.parse(part[2].strip())
+                        .atZone(java.time.ZoneId.of(part[3].strip())).toLocalDate();
+                String expected = part[4].strip().replace("\\n", "\n");
+                assertThat(TemplateSheetTexts.footer(number, revision, day)).as(line).isEqualTo(expected);
+                checked++;
+            }
+        }
+        assertThat(checked).isGreaterThanOrEqualTo(8);
+    }
+
+    @Test
+    void withoutADayTheFooterIsTheFirstLineAlone() {
+        assertThat(TemplateSheetTexts.footer("F/MR/16", 1, null)).isEqualTo(TemplateSheetTexts.footer("F/MR/16", 1));
+    }
 }

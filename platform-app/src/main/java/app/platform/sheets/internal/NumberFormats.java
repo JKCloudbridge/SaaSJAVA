@@ -36,6 +36,27 @@ final class NumberFormats {
     }
 
     /**
+     * The format code a file is written with for each key of the closed list (SH3). Each code is one {@link #of} maps
+     * back to the same key, and a test holds the two together. A date key is only a hint: a date is text in a sheet.
+     */
+    private static final java.util.Map<String, String> CODES = java.util.Map.ofEntries(
+            java.util.Map.entry("WHOLE", "0"), java.util.Map.entry("TWO_DECIMALS", "0.00"),
+            java.util.Map.entry("PERCENT", "0%"), java.util.Map.entry("PERCENT_TWO_DECIMALS", "0.00%"),
+            java.util.Map.entry("THOUSANDS", "#,##0"), java.util.Map.entry("THOUSANDS_TWO_DECIMALS", "#,##0.00"),
+            java.util.Map.entry("ACCOUNTING", "_(* #,##0.00_);_(* (#,##0.00);_(* \"-\"??_);_(@_)"),
+            java.util.Map.entry("MONTH_YEAR", "mmm-yy"), java.util.Map.entry("SHORT_DATE", "yyyy-mm-dd"));
+
+    /**
+     * The format code written for a key.
+     *
+     * @param key a key of {@link SheetLook#NUMBER_FORMATS}, or null
+     * @return the code, or null for the general format (GENERAL, null or an unknown key)
+     */
+    static String codeOf(String key) {
+        return key == null ? null : CODES.get(key);
+    }
+
+    /**
      * The meaning of a format.
      *
      * @param id the number of the format (built-in below 164, otherwise stated by the file)

@@ -730,6 +730,15 @@ public final class TenantScopedTables {
                     tenant, "probe-" + UUID.randomUUID().toString().substring(0, 8), ActorId.SYSTEM.value(),
                     ActorId.SYSTEM.value()));
 
+    /** The rules that route a document to an application by its number (MC1.1, ADR-0259). One probe per combination. */
+    public static final TenantScopedTable INSPECTION_DOCUMENT_ROUTING = new TenantScopedTable(
+            "inspection_document_routing",
+            (connection, tenant) -> TenantFixtures.update(connection,
+                    "insert into inspection_document_routing (tenant_id, category_code, part_a, application, "
+                            + "created_by, updated_by) values (?, ?, '', 'probe-application', ?, ?)",
+                    tenant, "P" + UUID.randomUUID().toString().substring(0, 8), ActorId.SYSTEM.value(),
+                    ActorId.SYSTEM.value()));
+
     /** The outcomes of keyed writes of the public API (Sprint 30, ADR-0246). Every probe uses its own key. */
     public static final TenantScopedTable IDEMPOTENCY_RECORD = new TenantScopedTable("idempotency_record",
             (connection, tenant) -> TenantFixtures.update(connection,
@@ -1068,7 +1077,7 @@ public final class TenantScopedTables {
             SHEET_FILL_VALUE,
             INSPECTION_PUBLICATION, INSPECTION_CHANGE_REQUEST, INSPECTION_CHANGE_COMMENT,
             INSPECTION_AUDIENCE_SUGGESTION, INSPECTION_TEMPLATE_OPTION, INSPECTION_CHANGE_REGISTER,
-            INSPECTION_FILL_DEPARTMENT, INSPECTION_TEMPLATE_EVENT);
+            INSPECTION_FILL_DEPARTMENT, INSPECTION_TEMPLATE_EVENT, INSPECTION_DOCUMENT_ROUTING);
 
     private TenantScopedTables() {
     }

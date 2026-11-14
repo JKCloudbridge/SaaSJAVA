@@ -1,9 +1,13 @@
+import { readFileSync } from "node:fs";
+import path from "node:path";
 import { describe, expect, it } from "vitest";
 import {
   downloadName,
   downloadNameFor,
   footerText,
+  footerDay,
   footerTextFor,
+  footerTextWithDay,
   revisionNumber,
   revisionOf,
   revisionWords,
@@ -97,5 +101,37 @@ describe("the file and the footer for a revision written with its digits", () =>
     expect(downloadNameFor("F/MR/16", "01")).toBe("F-MR-16_Rev01.xlsx");
     expect(footerTextFor("F/MR/16", "01")).toBe("F/MR/16  Rev No.'01'");
     expect(footerTextFor(null, "01")).toBe("");
+  });
+});
+
+// The footer with the day (MC1, ADR-0257): the cases are the file the server's test reads too, so the screen, the print
+// and the downloaded file write the same words.
+describe("the footer with the day of the Revision", () => {
+  const cases = readFileSync(
+    path.resolve(process.cwd(), "../platform-app/src/test/resources/inspection/footer-cases.txt"),
+    "utf8",
+  )
+    .split(/\r?\n/)
+    .filter((line) => line.trim() !== "" && !line.startsWith("#"))
+    .map((line) => line.split("|"));
+
+  it("has the cases to check", () => {
+    expect(cases.length).toBeGreaterThanOrEqual(8);
+  });
+
+  it.each(cases)("writes %s | %s | %s | %s as the server does", (number, revision, instant, zone, expected) => {
+    const text = footerTextWithDay(
+      number!.trim(),
+      String(Number(revision!.trim())).padStart(2, "0"),
+      instant!.trim() === "" ? undefined : instant!.trim(),
+      zone!.trim(),
+    );
+    expect(text).toBe(expected!.trim().replace(/\\n/g, "\n"));
+  });
+
+  it("writes the day in the reader's own zone when none is given and refuses a text that is no instant", () => {
+    expect(footerDay("2026-11-13T10:15:00Z", "UTC")).toBe("13-Nov-2026");
+    expect(footerDay("not a date")).toBeUndefined();
+    expect(footerTextWithDay("F/MR/16", "00", "not a date")).toBe("F/MR/16  Rev No.'00'");
   });
 });

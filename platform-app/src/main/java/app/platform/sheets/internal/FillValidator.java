@@ -112,9 +112,11 @@ final class FillValidator {
             return rejected(new Problem("too_large", ROOT, "The fill-in is larger than the allowed size of "
                     + properties.maxBytes() + " bytes."));
         }
-        if (SheetGridValidator.nestingOf(raw) > properties.maxDepth()) {
+        // Format 3 puts the rows inside the sheet and a list of files inside a cell: two more levels than format 1.
+        int deepest = properties.maxDepth() + (structure.isFormatThree() ? 2 : 0);
+        if (SheetGridValidator.nestingOf(raw) > deepest) {
             return rejected(new Problem("too_deep", ROOT, "The fill-in is nested deeper than the allowed "
-                    + properties.maxDepth() + " levels."));
+                    + deepest + " levels."));
         }
         JsonNode document;
         try {
@@ -127,9 +129,14 @@ final class FillValidator {
             return rejected(new Problem("not_json", ROOT, "The fill-in is not valid JSON, or it repeats a key."));
         }
         List<Problem> shape = new ArrayList<>();
-        List<RawRow> rows = shape(document, shape);
+        String[] sheetKey = new String[1];
+        List<RawRow> rows = shape(document, shape, sheetKey);
         if (!shape.isEmpty()) {
             return capped(shape);
+        }
+        List<Problem> sheet = sheetProblems(document.path("formatVersion").asInt(), sheetKey[0], structure);
+        if (!sheet.isEmpty()) {
+            return capped(sheet);
         }
         List<Supplier<List<Problem>>> stages = List.of(() -> limitProblems(rows), () -> textProblems(rows),
                 () -> rowProblems(rows, structure), () -> cellProblems(rows, structure));
@@ -139,7 +146,7 @@ final class FillValidator {
                 return capped(stage);
             }
         }
-        FillDoc normal = normalize(rows, structure, document.path("formatVersion").asInt());
+        FillDoc normal = normalize(rows, structure, document.path("formatVersion").asInt(), sheetKey[0]);
         String canonical = write(normal);
         byte[] bytes = canonical.getBytes(StandardCharsets.UTF_8);
         if (bytes.length > properties.maxBytes()) {
@@ -155,16 +162,24 @@ final class FillValidator {
      */
     FillDoc read(String stored) {
         JsonNode root = WRITER.readTree(stored);
+        boolean three = root.path("formatVersion").asInt() == FillDoc.FORMAT_THREE;
+        JsonNode body = three ? root.path("sheets").path(0) : root;
         List<FillDoc.Row> rows = new ArrayList<>();
-        for (JsonNode row : root.path("rows")) {
+        for (JsonNode row : body.path("rows")) {
             Map<String, Object> cells = new LinkedHashMap<>();
             for (Map.Entry<String, JsonNode> cell : row.path("cells").properties()) {
-                cells.put(cell.getKey(), cell.getValue().isBoolean() ? (Object) cell.getValue().asBoolean()
-                        : cell.getValue().asString());
+                JsonNode value = cell.getValue();
+                if (value.isArray()) {
+                    List<String> files = new ArrayList<>();
+                    value.forEach(file -> files.add(file.asString()));
+                    cells.put(cell.getKey(), files);
+                } else {
+                    cells.put(cell.getKey(), value.isBoolean() ? (Object) value.asBoolean() : value.asString());
+                }
             }
             rows.add(new FillDoc.Row(row.path("id").asString(), cells, styles(row.path("styles"), "", null)));
         }
-        return new FillDoc(root.path("formatVersion").asInt(), rows);
+        return new FillDoc(root.path("formatVersion").asInt(), three ? body.path("key").asString() : null, rows);
     }
 
     /** The canonical text of a document. */
@@ -183,7 +198,14 @@ final class FillValidator {
             }
             rows.add(one);
         }
-        root.put("rows", rows);
+        if (doc.formatVersion() == FillDoc.FORMAT_THREE) {
+            Map<String, Object> sheet = new TreeMap<>();
+            sheet.put("key", doc.sheetKey());
+            sheet.put("rows", rows);
+            root.put("sheets", List.of(sheet));
+        } else {
+            root.put("rows", rows);
+        }
         return WRITER.writeValueAsString(root);
     }
 
@@ -198,6 +220,9 @@ final class FillValidator {
             out.add(new Problem("no_rows", ROOT + ".rows",
                     "A sheet whose filler adds the rows needs at least one row."));
             return out;
+        }
+        if (structure.isFormatThree()) {
+            return completenessThree(structure, doc);
         }
         Map<String, FillDoc.Row> byId = new LinkedHashMap<>();
         doc.rows().forEach(row -> byId.put(row.id(), row));
@@ -224,6 +249,75 @@ final class FillValidator {
         return out;
     }
 
+    /**
+     * Format 3: a value is required where the cell says so, else where its column does (SH5). A cell of a calculated
+     * column and a fixed cell are never asked for. An attachment cell is complete with at least one file named; that
+     * the
+     * file still exists is the lifecycle's question, asked with the files of the header.
+     */
+    private List<Problem> completenessThree(FillStructure structure, FillDoc doc) {
+        List<Problem> out = new ArrayList<>();
+        Map<String, FillDoc.Row> byId = new LinkedHashMap<>();
+        doc.rows().forEach(row -> byId.put(row.id(), row));
+        for (String rowId : structure.namedRows()) {
+            FillDoc.Row row = byId.get(rowId);
+            for (Column column : structure.columns()) {
+                if (structure.isInput(rowId, column.id()) && asked(structure.effective(rowId, column.id()))
+                        && (row == null || !row.cells().containsKey(column.id()))) {
+                    out.add(missing(ROOT + ".rows." + rowId + ".cells." + column.id()));
+                }
+            }
+        }
+        for (int i = 0; i < doc.rows().size(); i++) {
+            FillDoc.Row row = doc.rows().get(i);
+            if (structure.isNamedRow(row.id())) {
+                continue;
+            }
+            for (Column column : structure.columns()) {
+                if (structure.isInput(row.id(), column.id()) && asked(structure.effective(row.id(), column.id()))
+                        && !row.cells().containsKey(column.id())) {
+                    out.add(missing(ROOT + ".rows[" + i + "].cells." + column.id()));
+                }
+            }
+        }
+        return out.size() > MOST_PROBLEMS ? out.subList(0, MOST_PROBLEMS) : out;
+    }
+
+    /** Every file identifier the cells of a fill-in name, in the order of the cells. */
+    static List<String> attachmentIds(FillDoc doc) {
+        List<String> ids = new ArrayList<>();
+        for (FillDoc.Row row : doc.rows()) {
+            for (Object value : row.cells().values()) {
+                if (value instanceof List<?> files) {
+                    files.forEach(file -> ids.add((String) file));
+                }
+            }
+        }
+        return ids;
+    }
+
+    /**
+     * The attachment cells that name a file that is not on the header any more or never was (SH5, ADR-0254): a cell
+     * names only a file of its own fill-in. The words never repeat an identifier.
+     */
+    static List<Problem> unknownFiles(FillDoc doc, java.util.Set<String> existing) {
+        List<Problem> out = new ArrayList<>();
+        for (int i = 0; i < doc.rows().size(); i++) {
+            for (Map.Entry<String, Object> cell : doc.rows().get(i).cells().entrySet()) {
+                if (cell.getValue() instanceof List<?> files && !existing.containsAll(files)) {
+                    out.add(new Problem("file_unknown", cellPlace(i, cell.getKey()),
+                            "A file named here is not on this fill-in."));
+                }
+            }
+        }
+        return out.size() > MOST_PROBLEMS ? out.subList(0, MOST_PROBLEMS) : out;
+    }
+
+    /** The filler is asked for the cells of the filler's class; the reviewer's cells are the reviewer's to fill. */
+    private static boolean asked(FillStructure.Effective cell) {
+        return cell.required() && cell.cls() == SheetDocument.InputClass.FILLER;
+    }
+
     private static Problem missing(String place) {
         return new Problem("required", place, "A value that is required is missing.");
     }
@@ -231,20 +325,25 @@ final class FillValidator {
     // ---- shape ----
 
     /** Reads the rows of a document, saying every place whose shape is wrong. */
-    private List<RawRow> shape(JsonNode root, List<Problem> out) {
+    private List<RawRow> shape(JsonNode root, List<Problem> out, String[] sheetKey) {
         List<RawRow> rows = new ArrayList<>();
         if (!root.isObject()) {
             out.add(new Problem("shape", ROOT, "This has the wrong kind of value."));
             return rows;
         }
+        JsonNode format = root.path("formatVersion");
+        boolean three = format.isInt() && format.asInt() == FillDoc.FORMAT_THREE;
+        String listKey = three ? "sheets" : "rows";
         for (Map.Entry<String, JsonNode> entry : root.properties()) {
-            if (!"formatVersion".equals(entry.getKey()) && !"rows".equals(entry.getKey())) {
+            if (!"formatVersion".equals(entry.getKey()) && !listKey.equals(entry.getKey())) {
                 out.add(new Problem("shape", ROOT + ".…", "This is not allowed here."));
             }
         }
-        JsonNode format = root.path("formatVersion");
-        if (!format.isInt() || (format.asInt() != 1 && format.asInt() != 2)) {
+        if (!format.isInt() || format.asInt() < 1 || format.asInt() > FillDoc.FORMAT_THREE) {
             out.add(new Problem("format", ROOT + ".formatVersion", "The format of the fill-in is not supported."));
+        }
+        if (three) {
+            return shapeOfSheets(root.path("sheets"), out, sheetKey);
         }
         JsonNode list = root.path("rows");
         if (!list.isArray()) {
@@ -255,6 +354,62 @@ final class FillValidator {
             shapeOfRow(list.get(i), i, rows, out, format.asInt());
         }
         return rows;
+    }
+
+    /** Format 3: one entry in {@code sheets} for now, named by the key of the sheet; the rows are inside it. */
+    private List<RawRow> shapeOfSheets(JsonNode list, List<Problem> out, String[] sheetKey) {
+        List<RawRow> rows = new ArrayList<>();
+        String place = ROOT + ".sheets";
+        if (!list.isArray()) {
+            out.add(new Problem("shape", place, "This is needed here and is missing."));
+            return rows;
+        }
+        if (list.size() != 1) {
+            out.add(new Problem("sheet_count", place, "A fill-in holds the cells of exactly one sheet."));
+            return rows;
+        }
+        JsonNode sheet = list.get(0);
+        if (!sheet.isObject()) {
+            out.add(new Problem("shape", place + "[0]", "This has the wrong kind of value."));
+            return rows;
+        }
+        for (Map.Entry<String, JsonNode> entry : sheet.properties()) {
+            if (!"key".equals(entry.getKey()) && !"rows".equals(entry.getKey())) {
+                out.add(new Problem("shape", place + "[0].…", "This is not allowed here."));
+            }
+        }
+        JsonNode key = sheet.path("key");
+        if (!key.isString() || !ID.matcher(key.asString()).matches()) {
+            out.add(new Problem("shape", place + "[0].key", "An identifier has an invalid shape."));
+        } else {
+            sheetKey[0] = key.asString();
+        }
+        JsonNode body = sheet.path("rows");
+        if (!body.isArray()) {
+            out.add(new Problem("shape", place + "[0].rows", "This is needed here and is missing."));
+            return rows;
+        }
+        for (int i = 0; i < body.size(); i++) {
+            shapeOfRow(body.get(i), i, rows, out, FillDoc.FORMAT_THREE);
+        }
+        return rows;
+    }
+
+    /**
+     * The format against the sheet the fill-in is pinned to: a sheet in format version 1 takes formats 1 and 2, a sheet
+     * in format version 2 takes format 3 and only the sheet it has, and a tab that is not fillable takes none.
+     */
+    private static List<Problem> sheetProblems(int format, String key, FillStructure structure) {
+        List<Problem> out = new ArrayList<>();
+        if (structure.isFormatThree() != (format == FillDoc.FORMAT_THREE)) {
+            out.add(new Problem("format_mismatch", ROOT + ".formatVersion",
+                    "The format of the fill-in does not match the sheet it is for."));
+        } else if (structure.isFormatThree() && !structure.sheetKey().equals(key)) {
+            out.add(new Problem("sheet_unknown", ROOT + ".sheets[0].key", "The sheet does not exist."));
+        } else if (!structure.fillable()) {
+            out.add(new Problem("sheet_not_fillable", ROOT + ".sheets[0]", "This sheet cannot be filled in."));
+        }
+        return out;
     }
 
     private void shapeOfRow(JsonNode row, int index, List<RawRow> rows, List<Problem> out, int version) {
@@ -291,6 +446,19 @@ final class FillValidator {
                 values.put(cell.getKey(), value.asBoolean());
             } else if (value.isNull()) {
                 values.put(cell.getKey(), null);
+            } else if (version == FillDoc.FORMAT_THREE && value.isArray()) {
+                List<Object> files = new ArrayList<>();
+                boolean plain = true;
+                for (JsonNode file : value) {
+                    plain &= file.isString();
+                    files.add(file.isString() ? file.asString() : "");
+                }
+                if (plain) {
+                    values.put(cell.getKey(), files);
+                } else {
+                    out.add(new Problem("shape", place + ".cells." + cell.getKey(),
+                            "This has the wrong kind of value."));
+                }
             } else {
                 out.add(new Problem("shape", place + ".cells." + cell.getKey(), "This has the wrong kind of value."));
             }
@@ -417,12 +585,14 @@ final class FillValidator {
                     // identifier, and is never repeated.
                     out.add(new Problem("cell_unknown", ROOT + ".rows[" + i + "].cells.…",
                             "A cell points at a column that does not exist."));
-                } else if (cell.getValue() == null || cell.getValue() instanceof String text && text.isEmpty()) {
+                } else if (isEmpty(cell.getValue())) {
                     continue; // nothing is stored for an empty cell
                 } else if (!structure.isInput(row.id(), column.id())) {
                     out.add(new Problem("cell_not_input", place, "This cell cannot be typed into."));
                 } else {
-                    String bad = CellValues.problem(column, cell.getValue());
+                    String bad = structure.isFormatThree()
+                            ? CellValues.problem(structure.effective(row.id(), column.id()), cell.getValue())
+                            : CellValues.problem(column, cell.getValue());
                     if (bad != null) {
                         out.add(new Problem("value_type", place, bad));
                     }
@@ -432,15 +602,20 @@ final class FillValidator {
         return out;
     }
 
+    private static boolean isEmpty(Object value) {
+        return value == null || value instanceof String text && text.isEmpty()
+                || value instanceof List<?> list && list.isEmpty();
+    }
+
     // ---- canonical form ----
 
-    private static FillDoc normalize(List<RawRow> rows, FillStructure structure, int version) {
+    private static FillDoc normalize(List<RawRow> rows, FillStructure structure, int version, String sheetKey) {
         Map<String, FillDoc.Row> named = new LinkedHashMap<>();
         List<FillDoc.Row> added = new ArrayList<>();
         for (RawRow row : rows) {
             Map<String, Object> cells = new LinkedHashMap<>();
             row.cells().forEach((column, value) -> {
-                if (value != null && !(value instanceof String text && text.isEmpty())) {
+                if (!isEmpty(value)) {
                     cells.put(column, value);
                 }
             });
@@ -459,7 +634,7 @@ final class FillValidator {
             }
         }
         ordered.addAll(added);
-        return new FillDoc(version, ordered);
+        return new FillDoc(version, version == FillDoc.FORMAT_THREE ? sheetKey : null, ordered);
     }
 
     private static Result rejected(Problem problem) {

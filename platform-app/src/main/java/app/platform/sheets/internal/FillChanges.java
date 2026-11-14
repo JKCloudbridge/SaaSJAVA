@@ -60,6 +60,15 @@ class FillChanges {
         meters.counter("platform.sheets.fills", "operation", "correct", "result", "ok").increment();
     }
 
+    /**
+     * A person asked to review changed the cells of the reviewer's class (SH5, ADR-0258). Size, counts and the hash say
+     * that it happened; the cells are never written down.
+     */
+    void reviewEdited(UUID actor, String object, UUID fill, long version, FillValidator.Checked checked) {
+        audit.record(counts(base("sheets.fill.review_edited", actor, object, fill), version, checked));
+        meters.counter("platform.sheets.fills", "operation", "review_edit", "result", "ok").increment();
+    }
+
     /** The fill-in went to review under a request. {@code actor} is null when the platform sent it. */
     void submitted(UUID actor, String object, UUID fill, int versionNo, UUID requestId, int rows) {
         audit.record(base("sheets.fill.submitted", actor, object, fill).with("version_no", Integer.toString(versionNo))

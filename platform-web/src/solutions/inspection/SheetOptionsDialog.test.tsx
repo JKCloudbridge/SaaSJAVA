@@ -34,6 +34,7 @@ function view(extra: Partial<TemplateLifecycleView> = {}): TemplateLifecycleView
     allowDownload: false,
     canDownload: true,
     canSubmit: true,
+    footerDate: false,
     canSetOptions: true,
     ...extra,
   };

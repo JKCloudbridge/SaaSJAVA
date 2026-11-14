@@ -18,6 +18,7 @@ import app.platformapi.SheetCalculationView;
 import app.platformapi.SheetFormulaFunctionView;
 import app.platformapi.SheetFormulaLimitsView;
 import app.platformapi.SheetLimitsView;
+import app.platformapi.SheetPrintView;
 import app.platformapi.SheetVersionSummaryView;
 import app.platformapi.SheetVersionView;
 import app.platformapi.SheetVersionsView;
@@ -35,6 +36,7 @@ import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import tools.jackson.core.type.TypeReference;
+import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.json.JsonMapper;
 
 /**
@@ -176,7 +178,11 @@ class SheetVersions {
     @Transactional(readOnly = true)
     SheetVersionView get(String ownerObject, UUID ownerId, int versionNo) {
         SheetVersionStore.WithGrid found = readable(ownerObject, ownerId, versionNo);
-        return new SheetVersionView(summaryOf(found.row()), json.readValue(found.grid(), GRID));
+        JsonNode stored = json.readTree(found.grid());
+        app.platform.sheets.SheetPages.PrintSettings page = PrintRules.settings(stored);
+        return new SheetVersionView(summaryOf(found.row()), json.convertValue(stored, GRID),
+                new SheetPrintView(page.paper(), page.orientation(), page.pageWidthMm(), page.pageHeightMm(),
+                        page.marginLeft(), page.marginRight(), page.marginTop(), page.marginBottom()));
     }
 
     /**

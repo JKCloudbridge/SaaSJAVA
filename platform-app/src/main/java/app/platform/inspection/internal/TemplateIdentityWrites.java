@@ -6,6 +6,8 @@ import app.platform.data.NumberSeries;
 import app.platform.data.NumberSeriesException;
 import app.platform.data.RecordWriteRule;
 import app.platformapi.ApiException;
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -22,11 +24,14 @@ class TemplateIdentityWrites implements RecordWriteRule {
     private final NumberSeries numbers;
     private final NumberAssignments assignments;
     private final RecordSets sets;
+    private final DocumentRouting routing;
 
-    TemplateIdentityWrites(NumberSeries numbers, NumberAssignments assignments, RecordSets sets) {
+    TemplateIdentityWrites(NumberSeries numbers, NumberAssignments assignments, RecordSets sets,
+            DocumentRouting routing) {
         this.numbers = numbers;
         this.assignments = assignments;
         this.sets = sets;
+        this.routing = routing;
     }
 
     /** The template object of the first set; the rule serves the template object of every set ({@link #serves}). */
@@ -48,7 +53,7 @@ class TemplateIdentityWrites implements RecordWriteRule {
 
     @Override
     public Set<String> writes() {
-        return Set.of(Templates.NUMBER);
+        return Set.of(Templates.NUMBER, Templates.APPLICATION);
     }
 
     @Override
@@ -106,12 +111,14 @@ class TemplateIdentityWrites implements RecordWriteRule {
         }
         if (!Templates.isBlank(held.get(Templates.NUMBER))
                 && assignments.sameInputs(series, held, merged)) {
-            return Changes.none();
+            // The number stays; the rules of the organization may have changed since it was made, and until the first
+            // approval fixes it the application follows them (ADR-0259).
+            return withApplication(object, merged, held, Map.of());
         }
         try {
             numbers.known(series, merged).ifPresent(number ->
                     assignments.checkAvailable(series, current == null ? null : current.id(), number));
-            return new Changes(Map.of(Templates.NUMBER, take(series, merged, typed)), List.of());
+            return withApplication(object, merged, held, Map.of(Templates.NUMBER, take(series, merged, typed)));
         } catch (NumberSeriesException unavailable) {
             switch (unavailable.reason()) {
                 case NUMBER_TAKEN -> throw ApiException.validation(Templates.NUMBER, uniqueWords(Templates.NUMBER));
@@ -155,9 +162,35 @@ class TemplateIdentityWrites implements RecordWriteRule {
         }
     }
 
+    /**
+     * The changes that go with a number: the number itself, when it is made, and the application the organization's
+     * routing rules give it. The application is written only when it differs from what the document has, and cleared
+     * when a rule no longer fits; it is never read from the number's text (ADR-0259).
+     */
+    private Changes withApplication(String object, Map<String, Object> merged, Map<String, Object> held,
+            Map<String, Object> set) {
+        String wanted = routing.applicationFor(object, merged);
+        String has = held.get(Templates.APPLICATION) instanceof String text && !text.isBlank() ? text : null;
+        Map<String, Object> changes = new HashMap<>(set);
+        List<String> clear = new ArrayList<>();
+        if (wanted != null && !wanted.equals(has)) {
+            changes.put(Templates.APPLICATION, wanted);
+        } else if (wanted == null && has != null) {
+            clear.add(Templates.APPLICATION);
+        }
+        return changes.isEmpty() && clear.isEmpty() ? Changes.none() : new Changes(changes, clear);
+    }
+
+    /** A cleared identification takes the number away, and the application that followed from it. */
     private static Changes clearNumber(Map<String, Object> held) {
-        return Templates.isBlank(held.get(Templates.NUMBER)) ? Changes.none()
-                : new Changes(Map.of(), List.of(Templates.NUMBER));
+        List<String> clear = new ArrayList<>();
+        if (!Templates.isBlank(held.get(Templates.NUMBER))) {
+            clear.add(Templates.NUMBER);
+        }
+        if (!Templates.isBlank(held.get(Templates.APPLICATION))) {
+            clear.add(Templates.APPLICATION);
+        }
+        return clear.isEmpty() ? Changes.none() : new Changes(Map.of(), clear);
     }
 
     private static String text(DataRecord record) {

@@ -71,6 +71,8 @@ class MailComposer {
 
     private static final Pattern OBJECT_NAME = Pattern.compile("[A-Za-z][A-Za-z0-9_]{0,59}");
     private static final Pattern DAYS = Pattern.compile("[0-9]{1,3}");
+    /** A part of an address of a page: letters, digits and a few marks, never a character that changes the address. */
+    private static final Pattern PAGE_PART = Pattern.compile("[A-Za-z0-9_-]{1,80}");
 
     private final Users users;
     private final Invitations invitations;
@@ -107,6 +109,7 @@ class MailComposer {
             case APPROVAL_REMINDER -> approvalRequest(mail, NoticeKind.APPROVAL_REMINDER,
                     MailTexts.Kind.APPROVAL_REMINDER, "approval_reminder_sent");
             case TRIAL_NOTICE -> trialNotice(mail);
+            case DOCUMENT_PUBLISHED -> documentPublished(mail);
             case PASSWORD_CHANGED -> notice(mail, MailTexts.Kind.PASSWORD_CHANGED, "notice_sent");
             case ACCOUNT_LOCKED -> notice(mail, MailTexts.Kind.ACCOUNT_LOCKED, "notice_sent");
         };
@@ -195,6 +198,25 @@ class MailComposer {
             return new Decision.Suppress("notice_unknown");
         }
         return organizationMail(mail, tenantId, kind, words, outcome, tenant -> links.approvals(tenant.slug().value()));
+    }
+
+    /**
+     * A document the recipient made was published (MC1.1, ADR-0259): the organization, the object and the page that
+     * opens the document, all facts the notice carries; the link is built now, on the organization's own host. No
+     * title and no number. Nothing is sent when the person switched the category off for mail.
+     */
+    private Decision documentPublished(ClaimedMail mail) {
+        UUID tenantId = uuid(mail.variables().get("organization_id"));
+        UUID recordId = uuid(mail.variables().get("record_id"));
+        String application = mail.variables().get("application");
+        String entry = mail.variables().get("entry");
+        if (tenantId == null || recordId == null || application == null || entry == null
+                || !PAGE_PART.matcher(application).matches() || !PAGE_PART.matcher(entry).matches()) {
+            return new Decision.Suppress("notice_unknown");
+        }
+        return organizationMail(mail, tenantId, NoticeKind.DOCUMENT_PUBLISHED, MailTexts.Kind.DOCUMENT_PUBLISHED,
+                "document_published_sent", tenant -> links.document(tenant.slug().value(), application, entry,
+                        recordId));
     }
 
     /**

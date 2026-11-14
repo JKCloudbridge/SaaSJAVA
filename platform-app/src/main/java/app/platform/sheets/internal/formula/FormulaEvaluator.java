@@ -368,7 +368,7 @@ public final class FormulaEvaluator {
                     return x;
                 }
                 int pairs = (a.size() - 1) / 2;
-                boolean hasDefault = (a.size() - 1) % 2 == 1;
+                boolean hasDefault = (a.size() - 1) % 2 != 0;
                 for (int i = 0; i < pairs; i++) {
                     Object candidate = scalar(eval(a.get(1 + 2 * i)));
                     if (!(candidate instanceof XlError) && FormulaValues.compare(x, candidate) == 0) {
@@ -458,12 +458,12 @@ public final class FormulaEvaluator {
             case "MODE" -> {
                 List<Double> x = numbersOf(a);
                 java.util.Map<Double, Integer> frequency = new java.util.HashMap<>();
-                for (Double v : x) {
+                for (double v : x) {
                     frequency.merge(v == 0 ? 0.0 : v, 1, Integer::sum);
                 }
                 Double best = null;
                 int top = 1;
-                for (Double v : x) {
+                for (double v : x) {
                     int f = frequency.get(v == 0 ? 0.0 : v);
                     if (f > top) {
                         top = f;

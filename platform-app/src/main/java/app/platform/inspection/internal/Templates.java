@@ -28,6 +28,11 @@ final class Templates {
     static final String REVISION = "revision";
     /** When the revision in use was published; written by the platform at that moment. */
     static final String LAST_REVISED_AT = "lastRevisedAt";
+    /**
+     * The application the document also belongs to, written by the platform when the number is made from the routing
+     * rules of the organization (MC1.1, ADR-0259); empty means Document Management alone.
+     */
+    static final String APPLICATION = RecordSets.APPLICATION_FIELD;
 
     /** The entry, in every application of the kind, that opens a template with its change requests. */
     static final String ENTRY = "s-templates";

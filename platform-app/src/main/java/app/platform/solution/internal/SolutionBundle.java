@@ -29,10 +29,12 @@ import java.util.Set;
  * @param roles the object, among {@code objects} and {@code uses}, that plays each part of the solution's
  *        applications, by the part's name (FA13B, ADR-0226); empty for a solution that declares none. The names of
  *        the parts are the words of the module that owns the functions: this module only carries them
+ * @param options settings of the solution's applications by name (MC1, ADR-0257), plain text; like the parts, the
+ *        names are the owner's words and this module only carries them
  */
 record SolutionBundle(String key, String feature, String label, String removalNote, List<Application> applications,
         List<String> objects, List<String> sheetOwners, List<Policy> policies, List<String> uses, int order,
-        Map<String, String> roles) {
+        Map<String, String> roles, Map<String, String> options) {
 
     /** The largest place a solution may ask for. */
     static final int MOST_ORDER = 999;
@@ -47,12 +49,22 @@ record SolutionBundle(String key, String feature, String label, String removalNo
         policies = List.copyOf(policies);
         uses = List.copyOf(uses);
         roles = Map.copyOf(roles);
+        options = Map.copyOf(options);
+    }
+
+    /** A solution that declares parts and no options. */
+    SolutionBundle(String key, String feature, String label, String removalNote, List<Application> applications,
+            List<String> objects, List<String> sheetOwners, List<Policy> policies, List<String> uses, int order,
+            Map<String, String> roles) {
+        this(key, feature, label, removalNote, applications, objects, sheetOwners, policies, uses, order, roles,
+                Map.of());
     }
 
     /** A solution that declares no parts. */
     SolutionBundle(String key, String feature, String label, String removalNote, List<Application> applications,
             List<String> objects, List<String> sheetOwners, List<Policy> policies, List<String> uses, int order) {
-        this(key, feature, label, removalNote, applications, objects, sheetOwners, policies, uses, order, Map.of());
+        this(key, feature, label, removalNote, applications, objects, sheetOwners, policies, uses, order, Map.of(),
+                Map.of());
     }
 
     /** A solution that uses no object of another and asks for no place. */

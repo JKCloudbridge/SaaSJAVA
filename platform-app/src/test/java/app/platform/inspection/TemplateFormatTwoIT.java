@@ -8,7 +8,6 @@ import app.platform.testsupport.TestHttp.Response;
 import com.jayway.jsonpath.JsonPath;
 import java.io.ByteArrayInputStream;
 import java.nio.charset.StandardCharsets;
-import java.util.List;
 import java.util.Map;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
@@ -176,7 +175,7 @@ class TemplateFormatTwoIT extends FillSupport {
     // ---- the download ----
 
     @Test
-    void theDownloadWritesWhatFormatVersionOneWritesAndSaysInTheFileThatTheLookIsNotInItYet() throws Exception {
+    void theDownloadCarriesTheSheetAndTheInformationOfTheFileSaysOnlyThatThePlatformMadeIt() throws Exception {
         Run run = draft();
         String request = submitted(run.author().browser(), run.template(), run.process());
         assertThat(approve(run.approver().browser(), request).status()).isEqualTo(200);
@@ -188,30 +187,26 @@ class TemplateFormatTwoIT extends FillSupport {
                 null);
 
         assertThat(file.status()).isEqualTo(200);
-        String sheet = part(file.body(), "xl/worksheets/sheet1.xml");
-        // What format version 1 writes: the texts of the cells, and a column 8 pixels wide as the narrow one it is.
-        assertThat(sheet).contains("Item", "Guide").contains("width=\"1.0\"");
+        // The texts of the cells are strings of the workbook (SH3).
+        assertThat(part(file.body(), "xl/sharedStrings.xml")).contains("Item", "Guide");
         String info = part(file.body(), "docProps/core.xml");
-        assertThat(info).contains("Made from a sheet in the new format")
-                .contains("not in this file yet");
+        assertThat(info).contains("Made by the platform. Revision ").doesNotContain("not in this file yet")
+                .doesNotContain("new format");
         assertThat(part(file.body(), "[Content_Types].xml")).contains("/docProps/core.xml");
     }
 
     // ---- a fill-in ----
 
     @Test
-    void aFillInCannotBeStartedOnATemplateInFormatVersionTwoUntilFillFormatThreeExists() {
+    void aFillInCanBeStartedOnATemplateInFormatVersionTwoAndIsStoredInFormatThree() {
         Run run = draft();
         String request = submitted(run.author().browser(), run.template(), run.process());
         assertThat(approve(run.approver().browser(), request).status()).isEqualTo(200);
         assertThat(publish(run.approver().browser(), run.template(), null, "PLANT1/PRD").status()).isEqualTo(200);
 
-        Response refused = startFill(run.filler().browser(), run.template());
+        Response started = startFill(run.filler().browser(), run.template());
 
-        assertThat(refused.status()).as(refused.body()).isEqualTo(409);
-        assertThat(JsonPath.<String>read(refused.body(), "$.error.message"))
-                .isEqualTo("This template uses the new sheet format, which cannot be filled in yet.");
-        List<String> theirs = listedFills(run.filler().browser(), "");
-        assertThat(theirs).as("the header made for it was undone with the refusal").isEmpty();
+        assertThat(started.status()).as(started.body()).isBetween(200, 299);
+        assertThat(listedFills(run.filler().browser(), "")).as("the fill-in was made").hasSize(1);
     }
 }

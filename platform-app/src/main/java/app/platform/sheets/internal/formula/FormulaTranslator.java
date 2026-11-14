@@ -8,7 +8,8 @@ import java.util.Map;
  * Translates between the text a spreadsheet program writes ({@code SUM(D4:D9)}) and the stored form in which every
  * reference names its column and row by permanent identifier (SH2, ADR-0252). It is a scanner over the text, not a
  * parser: it skips text constants, rewrites each plain reference, and <strong>refuses</strong> a reference outside the
- * sheet, another sheet, another file, a name, the characters {@code @ { [ ! '} and a text that is not closed.
+ * sheet, another sheet, another file, a name, the characters at-sign, opening brace, opening bracket,
+ * exclamation mark and apostrophe, and a text that is not closed.
  * Inserting,
  * moving or removing a row or column rewrites no stored formula; only the text drawn back changes.
  *

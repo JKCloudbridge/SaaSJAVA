@@ -1331,7 +1331,7 @@ run the same code over records of their own. **To add another application of thi
    `changeRequest`), `application:` with the same entries (page keys `home`, `templates`, `change-requests`, `fill-ins`, `fill-in-report`), `objects`,
    `sheetOwners: [<the template object>]` and the access policies with names of their own.
 3. Each object file says `requiresFeature: <your feature>`, `retainRecords: true`, `sharingDefault: PRIVATE` and keeps the same field names as the
-   others (the functions read them). `numbering.yml` has one series whose `object` is the template object.
+   others (the functions read them), **including the platform-written text field `application` on the template object** (the shared functions write it; it stays empty). `numbering.yml` has one series whose `object` is the template object.
 4. Add the feature to the department setup: `environment-management` is listed under `alsoAvailableWith` on `DepartmentGroup` and on the policy
    `departments` in `solutions/inspection/`; add yours there too if the new application publishes to departments.
 5. A migration inserts the plan feature row (copy V087's first statement). Nothing else in the database changes.
@@ -1339,9 +1339,13 @@ run the same code over records of their own. **To add another application of thi
 
 What you do **not** write: Java, web code, a page, an endpoint, a hook. The proof is `ThirdApplicationIT`.
 
-**What is separate between two applications:** templates, fill-ins, change requests, number series and counters, approval processes (set up per object in
+**Optional lines of `options:` (MC1, ADR-0257; MC1.1, ADR-0259).** `footerDate: "true"` (a second footer line with the day of the Revision in use; it belongs to the *documents* of the application, wherever they are shown), `publishTo: places` with `publishDepartment: <department code>` (reserved for an act that publishes to places; the publish of Document Management ignores them) and `routedByNumber: "true"` (below).
+
+**An application whose documents come from Document Management (MC1.1, ADR-0259; the example is `solutions/management-core/`).** It needs one file and no object of its own: `solution.yml` lists the four objects of Document Management under `uses:` and names the same three `roles:`, says `options: routedByNumber: "true"` and has its `application:` with the same page keys. Each object file and each shared access policy lists the new feature under `alsoAvailableWith` (copy the lines of `management-core`). Its application is then the same records narrowed to those that carry its `apiName` in the field `application`; it shows no New document button. An organization chooses which documents belong to it in Setup, Numbering, Application routing (section 49).
+
+**What is separate between two applications of the kind with objects of their own:** templates, fill-ins, change requests, number series and counters, approval processes (set up per object in
 Setup), access policies, sharing, record locks, the lists, counts, search, report, dashboard, downloads, notices and the audit trail. **What is shared:**
-the department setup and the organization's groups.
+the department setup and the organization's groups. (Management Core shares even the objects: it is Document Management's records narrowed by a field.)
 
 **The feature off:** an application whose plan feature is off is "not found" everywhere, exactly like an unknown one; a forged application name changes
 nothing.
@@ -1390,3 +1394,64 @@ For the person who sets sheets up, and for whoever builds a bundle with sheets. 
 **From a workbook.** With format version 2 on, an uploaded formula comes in as a formula when it uses only these functions and points only at cells the sheet can name; the report counts the ones that did not ("3 formulas used a function the sheet does not support were kept as their last value"). A group of cells sharing one formula each gets its own. In a sheet where the filler adds the rows, a formula in the first row that points only at its own row (or at the whole of a column) becomes that column's formula. The file is never refused because of a formula.
 
 **The whole body of a column** (`=AVERAGE(B2:B6)` over every row) grows by itself with the rows the filler adds, and only in a sheet where the filler adds all the rows. In a sheet that names its rows, name the rows you mean.
+
+## 47. What the download carries (SH3)
+
+A template downloads as an Excel file written from its stored version. **A sheet in format version 1** is as before: text, widths, heights, merges, bold, italic, underline, four sizes, four colours (now the exact values `#93418b`, `#1e7b34`, `#b3261e`), every cell bordered, the band of column labels, the footer row. **A sheet in format version 2** also carries: the font (one fixed family for each of the 16 keys; a computer without it shows a nearby one), size, colours and fills, the four borders, the ten number formats, alignment and wrap, the frozen pane, the conditional colours, the page set-up (paper, orientation, fit to width, repeated header rows), `https` links, and **formulas as formulas** with the calculated answer stored beside each, so a program shows the right number before it recalculates; a calculated column has its formula at every sample row. Yes/No and picklist cells get a drop-down list.
+
+**What it does not carry:** a print area, images, charts, real check boxes (a Yes/No cell is a two-value list), comments, protection, macros, a password, a list with a comma in a value or over 255 characters, the date in the footer stamp. A text that starts with `=`, `+`, `-` or `@` is text. A column comes back from an upload within 5 pixels of its width. Cells with no look and no border are not bordered, except the cells a filler types into.
+
+## 48. What the screen draws of a sheet (SH4)
+
+For an author of a template (see section 27 for the sheet, 45 to 47 for the format, the formulas and the file):
+
+- **A sheet in the new format looks on the screen like the spreadsheet it came from**: the fonts (one of sixteen kinds), the sizes (8 to 28 points), the text colours and fills as they are stored, wrapped text, top, middle or bottom alignment, the borders of the four sides (thin, medium, thick, dotted, dashed, double) with one line between two neighbours, the ten number formats, merged areas, the stored widths and heights, the frozen rows and columns, and the conditional colours. It is drawn on white paper even when the rest of the screen is dark, so your colours are never changed.
+- **A formula cell shows its answer**, written in its number format; an error shows its code. The bar above the grid still shows and edits the formula text.
+- **A cell that is coloured by a rule** also says so in words to a screen reader ("highlighted: above 5"); a Yes/No cell shows the words Yes and No; an attachment cell shows "(no attachments yet)".
+- **A cell a person types into** has a small mark in its corner and thin lines, whatever its colour; in the author's grid a Yes/No or list cell shows a small arrow.
+- **Frozen rows and columns** stay in view while you scroll. If a merged area would be cut by the line, the line moves up (or left) to the nearest place that cuts nothing, and the fixed part never takes more than three fifths of the window.
+- **What it does not draw yet:** setting a font, a fill or a border by hand (the author editor, SH6); the controls a filler uses for Yes/No, lists and files (SH5); several worksheets and their tab bar (SH7). Text does not run into empty neighbouring cells; it is clipped at the cell. A number whose alignment was stated as left is shown at the right.
+- **Print** draws the same look with only the borders you stated (plus thin lines round the boxes a filler types into), the repeat-header and fit-to-width choices of the sheet, and the paper and orientation as before. The browser's own page breaks can differ from the spreadsheet program's.
+
+## 49. Management Core, and how documents are routed to it (MC1, MC1.1)
+
+Decisions: [ADR-0259](adr/0259-documents-are-made-in-document-management-and-routed-to-applications-by-their-number.md) (routing, the narrowed application, the notice on publish) and [ADR-0257](adr/0257-management-core-shared-counters-places-only-publishing-the-footer-day-and-the-owners-of-the-new-format.md) (the footer day). The page of the application is [solutions/management-core.md](solutions/management-core.md).
+
+**What an administrator does, in order**
+
+1. **Give the feature.** In the console give the plan feature Management Core to a plan or to one organization. Document Management is where documents are made, so the organization needs it too.
+2. **Assign the access policies** (Setup, Access policies, or to a group): they are Document Management's: Author (writes documents), Approver, Publisher (the group with the last word), Reader, Filler, Reviewer and Department setup, and the **Observer** (sees every document, fill-in and change request and changes nothing: top management). Roles alone give no sight of a document (documents are private); groups and access policies do.
+3. **Route documents to the application** (Setup, Numbering, the tab **Application routing**; shown only when the organization has an application a number can route to). Make a rule: an Identification (from your list), optionally a Part A, and the application. For example `F` with Part A `MC` belongs to Management Core. The rule for the exact pair wins over the rule for the identification alone. A rule decides the documents **numbered afterwards**: when Plant QMS gives a document its number, the platform writes the application on it; until the first approval fixes the number a new Save follows the rules as they are, at the first approval the rules are looked up once more (a rule that fits then is written; one that no longer fits clears nothing), and from then on nothing moves the document. Change or remove a rule whenever you like.
+4. **Set up the approval processes** (Setup, Approvals): the process of the document (object Template) is Document Management's and serves every application. For fill-ins you can make one process for the documents of Document Management alone (entry criteria `ISBLANK(application)`) and one for each application (for example `application = 'management-core'`): the engine takes the one whose criteria the fill-in meets and refuses when two fit.
+5. **Set up the numbers** (Setup, Numbering, Formats): the patterns of the Document series; routing changes nothing about numbers.
+6. **Set up the departments and plants** (below) so that Plant QMS can publish to the creator's group.
+
+**What a person sees.** The document appears in Management Core as soon as it has its number, and stays in Document Management, which shows every document; the field **Application** on the document (Details) says which. Management Core has no New document button. A document with no matching rule belongs to Document Management alone. The fill-in and the change request copy the application of their document. When a document is published, the person who made it gets a notice and an e-mail (the category **Documents** in Notification preferences switches each channel).
+
+**Departments and plants: where they live and how to manage them.** A plant is a value of the list **Location** of the object **Department group**; a department is a value of the list **Department**. Plant QMS publishes a document to a location and a department: the group of the people there. So for every plant that receives documents, make a **Group** of the people (Setup, Groups) and add one **Department group** record (the Department group entry in the strip, or Setup): Location = the plant, Department = the department, Group = that group. A pair without that record is shown in the Publish dialog as "no group set up yet" and the publish says no for it. A group with nobody in it also says no. Removing a plant means setting its Location value inactive; a document already published keeps its shares. The demo script makes the departments **Level 1** and **Level 2** and a record for each plant and level that points at the group of that level.
+
+**The footer.** A document that belongs to an application that asks for it (Management Core does) shows, below the number and Revision, `Date: dd-Mon-yyyy`, the day the Revision in use was published, wherever the document is shown. On the screen and in print it is the reader's day; in the downloaded file it is the day in the zone `platform.inspection.footer.zone` (default UTC), so near midnight the two can differ by a day. A Revision from the history has no stored day and shows the first line only.
+
+**Uploading the workbook.** On the Sheet tab of a document choose Upload, pick the worksheet and save. With `platform.sheets.format-two.enabled` on, an upload makes a sheet in the new format; the list `platform.sheets.format-two.owners` is empty, so every document does.
+
+## 50. Filling a form on the new sheet format (SH5)
+
+**Kinds of cells.** A cell of a form built on the new format states its own kind in the sheet (`inputs`): text, number, date, a list of
+values, yes or no, or an attachment. A cell that states nothing is as its column says. Each cell may also state whether it is
+required and whether it is the filler's or the reviewer's.
+
+**The person who fills.** Starting a fill-in on a published form, filling it in, adding files and sending it is as for any fill-in. The
+required cells of the filler are asked for when the form is sent, never while it is saved. A calculated column fills itself in at every
+row the filler adds and is never typed. A cell meant for the reviewer is read only for the filler.
+
+**The reviewer.** While the review is pending, a person who has an open task of it can fill the cells meant for the reviewer; the
+rest of the form is read only for them. Every save of the reviewer is recorded in the audit trail by its size and a fingerprint, never
+by what was written. It does not send the form back and does not restart the review. (Reviewers chosen per plant and the score are
+the next part of Management Core.)
+
+**Files.** A file is added to the form as a whole and named in the attachment cell. A cell holds up to the number of files the sheet
+states (5 at most). Taking a file off removes it from the cell at the same time; a form that was sent cannot lose the last file of a
+required attachment cell; when the form is sent, a required attachment cell must still have a file that exists.
+
+**Reports.** A calculated column marked reportable is copied to the report with its answer when the form is saved; a calculation that
+ends in an error is not copied. An attachment cell is never in a report.

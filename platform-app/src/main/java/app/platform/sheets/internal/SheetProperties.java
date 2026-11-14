@@ -1,6 +1,8 @@
 package app.platform.sheets.internal;
 
+import java.util.List;
 import org.springframework.boot.context.properties.ConfigurationProperties;
+import org.springframework.boot.context.properties.bind.ConstructorBinding;
 import org.springframework.boot.context.properties.bind.DefaultValue;
 
 /**
@@ -26,8 +28,28 @@ record SheetProperties(@DefaultValue Limits limits, @DefaultValue("4096") int sm
      * {@code test} profiles switch it on.
      *
      * @param enabled whether a document of format version 2 may be stored
+     * @param owners the API names of the objects whose uploads make a document of format version 2 while the switch is
+     *        on (MC1, ADR-0257); empty means every owner. It lets one application try the new format while the others
+     *        keep making sheets that can be filled in
      */
-    record FormatTwo(@DefaultValue("false") boolean enabled) {
+    record FormatTwo(@DefaultValue("false") boolean enabled, @DefaultValue List<String> owners) {
+
+        /** The canonical constructor, named for the binder because the record has a second one. */
+        @ConstructorBinding
+        FormatTwo(@DefaultValue("false") boolean enabled, @DefaultValue List<String> owners) {
+            this.enabled = enabled;
+            this.owners = List.copyOf(owners);
+        }
+
+        /** The switch alone: every owner follows it. */
+        FormatTwo(boolean enabled) {
+            this(enabled, List.of());
+        }
+
+        /** Whether an upload for a record of this owner makes a document of format version 2. */
+        boolean makesFor(String ownerObject) {
+            return enabled && (owners.isEmpty() || owners.contains(ownerObject));
+        }
     }
 
     /**

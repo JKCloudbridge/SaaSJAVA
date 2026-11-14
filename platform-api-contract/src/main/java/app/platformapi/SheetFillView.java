@@ -18,10 +18,14 @@ import java.util.Map;
  * @param correction whether typing now would be a correction after submit (the screen says so and the change is
  *        counted and audited)
  * @param limits what a fill-in may hold, so that the screen can say so before the person tries
+ * @param editAs which cells the caller may change when {@code canEdit}: {@code FILLER} (the cells of the filler's
+ *        class), {@code REVIEWER} (the cells of the reviewer's class, while the review is pending) or
+ *        {@code CORRECTOR} (any input cell, as a counted correction); absent when nothing may be typed. Presentation
+ *        only: every save is decided again by the server
  */
 public record SheetFillView(@NotNull SheetFillSummaryView fill, @NotNull Map<String, Object> grid,
         @NotNull Map<String, Object> cells, @NotNull Boolean canEdit, @NotNull Boolean correction,
-        @NotNull SheetFillLimitsView limits) {
+        @NotNull SheetFillLimitsView limits, String editAs) {
 
     /** Copies the maps, so that they cannot be changed from outside. */
     public SheetFillView {

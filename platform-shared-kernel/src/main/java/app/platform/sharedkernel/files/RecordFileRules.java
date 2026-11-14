@@ -38,8 +38,15 @@ public interface RecordFileRules {
      * @param membershipId the person's membership in the organization
      * @param object the API name of the record's object, so that a rule that serves several objects (FA13B,
      *        ADR-0226) knows which one the record belongs to
+     * @param fileId the file taken off for a {@link Act#REMOVE}; null for an {@link Act#ADD}, whose file does not
+     *        exist yet. An identifier only: nothing else about the file is handed over
      */
-    record Change(Act act, UUID recordId, UUID userId, UUID membershipId, String object) {
+    record Change(Act act, UUID recordId, UUID userId, UUID membershipId, String object, UUID fileId) {
+
+        /** A change that names no file (an addition). */
+        public Change(Act act, UUID recordId, UUID userId, UUID membershipId, String object) {
+            this(act, recordId, userId, membershipId, object, null);
+        }
     }
 
     /** The API name of the object this rule serves; of the first, when it serves several ({@link #objects()}). */
@@ -59,4 +66,12 @@ public interface RecordFileRules {
      * @throws RecordFileRefusal to refuse, with the fixed words the person is shown
      */
     void check(Change change);
+
+    /**
+     * Called after a file was taken off the record, <strong>in the same transaction</strong> (SH5, ADR-0254): a rule
+     * whose owner names files elsewhere (the cells of a fill-in) takes the identifier out of them, so that no
+     * identifier names a file that is gone. It cannot refuse: the removal has happened, and a failure undoes both.
+     */
+    default void removed(Change change) {
+    }
 }

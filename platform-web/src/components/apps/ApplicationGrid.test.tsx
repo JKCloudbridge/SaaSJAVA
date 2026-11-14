@@ -227,8 +227,13 @@ describe("the grid of applications", () => {
       page("Supplier Performance Monitoring", "supplier-performance-monitoring", true),
       page("Supplier Portal", "supplier-portal", true),
     ]);
+    // Management Core has real pages since MC1 (ADR-0257): it is no longer "coming soon".
     const core = tile("management-core", "Management Core", "Leadership", [
       page("Home", "home"),
+      page("Document Control", "templates"),
+      page("Change requests", "change-requests"),
+      page("Record Control", "fill-ins"),
+      page("Report", "fill-in-report"),
       page("KPI management", "kpi-management", true),
     ]);
 
@@ -248,5 +253,7 @@ describe("the grid of applications", () => {
     expect(within(tilesOf()[3]!).getByText("3 tabs")).toBeInTheDocument();
     expect(within(tilesOf()[1]!).getByText("Coming soon")).toBeInTheDocument();
     expect(within(tilesOf()[0]!).queryByText("Coming soon")).toBeNull();
+    expect(within(tilesOf()[4]!).getByText("6 tabs")).toBeInTheDocument();
+    expect(within(tilesOf()[4]!).queryByText("Coming soon")).toBeNull();
   });
 });

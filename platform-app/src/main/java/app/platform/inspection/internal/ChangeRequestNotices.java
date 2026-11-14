@@ -1,5 +1,6 @@
 package app.platform.inspection.internal;
 
+import app.platform.data.BackgroundRecords;
 import app.platform.sharedkernel.notice.NoticeKind;
 import app.platform.sharedkernel.notice.NoticeRequest;
 import app.platform.sharedkernel.notice.Notices;
@@ -19,10 +20,12 @@ class ChangeRequestNotices {
 
     private final Notices notices;
     private final RecordSets sets;
+    private final BackgroundRecords records;
 
-    ChangeRequestNotices(Notices notices, RecordSets sets) {
+    ChangeRequestNotices(Notices notices, RecordSets sets, BackgroundRecords records) {
         this.notices = notices;
         this.sets = sets;
+        this.records = records;
     }
 
     /**
@@ -40,8 +43,11 @@ class ChangeRequestNotices {
         if (recipient == null || recipient.equals(actor)) {
             return;
         }
+        // The notice leads to the application the document was routed to when the organization has it (ADR-0259).
+        Object routed = records.find(set.template(), templateId)
+                .map(found -> found.fields().get(Templates.APPLICATION)).orElse(null);
         notices.notify(new NoticeRequest(NoticeKind.CHANGE_REQUEST, recipient, set.template(), templateId,
-                Map.of("event", event, "application", sets.applicationFor(set), "entry", Templates.ENTRY,
+                Map.of("event", event, "application", sets.applicationFor(set, routed), "entry", Templates.ENTRY,
                         "tab", RequestRecords.TAB, "request", requestId.toString()), key));
     }
 }

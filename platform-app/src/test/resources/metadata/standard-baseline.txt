@@ -71,10 +71,12 @@ EnvironmentChangeRequest managedBy=none requiresFeature=environment-management r
 EnvironmentChangeRequest.name TEXT platformWritten
 EnvironmentChangeRequest.templateId TEXT indexed platformWritten
 EnvironmentChangeRequest.status TEXT indexed platformWritten
+EnvironmentChangeRequest.application TEXT indexed platformWritten
 EnvironmentFill managedBy=none requiresFeature=environment-management retainRecords sharingDefault=PRIVATE
 EnvironmentFill.name TEXT platformWritten
 EnvironmentFill.templateId TEXT indexed platformWritten
 EnvironmentFill.status TEXT indexed platformWritten
+EnvironmentFill.application TEXT indexed platformWritten
 EnvironmentTemplate managedBy=none requiresFeature=environment-management retainRecords sharingDefault=PRIVATE
 EnvironmentTemplate.name TEXT
 EnvironmentTemplate.level PICKLIST codeValues organizationValues
@@ -87,16 +89,19 @@ EnvironmentTemplate.serial TEXT
 EnvironmentTemplate.number TEXT platformWritten
 EnvironmentTemplate.revision TEXT platformWritten
 EnvironmentTemplate.lastRevisedAt TEXT platformWritten
+EnvironmentTemplate.application TEXT indexed platformWritten
 Group managedBy=security
 Group.name TEXT
 InspectionChangeRequest managedBy=none requiresFeature=inspection retainRecords sharingDefault=PRIVATE
 InspectionChangeRequest.name TEXT platformWritten
 InspectionChangeRequest.templateId TEXT indexed platformWritten
 InspectionChangeRequest.status TEXT indexed platformWritten
+InspectionChangeRequest.application TEXT indexed platformWritten
 InspectionFill managedBy=none requiresFeature=inspection retainRecords sharingDefault=PRIVATE
 InspectionFill.name TEXT platformWritten
 InspectionFill.templateId TEXT indexed platformWritten
 InspectionFill.status TEXT indexed platformWritten
+InspectionFill.application TEXT indexed platformWritten
 InspectionTemplate managedBy=none requiresFeature=inspection retainRecords sharingDefault=PRIVATE
 InspectionTemplate.name TEXT
 InspectionTemplate.level PICKLIST codeValues organizationValues
@@ -109,6 +114,7 @@ InspectionTemplate.serial TEXT
 InspectionTemplate.number TEXT platformWritten
 InspectionTemplate.revision TEXT platformWritten
 InspectionTemplate.lastRevisedAt TEXT platformWritten
+InspectionTemplate.application TEXT indexed platformWritten
 LicenceType managedBy=licensing
 LicenceType.key TEXT
 LicenceType.name TEXT

@@ -160,6 +160,7 @@ class NotificationTemplateService implements NotificationTemplates {
             case WORKFLOW_NOTICE -> "A workflow asks a member to look at a record (notice and mail).";
             case TRIAL_NOTICE -> "The trial of the organization is ending.";
             case CHANGE_REQUEST -> "Something happened to a change request on a record (the platform's own text).";
+            case DOCUMENT_PUBLISHED -> "A document the person made was published (the platform's own text).";
         };
     }
 

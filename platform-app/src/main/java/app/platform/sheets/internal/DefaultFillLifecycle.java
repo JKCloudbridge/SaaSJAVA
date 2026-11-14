@@ -3,6 +3,7 @@ package app.platform.sheets.internal;
 import app.platform.sheets.FillLifecycle;
 import app.platform.sheets.FillRefusal;
 import app.platform.sheets.FillRefusal.Reason;
+import app.platform.sharedkernel.files.RecordFileDirectory;
 import app.platform.sheets.FillStatus;
 import java.time.Instant;
 import java.util.Collection;
@@ -43,14 +44,16 @@ class DefaultFillLifecycle implements FillLifecycle {
     private final SheetVersionStore versions;
     private final FillValidator validator;
     private final FillChanges changes;
+    private final RecordFileDirectory directory;
     private final JsonMapper json = JsonMapper.builder().build();
 
     DefaultFillLifecycle(SheetFillStore store, SheetVersionStore versions, FillValidator validator,
-            FillChanges changes) {
+            FillChanges changes, RecordFileDirectory directory) {
         this.store = store;
         this.versions = versions;
         this.validator = validator;
         this.changes = changes;
+        this.directory = directory;
     }
 
     @Override
@@ -59,11 +62,11 @@ class DefaultFillLifecycle implements FillLifecycle {
         if (store.find(fillObject, fillId).isPresent()) {
             throw refused("start", Reason.ALREADY_STARTED);
         }
-        // A fill-in of a sheet in format version 2 comes with fill format 3 (SH5): until then it is refused here, the
-        // one place a fill-in is made, and nothing else of the fill-in code needs to know the second format exists.
+        // A sheet in format version 2 is filled in format 3 (SH5); a tab that is not fillable takes no fill-in. The
+        // version itself is judged by the database when the row is inserted (it must be the one in use).
         if (versions.findGrid(ownerObject, ownerId, versionNo)
-                .map(found -> SheetFormats.isFormatTwo(json.readTree(found.grid()))).orElse(false)) {
-            throw refused("start", Reason.FORMAT_NOT_FILLABLE);
+                .map(found -> !FillStructure.of(json.readTree(found.grid())).fillable()).orElse(false)) {
+            throw refused("start", Reason.SHEET_NOT_FILLABLE);
         }
         try {
             store.insert(fillObject, fillId, ownerObject, ownerId, versionNo, actor);
@@ -96,7 +99,7 @@ class DefaultFillLifecycle implements FillLifecycle {
         if ("RETIRED".equals(pinned.row().status())) {
             throw refused("submit", Reason.VERSION_RETIRED);
         }
-        FillStructure structure = new FillStructure(SheetGridReader.read(json.readTree(pinned.grid())));
+        FillStructure structure = FillStructure.of(json.readTree(pinned.grid()));
         FillDoc doc = validator.read(found.cells());
         // What is stored passed the check when it was saved; the cells are judged again as complete, not as clean.
         List<FillValidator.Problem> missing = validator.completeness(structure, doc);
@@ -106,8 +109,122 @@ class DefaultFillLifecycle implements FillLifecycle {
             throw "no_rows".equals(first.code()) ? refused("submit", reason)
                     : refused("submit", reason, first.place());
         }
+        String lost = requiredFileGone(structure, doc, fillId);
+        if (lost != null) {
+            throw refused("submit", Reason.INCOMPLETE, lost);
+        }
         store.submit(fillObject, fillId, requestId, actor).orElseThrow(() -> refused("submit", Reason.NOT_FILLABLE));
         changes.submitted(actor, fillObject, fillId, row.versionNo(), requestId, row.rowCount());
+    }
+
+    /**
+     * The place of the first required attachment cell that names no file that still exists, or null (SH5, ADR-0254):
+     * a file that is gone does not satisfy a required cell, whatever the cell still says.
+     */
+    private String requiredFileGone(FillStructure structure, FillDoc doc, UUID fillId) {
+        if (!structure.isFormatThree()) {
+            return null;
+        }
+        List<String> named = FillValidator.attachmentIds(doc);
+        Set<String> present = new java.util.HashSet<>();
+        if (!named.isEmpty()) {
+            directory.existing(fillId, named.stream().map(UUID::fromString).toList())
+                    .forEach(id -> present.add(id.toString()));
+        }
+        for (int i = 0; i < doc.rows().size(); i++) {
+            FillDoc.Row row = doc.rows().get(i);
+            for (Map.Entry<String, Object> cell : row.cells().entrySet()) {
+                if (cell.getValue() instanceof List<?> files && files.stream().noneMatch(present::contains)
+                        && structure.effective(row.id(), cell.getKey()).required()) {
+                    return structure.isNamedRow(row.id()) ? "cells.rows." + row.id() + ".cells." + cell.getKey()
+                            : "cells.rows[" + i + "].cells." + cell.getKey();
+                }
+            }
+        }
+        return null;
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public boolean emptiesRequiredAttachment(String fillObject, UUID fillId, UUID fileId) {
+        Optional<SheetFillStore.WithCells> found = store.findCells(fillObject, fillId);
+        if (found.isEmpty()) {
+            return false;
+        }
+        FillStructure structure = structureOf(found.get().row());
+        if (structure == null || !structure.isFormatThree()) {
+            return false;
+        }
+        String id = fileId.toString();
+        for (FillDoc.Row row : validator.read(found.get().cells()).rows()) {
+            for (Map.Entry<String, Object> cell : row.cells().entrySet()) {
+                if (cell.getValue() instanceof List<?> files && files.contains(id)
+                        && files.stream().allMatch(id::equals)
+                        && structure.effective(row.id(), cell.getKey()).required()) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    @Override
+    public void forgetFile(String fillObject, UUID fillId, UUID fileId, UUID actor) {
+        store.lock(fillObject, fillId);
+        Optional<SheetFillStore.WithCells> found = store.findCells(fillObject, fillId);
+        if (found.isEmpty() || found.get().row().archived()) {
+            return;
+        }
+        SheetFillStore.Row row = found.get().row();
+        FillStructure structure = structureOf(row);
+        if (structure == null || !structure.isFormatThree()) {
+            return;
+        }
+        String id = fileId.toString();
+        FillDoc doc = validator.read(found.get().cells());
+        List<FillDoc.Row> kept = new java.util.ArrayList<>();
+        boolean changed = false;
+        for (FillDoc.Row one : doc.rows()) {
+            Map<String, Object> cells = new LinkedHashMap<>();
+            for (Map.Entry<String, Object> cell : one.cells().entrySet()) {
+                if (cell.getValue() instanceof List<?> files && files.contains(id)) {
+                    changed = true;
+                    List<String> rest = files.stream().map(String.class::cast).filter(file -> !id.equals(file))
+                            .toList();
+                    if (!rest.isEmpty()) {
+                        cells.put(cell.getKey(), rest);
+                    }
+                } else {
+                    cells.put(cell.getKey(), cell.getValue());
+                }
+            }
+            if (!structure.isNamedRow(one.id()) || !cells.isEmpty() || !one.styles().isEmpty()) {
+                kept.add(new FillDoc.Row(one.id(), cells, one.styles()));
+            }
+        }
+        if (!changed) {
+            return;
+        }
+        FillDoc next = new FillDoc(doc.formatVersion(), doc.sheetKey(), kept);
+        String canonical = FillValidator.write(next);
+        byte[] bytes = canonical.getBytes(java.nio.charset.StandardCharsets.UTF_8);
+        FillValidator.Checked checked = new FillValidator.Checked(next, canonical, SheetGridWriter.sha256(bytes),
+                bytes.length);
+        boolean draft = FillStatus.valueOf(row.status()).fillerMayChange();
+        Optional<SheetFillStore.Row> saved = draft
+                ? store.updateCells(fillObject, fillId, row.version(), checked, actor)
+                : store.updateCellsCorrected(fillObject, fillId, row.version(), checked, actor);
+        SheetFillStore.Row after = saved.orElseThrow(() -> refused("forget_file", Reason.INVALID));
+        if (draft) {
+            changes.saved(actor, fillObject, fillId, after.version(), checked);
+        } else {
+            changes.corrected(actor, fillObject, fillId, after.version(), after.corrections(), checked);
+        }
+    }
+
+    private FillStructure structureOf(SheetFillStore.Row row) {
+        return versions.findGrid(row.ownerObject(), row.ownerId(), row.versionNo())
+                .map(pinned -> FillStructure.of(json.readTree(pinned.grid()))).orElse(null);
     }
 
     @Override

@@ -133,8 +133,7 @@ class TemplateController {
                     + "publish sheets (FORBIDDEN otherwise).")
     ApiResponse<AudienceOptionsView> audienceOptions(
             @RequestParam @Parameter(description = APPLICATION) String application) {
-        sets.require(application);
-        return ApiResponse.of(publishing.audienceOptions());
+        return ApiResponse.of(publishing.audienceOptions(sets.require(application)));
     }
 
     @GetMapping(BASE + "/{templateId}/suggestion-options")

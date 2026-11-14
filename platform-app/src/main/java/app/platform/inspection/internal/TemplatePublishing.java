@@ -11,6 +11,8 @@ import app.platform.data.NumberSeries;
 import app.platform.data.RecordShares;
 import app.platform.inspection.internal.DepartmentAudiences.Resolved;
 import app.platform.inspection.internal.TemplateAccess.Caller;
+import app.platform.inspection.internal.TemplateViews.AudienceDepartment;
+import app.platform.inspection.internal.TemplateViews.AudienceLocation;
 import app.platform.inspection.internal.TemplateViews.AudienceOptionsView;
 import app.platform.inspection.internal.TemplateViews.AudiencePick;
 import app.platform.inspection.internal.TemplateOptionStore.Options;
@@ -86,12 +88,17 @@ class TemplatePublishing {
     private final TemplateRevisions revisions;
     private final RecordLocks locks;
     private final QualityHomeStore home;
+    private final RecordSets sets;
+    private final DocumentPublishedNotices publishedNotices;
 
     TemplatePublishing(TemplateAccess access, PublicationStore store, SheetLifecycle sheets, RecordShares shares,
             DepartmentAudiences audiences, BackgroundRecords records, BackgroundWrites writes, GroupMembers groups,
             AuditRecorder audit, TenantContexts contexts, MeterRegistry meters, NumberSeries numbers,
             ChangeRequestCounts requestCounts, AudienceSuggestions suggestions, TemplateOptionStore optionStore,
-            TemplateRevisions revisions, RecordLocks locks, QualityHomeStore home) {
+            TemplateRevisions revisions, RecordLocks locks, QualityHomeStore home, RecordSets sets,
+            DocumentPublishedNotices publishedNotices) {
+        this.sets = sets;
+        this.publishedNotices = publishedNotices;
         this.home = home;
         this.revisions = revisions;
         this.locks = locks;
@@ -121,9 +128,43 @@ class TemplatePublishing {
 
     /** What the publish dialog offers; needs the ability to publish. */
     @Transactional(readOnly = true)
-    AudienceOptionsView audienceOptions() {
+    AudienceOptionsView audienceOptions(RecordSet set) {
         access.require(Ability.SHEETS_PUBLISH);
-        return audiences.options();
+        return forSet(set.withoutPublishOptions(), audiences.options());
+    }
+
+    /**
+     * An application that publishes to places alone (MC1, ADR-0257) offers each location with the one department that
+     * receives its templates, and only the locations where that department is part of the setup. Other applications
+     * see the lists as they are.
+     */
+    static AudienceOptionsView forSet(RecordSet set, AudienceOptionsView all) {
+        if (!set.placesOnly()) {
+            return all;
+        }
+        String fixed = set.placeDepartment();
+        List<AudienceLocation> places = new ArrayList<>();
+        for (AudienceLocation location : all.locations()) {
+            List<AudienceDepartment> only = location.departments().stream()
+                    .filter(department -> department.value().equals(fixed)).toList();
+            if (!only.isEmpty()) {
+                places.add(new AudienceLocation(location.value(), location.label(), only));
+            }
+        }
+        return new AudienceOptionsView(places, true, fixed);
+    }
+
+    /** The group of each pick; for a set that publishes to places alone only the fixed department is accepted. */
+    private List<Resolved> resolvePicks(RecordSet application, List<AudiencePick> picks) {
+        RecordSet set = application.withoutPublishOptions();
+        if (set.placesOnly()) {
+            for (int index = 0; index < picks.size(); index++) {
+                if (!set.placeDepartment().equals(picks.get(index).department())) {
+                    throw ApiException.validation("audiences[" + index + "]", "Choose a place to publish to.");
+                }
+            }
+        }
+        return audiences.resolve(picks);
     }
 
     /**
@@ -134,7 +175,7 @@ class TemplatePublishing {
     @Transactional(readOnly = true)
     AudienceOptionsView suggestionOptions(RecordSet set, UUID templateId) {
         access.visible(set, templateId);
-        return audiences.options();
+        return forSet(set.withoutPublishOptions(), audiences.options());
     }
 
     /**
@@ -160,7 +201,7 @@ class TemplatePublishing {
             refuse("publish", "nothing_to_publish");
             throw new ApiException(ErrorCode.CONFLICT, "There is no approved revision of this template to publish.");
         }
-        List<Resolved> resolved = resolve(request);
+        List<Resolved> resolved = resolve(set, request);
         int replaced = 0;
         if (wanted != summary.active()) {
             try {
@@ -172,6 +213,7 @@ class TemplatePublishing {
             int revision = stampRevision(set, templateId, wanted);
             home.recordEvent(set.template(), templateId, revision > 0 ? "REVISED" : "PUBLISHED", wanted, revision,
                     caller.userId());
+            publishedNotices.tell(set, header, caller.userId(), wanted);
         }
         Counts counts = shareWith(set, caller.userId(), templateId, wanted, resolved);
         Options options = changedOptions(templateId, request.viewOnly(), request.allowDownload(), caller);
@@ -211,13 +253,14 @@ class TemplatePublishing {
     Published publishRevised(RecordSet set, UUID templateId, int versionNo, UUID actor, List<AudiencePick> picks,
             boolean viewOnly, boolean allowDownload) {
         store.lock(templateId);
-        List<Resolved> resolved = audiences.resolve(picks);
+        List<Resolved> resolved = resolvePicks(set, picks);
         int replaced = sheets.publish(set.template(), templateId, versionNo, actor);
         Counts counts = shareWith(set, actor, templateId, versionNo, resolved);
         optionStore.set(templateId, new Options(viewOnly, allowDownload), actor);
         int revision = stampRevision(set, templateId, versionNo);
         home.recordEvent(set.template(), templateId, revision > 0 ? "REVISED" : "PUBLISHED", versionNo, revision,
                 actor);
+        publishedNotices.tell(set, header(set, templateId), actor, versionNo);
         audit.record(base(set, "inspection.template.published", actor, templateId)
                 .with("version_no", Integer.toString(versionNo)).with("replaced", Integer.toString(replaced))
                 .with("audiences", Integer.toString(resolved.size()))
@@ -333,8 +376,8 @@ class TemplatePublishing {
 
     // ---- the audience ----
 
-    private List<Resolved> resolve(PublishTemplateRequest request) {
-        return audiences.resolve(request.audiences());
+    private List<Resolved> resolve(RecordSet set, PublishTemplateRequest request) {
+        return resolvePicks(set, request.audiences());
     }
 
     /**
@@ -431,7 +474,8 @@ class TemplatePublishing {
                 Templates.isBlank(number) ? null : number.toString(), options.viewOnly(), options.allowDownload(),
                 options.allowDownload() || mayPublish, mayPublish,
                 Templates.revisionShown(header.fields(), summary.active()), Templates.lastRevisedAt(header.fields()),
-                send.isEmpty(), send.map(TemplateSendRule.Block::words).orElse(null));
+                send.isEmpty(), send.map(TemplateSendRule.Block::words).orElse(null),
+                sets.footerDate(header.fields().get(Templates.APPLICATION)));
     }
 
     private List<SuggestedAudience> suggestedViews(List<AudienceChoices.Place> places) {

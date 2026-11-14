@@ -75,4 +75,15 @@ final class RecordSetsFixture {
         return new ObjectRoles(application, feature, Map.of(RecordSets.TEMPLATE, set.template(),
                 RecordSets.FILL, set.fill(), RecordSets.REQUEST, set.request()));
     }
+
+    /**
+     * An application whose documents come from Document Management and are chosen by their number (MC1.1, ADR-0259):
+     * the parts of the set it shows, with the option that narrows it, and the options given.
+     */
+    static ObjectRoles routed(String application, String feature, RecordSet set, Map<String, String> options) {
+        Map<String, String> all = new java.util.HashMap<>(options);
+        all.put(RecordSets.ROUTED, "true");
+        return new ObjectRoles(application, feature, Map.of(RecordSets.TEMPLATE, set.template(),
+                RecordSets.FILL, set.fill(), RecordSets.REQUEST, set.request()), all);
+    }
 }

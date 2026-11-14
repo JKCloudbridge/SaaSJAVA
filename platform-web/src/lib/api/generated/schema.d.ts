@@ -944,6 +944,50 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/document-routing": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The rules that route a document to an application
+         * @description Needs numbering.manage. Every rule of the organization, the applications a rule can name (only those the organization has whose documents come from Document Management) and the Identification values. A rule names an Identification and, optionally, a Part A (empty means every Part A); the rule of the exact pair wins. A rule decides the application of documents numbered afterwards: it never moves a document that has its number.
+         */
+        get: operations["listDocumentRouting"];
+        /**
+         * Make a rule, or change the application of one
+         * @description Needs numbering.manage. Without a version it makes the rule of the combination and is refused (CONFLICT) when one exists; with the version read it changes that rule's application. Audited by the application's key only.
+         */
+        put: operations["saveDocumentRouting"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/document-routing/{ruleId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Remove a rule
+         * @description Needs numbering.manage and the version read. Documents already numbered keep their application. Audited by the application's key only.
+         */
+        delete: operations["removeDocumentRouting"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/embedded-tokens": {
         parameters: {
             query?: never;
@@ -5240,6 +5284,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/sheet-fills/{fillObject}/{fillId}/calculation": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The answers of the formulas of a fill-in
+         * @description Calculated now, by the server, from the sheet version the fill-in is pinned to and its cells; nothing calculated is stored, so every read is the answer of today's rules. A calculated column has one answer for each row of a sheet where the filler adds the rows. The browser's own calculation is only a preview while a person types. Readable by whoever may read the fill-in. NOT_FOUND for an object that has no fill-ins, for a fill-in that does not exist and for a header record the caller may not read (all three answer alike). A fill-in has no permission of its own: reading it needs the right to read the header record and changing it the right to update the header record.
+         */
+        get: operations["getSheetFillCalculation"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/sheet-fills/{fillObject}/{fillId}/cells": {
         parameters: {
             query?: never;
@@ -6653,6 +6717,9 @@ export interface components {
         ApiResponseRoleView: {
             data: components["schemas"]["RoleView"];
         };
+        ApiResponseRoutingView: {
+            data: components["schemas"]["RoutingView"];
+        };
         ApiResponseSharingRuleView: {
             data: components["schemas"]["SharingRuleView"];
         };
@@ -7008,6 +7075,8 @@ export interface components {
         };
         AudienceOptionsView: {
             locations: components["schemas"]["AudienceLocation"][];
+            placeDepartment?: string;
+            placesOnly: boolean;
         };
         AudiencePick: {
             department: string;
@@ -9272,6 +9341,31 @@ export interface components {
             /** Format: uuid */
             parentId?: string;
         };
+        RoutingApplicationView: {
+            application: string;
+            label: string;
+        };
+        RoutingIdentificationView: {
+            active: boolean;
+            label: string;
+            value: string;
+        };
+        RoutingRuleView: {
+            application: string;
+            applicationLabel?: string;
+            available: boolean;
+            /** Format: uuid */
+            id: string;
+            identification: string;
+            partA: string;
+            /** Format: int64 */
+            version: number;
+        };
+        RoutingView: {
+            applications: components["schemas"]["RoutingApplicationView"][];
+            identifications: components["schemas"]["RoutingIdentificationView"][];
+            rules: components["schemas"]["RoutingRuleView"][];
+        };
         SaveAccessPolicyRequest: {
             abilities: string[];
             description?: string;
@@ -9342,6 +9436,13 @@ export interface components {
             name: string;
             /** Format: uuid */
             parentId?: string;
+        };
+        SaveRoutingRuleRequest: {
+            application: string;
+            identification: string;
+            partA?: string;
+            /** Format: int64 */
+            version?: number;
         };
         SaveSharingRuleRequest: {
             accessLevel: string;
@@ -9575,6 +9676,7 @@ export interface components {
                 [key: string]: unknown;
             };
             correction: boolean;
+            editAs?: string;
             fill: components["schemas"]["SheetFillSummaryView"];
             grid: components["schemas"]["SheetGrid"];
             limits: components["schemas"]["SheetFillLimitsView"];
@@ -9783,6 +9885,22 @@ export interface components {
             paper: "A4" | "A3" | "LETTER";
             repeatHeaderRows: boolean;
         };
+        SheetPrintView: {
+            /** Format: double */
+            marginBottom: number;
+            /** Format: double */
+            marginLeft: number;
+            /** Format: double */
+            marginRight: number;
+            /** Format: double */
+            marginTop: number;
+            orientation: string;
+            /** Format: int32 */
+            pageHeightMm: number;
+            /** Format: int32 */
+            pageWidthMm: number;
+            paper: string;
+        };
         SheetRowDefinition: {
             height?: number;
             id: components["schemas"]["SheetId"];
@@ -9878,6 +9996,7 @@ export interface components {
         };
         SheetVersionView: {
             grid: components["schemas"]["SheetGrid"] | components["schemas"]["SheetDocument"];
+            print?: components["schemas"]["SheetPrintView"];
             version: components["schemas"]["SheetVersionSummaryView"];
         };
         SheetVersionsView: {
@@ -10055,6 +10174,7 @@ export interface components {
             canSetOptions: boolean;
             canSubmit: boolean;
             canUnpublish: boolean;
+            footerDate: boolean;
             /** Format: uuid */
             id: string;
             /** Format: date-time */
@@ -12103,6 +12223,101 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ApiResponseDataCatalogue"];
+                };
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    listDocumentRouting: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseRoutingView"];
+                };
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    saveDocumentRouting: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SaveRoutingRuleRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseRoutingView"];
+                };
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    removeDocumentRouting: {
+        parameters: {
+            query: {
+                version: number;
+            };
+            header?: never;
+            path: {
+                ruleId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseRoutingView"];
                 };
             };
             /** @description Error. The code says what went wrong; the message is safe to show. */
@@ -21091,6 +21306,38 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ApiResponseSheetFillView"];
+                };
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    getSheetFillCalculation: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                fillObject: string;
+                fillId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseSheetCalculationView"];
                 };
             };
             /** @description Error. The code says what went wrong; the message is safe to show. */

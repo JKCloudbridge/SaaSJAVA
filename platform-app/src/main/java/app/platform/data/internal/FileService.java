@@ -190,8 +190,9 @@ final class FileService {
         transaction.executeWithoutResult(status -> {
             RecordGate.Passed passed = authorization.forEdit(objectApiName, recordId);
             files.activeFile(recordId, fileId).orElseThrow(() -> ApiException.notFound(NO_FILE));
-            ownerRule(passed, RecordFileRules.Act.REMOVE, recordId);
+            ownerRule(passed, RecordFileRules.Act.REMOVE, recordId, fileId);
             files.delete(fileId);
+            ownerRemoved(passed, recordId, fileId);
             changes.fileDeleted(passed.userId(), passed.object().apiName(), recordId, fileId);
         });
     }
@@ -200,7 +201,7 @@ final class FileService {
 
     private Started start(String objectApiName, UUID recordId, FilePolicy.Checked checked) {
         RecordGate.Passed passed = authorization.forEdit(objectApiName, recordId);
-        ownerRule(passed, RecordFileRules.Act.ADD, recordId);
+        ownerRule(passed, RecordFileRules.Act.ADD, recordId, null);
         files.lockRecord(recordId);
         if (files.open(recordId, properties.pendingTtl()) >= properties.maxPerRecord()) {
             throw new ApiException(ErrorCode.CONFLICT, "This record has the most files it can have.");
@@ -216,17 +217,29 @@ final class FileService {
      * The extra requirement of the module that owns the object, if it has one (FF2, ADR-0193). It can only refuse, and
      * its words are shown as they are.
      */
-    private void ownerRule(RecordGate.Passed passed, RecordFileRules.Act act, UUID recordId) {
+    private void ownerRule(RecordGate.Passed passed, RecordFileRules.Act act, UUID recordId, UUID fileId) {
         RecordFileRules rule = rules.get(passed.object().apiName());
         if (rule == null) {
             return;
         }
         try {
             rule.check(new RecordFileRules.Change(act, recordId, passed.userId(), passed.membershipId(),
-                    passed.object().apiName()));
+                    passed.object().apiName(), fileId));
         } catch (RecordFileRefusal refusal) {
             throw new ApiException(refusal.kind() == RecordFileRefusal.Kind.FORBIDDEN ? ErrorCode.FORBIDDEN
                     : ErrorCode.CONFLICT, refusal.getMessage());
+        }
+    }
+
+    /**
+     * Tells the owner of the object that a file is gone, in the same transaction (SH5, ADR-0254), so that what names it
+     * can let go of it. A refusal here is not possible; a failure undoes the removal as well.
+     */
+    private void ownerRemoved(RecordGate.Passed passed, UUID recordId, UUID fileId) {
+        RecordFileRules rule = rules.get(passed.object().apiName());
+        if (rule != null) {
+            rule.removed(new RecordFileRules.Change(RecordFileRules.Act.REMOVE, recordId, passed.userId(),
+                    passed.membershipId(), passed.object().apiName(), fileId));
         }
     }
 

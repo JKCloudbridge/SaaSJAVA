@@ -128,7 +128,9 @@ class ShippedPoliciesIT extends SolutionSupport {
                 "Filler", Map.of(OBJECT, List.of("read"), FILL, List.of("read", "update"), REQUEST,
                         List.of("read")),
                 "Reviewer", Map.of(FILL, List.of("read", "view-all")),
-                "Department setup", Map.of("DepartmentGroup", List.of("create", "delete", "read", "update")));
+                "Department setup", Map.of("DepartmentGroup", List.of("create", "delete", "read", "update")),
+                "Observer", Map.of(OBJECT, List.of("read", "view-all"), FILL, List.of("read", "view-all"),
+                        REQUEST, List.of("read", "view-all")));
         Map<String, Map<String, String>> fields = Map.of(
                 "Author", Map.of("name", "edit", "level", "edit", "documentType", "edit", "category", "read",
                         "partA", "read", "partB", "read", "number", "read", "retired", "read"),
@@ -156,7 +158,7 @@ class ShippedPoliciesIT extends SolutionSupport {
             }
         }
         // No policy gives the delete right on a template or a fill-in: their records are kept.
-        for (String name : List.of("Author", "Approver", "Publisher", "Reader", "Filler", "Reviewer")) {
+        for (String name : List.of("Author", "Approver", "Publisher", "Reader", "Filler", "Reviewer", "Observer")) {
             Response access = admin.get(POLICIES + "/" + policyId(admin, name) + "/data-access");
             assertThat(JsonPath.<List<String>>read(access.body(), "$.data.objects[*].actions[*]")).as(name)
                     .doesNotContain("delete");
@@ -236,7 +238,7 @@ class ShippedPoliciesIT extends SolutionSupport {
         assertThat(JsonPath.<List<String>>read(list.body(), "$.data[?(@.managed==false)].id")).containsExactly(ownId);
         assertThat(JsonPath.<List<String>>read(list.body(), "$.data[?(@.managed==true)].name"))
                 .containsExactlyInAnyOrder("Author (platform)", "Approver", "Publisher", "Reader", "Filler",
-                        "Reviewer", "Department setup");
+                        "Reviewer", "Department setup", "Observer");
         assertThat(admin.request("DELETE", POLICIES + "/" + ownId, null).status()).as("their own policy is theirs")
                 .isIn(200, 204);
     }

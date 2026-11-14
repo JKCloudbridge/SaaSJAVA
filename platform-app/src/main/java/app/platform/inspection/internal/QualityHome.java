@@ -358,7 +358,7 @@ class QualityHome {
         String cursor = null;
         while (true) {
             QueryResult page = records.query(set.template(),
-                    new RecordQuery(null, List.of(), TEMPLATE_FIELDS, List.of(), 200, cursor));
+                    new RecordQuery(set.narrow(null), List.of(), TEMPLATE_FIELDS, List.of(), 200, cursor));
             for (QueriedRecord one : page.records()) {
                 if (headers.size() >= properties.maxScanned()) {
                     more[0] = true;
@@ -664,7 +664,7 @@ class QualityHome {
             QueryFilter filter = QueryFilter.on("id", QueryFilter.Op.IN,
                     chunk.stream().map(UUID::toString).toArray());
             QueryResult page = records.query(set.fill(),
-                    new RecordQuery(filter, List.of(), List.of(Fills.NAME), List.of(), JUDGE, null));
+                    new RecordQuery(set.narrow(filter), List.of(), List.of(Fills.NAME), List.of(), JUDGE, null));
             page.records().forEach(one -> visible.put(one.record().id(), text(one.record(), Fills.NAME)));
         }
         return visible;

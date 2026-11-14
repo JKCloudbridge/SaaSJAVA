@@ -108,12 +108,21 @@ public abstract class FillSupport extends TemplateSupport {
                 : null;
         department(setting.admin(), "PLANT1", "PRD",
                 group(setting.admin(), "dept-" + System.nanoTime(), filler, colleague));
+        beforeTheTemplate(setting);
         String template = templateWithColumns(author.browser(), dimension, rowsMode);
         assertThat(approve(approver.browser(), submitted(author.browser(), template, templateProcess)).status())
                 .isEqualTo(200);
         assertThat(publish(approver.browser(), template, null, "PLANT1/PRD").status()).isEqualTo(200);
         return new World(setting, author, approver, filler, colleague, reviewer, checker, outsider, template,
                 templateProcess, fillProcess);
+    }
+
+    /**
+     * A moment a test may use to set the organization up before the world's template is made (for example the routing
+     * rules of ADR-0259, which decide the application a document belongs to when its number is made). Nothing by
+     * default.
+     */
+    protected void beforeTheTemplate(Setting setting) {
     }
 
     /** Makes an approval process on the fill-in object and returns its API name. */

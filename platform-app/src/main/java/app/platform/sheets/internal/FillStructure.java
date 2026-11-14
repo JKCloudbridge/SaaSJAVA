@@ -1,5 +1,8 @@
 package app.platform.sheets.internal;
 
+import app.platform.sheets.internal.SheetDocument.Input;
+import app.platform.sheets.internal.SheetDocument.InputClass;
+import app.platform.sheets.internal.SheetDocument.Tab;
 import app.platform.sheets.internal.SheetGrid.Cell;
 import app.platform.sheets.internal.SheetGrid.Column;
 import app.platform.sheets.internal.SheetGrid.Line;
@@ -12,6 +15,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import tools.jackson.databind.JsonNode;
 
 /**
  * What a fill-in may be made of, read from the version of the sheet it is pinned to (FF1, ADR-0192): the columns it
@@ -25,15 +29,65 @@ import java.util.Set;
  */
 final class FillStructure {
 
+    /** What a cell holds (SH5): the kinds of a column, and the attachment a cell may state for itself. */
+    enum CellType {
+        TEXT, NUMBER, DATE, PICKLIST, BOOLEAN, ATTACHMENT
+    }
+
+    /**
+     * What one cell is: its own statement in the sheet's {@code inputs}, else its column's (SH5, ADR-0251).
+     *
+     * @param type the kind of value
+     * @param required whether the filler must fill it before the fill-in is sent
+     * @param cls who fills it
+     * @param picklist the values of a list cell, or null
+     * @param maxFiles the most files of an attachment cell (0 for any other kind)
+     */
+    record Effective(CellType type, boolean required, InputClass cls, java.util.List<String> picklist, int maxFiles) {
+    }
+
     private final SheetGrid grid;
+    private final Tab tab;
     private final Map<String, Column> columns = new LinkedHashMap<>();
     private final List<String> namedRows = new ArrayList<>();
     private final Set<String> namedRowSet = new HashSet<>();
     private final Set<String> reserved = new HashSet<>();
     private final Set<String> notInput = new HashSet<>();
 
+    /**
+     * The structure of the sheet a stored version holds: its first tab for format version 2 (a template holds one tab
+     * for now), else the grid of format version 1.
+     */
+    static FillStructure of(JsonNode stored) {
+        if (SheetGridValidator.isFormatTwo(stored)) {
+            Tab first = SheetDocumentReader.read(stored).sheets().get(0);
+            return new FillStructure(first.body(), first);
+        }
+        return new FillStructure(SheetGridReader.read(stored));
+    }
+
+    /** The tab of a sheet in format version 2, or null for format version 1. */
+    Tab tab() {
+        return tab;
+    }
+
+    /** The body of the sheet. */
+    SheetGrid grid() {
+        return grid;
+    }
+
+    /** The structure of a fill-in on a sheet in format version 1. */
     FillStructure(SheetGrid grid) {
+        this(grid, null);
+    }
+
+    /**
+     * The structure of a fill-in on a sheet of format version 2 when {@code tab} is given: a cell of a calculated
+     * column is never an input cell, and a cell may state its own type, requirement and class.
+     */
+    FillStructure(SheetGrid grid, Tab tab) {
         this.grid = grid;
+        this.tab = tab;
         for (Column column : grid.columns()) {
             columns.put(column.id(), column);
             reserved.add(column.id());
@@ -67,6 +121,64 @@ final class FillStructure {
         for (Merge merge : grid.merges()) {
             cover(merge, positions, columnPositions, order, header);
         }
+        if (tab != null) {
+            // A cell with a formula is already fixed in the body; a calculated column is never typed into (SH2).
+            for (String column : tab.columnFormulas().keySet()) {
+                calculated.add(column);
+            }
+        }
+    }
+
+    private final Set<String> calculated = new HashSet<>();
+
+    /** Whether the fill-in is on a sheet in format version 2 (it is then stored in format 3). */
+    boolean isFormatThree() {
+        return tab != null;
+    }
+
+    /** The key of the sheet, or null for format version 1. */
+    String sheetKey() {
+        return tab == null ? null : tab.key();
+    }
+
+    /** Whether the sheet takes fill-ins at all (an information tab does not). */
+    boolean fillable() {
+        return tab == null || tab.fillable();
+    }
+
+    /** Whether the column holds a formula drawn at every row: nobody types into it. */
+    boolean isCalculatedColumn(String columnId) {
+        return calculated.contains(columnId);
+    }
+
+    /**
+     * What the cell is. The column must exist. A statement of the cell wins; a missing part is the column's. An
+     * attachment cell holds at most {@code maxFiles}, 5 when the sheet says nothing.
+     */
+    Effective effective(String rowId, String columnId) {
+        Column column = columns.get(columnId);
+        Input own = tab == null ? null : tab.inputs().get(rowId + ":" + columnId);
+        CellType type = CellType.valueOf(column.type().name());
+        java.util.List<String> picklist = column.picklist();
+        boolean required = column.required();
+        InputClass cls = InputClass.FILLER;
+        int files = 0;
+        if (own != null) {
+            if (own.type() != null) {
+                type = CellType.valueOf(own.type().toUpperCase(java.util.Locale.ROOT));
+            }
+            if (own.picklist() != null) {
+                picklist = own.picklist();
+            }
+            required = own.required() || required;
+            cls = own.cls() == null ? InputClass.FILLER : own.cls();
+            if (type == CellType.ATTACHMENT) {
+                files = own.maxFiles() == null ? SheetDocument.DEFAULT_MAX_FILES : own.maxFiles();
+            }
+        } else if (type == CellType.ATTACHMENT) {
+            files = SheetDocument.DEFAULT_MAX_FILES;
+        }
+        return new Effective(type, required, cls, picklist, files);
     }
 
     /** The cells a merged area covers, except its top left one, hold nothing and cannot be typed into. */
@@ -130,6 +242,6 @@ final class FillStructure {
      * filler added; the column is known.
      */
     boolean isInput(String rowId, String columnId) {
-        return !notInput.contains(rowId + ":" + columnId);
+        return !calculated.contains(columnId) && !notInput.contains(rowId + ":" + columnId);
     }
 }

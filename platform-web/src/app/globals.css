@@ -2951,6 +2951,234 @@ form + .detail-section {
   gap: var(--space-2);
 }
 
+/* ------------------------------------------------------------------------------------------------------------------
+ * The look of a sheet in format version 2 (SH4, ADR-0251). A sheet states its own colours, so it is drawn on white paper in
+ * both themes (the rest of the page stays dark). What a sheet states reaches the page only through the classes below and the
+ * three custom properties --sheet-fill, --sheet-text and --sheet-pt, which the grid sets through the style object model after
+ * the value was checked. Nothing here names a colour: the paper, the inks and the rings are tokens.
+ * ---------------------------------------------------------------------------------------------------------------- */
+
+.sheet-paper {
+  --color-surface: var(--sheet-paper-surface);
+  --color-surface-sunken: var(--sheet-paper-surface-sunken);
+  --color-text: var(--sheet-paper-text);
+  --color-text-muted: var(--sheet-paper-text-muted);
+  --color-border: var(--sheet-paper-border);
+  --color-border-strong: var(--sheet-paper-border-strong);
+  --color-accent: var(--sheet-paper-accent);
+  --color-accent-soft: var(--sheet-paper-accent-soft);
+  --color-success: var(--sheet-paper-success);
+  --color-danger: var(--sheet-paper-danger);
+  color-scheme: light;
+}
+
+/* The focus ring of the whole grid is a light line inside a dark one, so it shows on a dark page and on a light one. */
+.sheet-paper:focus-visible {
+  outline: 2px solid var(--sheet-ring-light);
+  outline-offset: 0;
+  box-shadow: 0 0 0 4px var(--sheet-ring-dark);
+}
+
+.sheet-paper .sheet-labels {
+  z-index: 3;
+}
+
+.sheet-paper .sheet-cell {
+  background: var(--color-surface);
+  align-items: flex-end;
+  line-height: 1.25;
+  text-overflow: clip;
+  /* a cell's layout, style and paint never reach outside it: a scroll redraws the cells that came in, not the page */
+  contain: layout style paint;
+}
+
+.sheet-paper .sheet-cell-blank {
+  color: inherit;
+  border-bottom-style: solid;
+}
+
+.sheet-paper .sheet-cell.sheet-has-fill {
+  background-color: var(--sheet-fill);
+}
+
+.sheet-paper .sheet-cell.sheet-has-text {
+  color: var(--sheet-text);
+}
+
+.sheet-paper .sheet-cell.sheet-ink-dark {
+  color: var(--sheet-ink-dark);
+}
+
+.sheet-paper .sheet-cell.sheet-ink-light {
+  color: var(--sheet-ink-light);
+}
+
+.sheet-paper .sheet-pt {
+  font-size: calc(var(--sheet-pt) * var(--sheet-point));
+}
+
+.sheet-paper .sheet-wrap {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.sheet-paper .sheet-v-top {
+  align-items: flex-start;
+}
+
+.sheet-paper .sheet-v-middle {
+  align-items: center;
+}
+
+.sheet-paper .sheet-quiet {
+  color: var(--color-text-muted);
+  font-style: italic;
+}
+
+.sheet-list-mark {
+  margin-left: auto;
+  padding-left: var(--space-1);
+  color: var(--color-text-muted);
+}
+
+/* The fonts of the closed list: system fonts, nothing is downloaded. The only place a font name is written. */
+.sheet-font-SANS_NEUTRAL { font-family: Arial, Helvetica, "Liberation Sans", sans-serif; }
+.sheet-font-SANS_HUMANIST { font-family: Calibri, Carlito, "Segoe UI", sans-serif; }
+.sheet-font-SANS_WIDE { font-family: Verdana, Tahoma, sans-serif; }
+.sheet-font-SANS_FRIENDLY { font-family: "Trebuchet MS", sans-serif; }
+.sheet-font-SANS_UNICODE { font-family: "Arial Unicode MS", Arial, sans-serif; }
+.sheet-font-DISPLAY_HEAVY { font-family: "Arial Black", "Helvetica Neue", Arial, sans-serif; font-weight: 800; }
+.sheet-font-DISPLAY_IMPACT { font-family: Impact, "Arial Narrow", sans-serif; font-weight: 800; }
+.sheet-font-SERIF_TEXT { font-family: "Times New Roman", Times, "Liberation Serif", serif; }
+.sheet-font-SERIF_SCREEN { font-family: Georgia, serif; }
+.sheet-font-SERIF_SLAB { font-family: Cambria, Caladea, Georgia, serif; }
+.sheet-font-MONO_CLASSIC { font-family: "Courier New", Courier, monospace; }
+.sheet-font-MONO_CODE { font-family: Consolas, "Lucida Console", monospace; }
+.sheet-font-SANS_UI { font-family: system-ui, sans-serif; }
+.sheet-font-SANS { font-family: sans-serif; }
+.sheet-font-SERIF { font-family: serif; }
+.sheet-font-MONO { font-family: monospace; }
+
+/* The same look on the white page of the print view (SH4). Only the borders a sheet states are drawn, as in the spreadsheet
+   program; fills must print, so the browser is told not to drop them. */
+.sheet-print-looked {
+  print-color-adjust: exact;
+  -webkit-print-color-adjust: exact;
+}
+
+.sheet-print-looked .sheet-print-cell {
+  border: 0;
+  vertical-align: bottom;
+  line-height: 1.25;
+}
+
+.sheet-print-looked .sheet-v-top {
+  vertical-align: top;
+}
+
+.sheet-print-looked .sheet-v-middle {
+  vertical-align: middle;
+}
+
+.sheet-print-looked .sheet-has-fill {
+  background-color: var(--sheet-fill);
+}
+
+.sheet-print-looked .sheet-print-cell.sheet-has-text {
+  color: var(--sheet-text);
+}
+
+.sheet-print-looked .sheet-print-cell.sheet-ink-dark {
+  color: var(--sheet-ink-dark);
+}
+
+.sheet-print-looked .sheet-print-cell.sheet-ink-light {
+  color: var(--sheet-ink-light);
+}
+
+.sheet-print-looked .sheet-pt {
+  font-size: calc(var(--sheet-pt) * var(--sheet-point));
+}
+
+/* The borders a sheet states: a cell draws its right and bottom edge (and its top and left at the outer edge), so two
+   neighbours draw one line. One class for each side and style; the screen and the print view share them. */
+:is(.sheet-paper, .sheet-print-looked) .sheet-bt-thin { border-top: var(--sheet-line-thin) solid var(--sheet-line-ink); }
+:is(.sheet-paper, .sheet-print-looked) .sheet-br-thin { border-right: var(--sheet-line-thin) solid var(--sheet-line-ink); }
+:is(.sheet-paper, .sheet-print-looked) .sheet-bb-thin { border-bottom: var(--sheet-line-thin) solid var(--sheet-line-ink); }
+:is(.sheet-paper, .sheet-print-looked) .sheet-bl-thin { border-left: var(--sheet-line-thin) solid var(--sheet-line-ink); }
+:is(.sheet-paper, .sheet-print-looked) .sheet-bt-medium { border-top: var(--sheet-line-medium) solid var(--sheet-line-ink); }
+:is(.sheet-paper, .sheet-print-looked) .sheet-br-medium { border-right: var(--sheet-line-medium) solid var(--sheet-line-ink); }
+:is(.sheet-paper, .sheet-print-looked) .sheet-bb-medium { border-bottom: var(--sheet-line-medium) solid var(--sheet-line-ink); }
+:is(.sheet-paper, .sheet-print-looked) .sheet-bl-medium { border-left: var(--sheet-line-medium) solid var(--sheet-line-ink); }
+:is(.sheet-paper, .sheet-print-looked) .sheet-bt-thick { border-top: var(--sheet-line-thick) solid var(--sheet-line-ink); }
+:is(.sheet-paper, .sheet-print-looked) .sheet-br-thick { border-right: var(--sheet-line-thick) solid var(--sheet-line-ink); }
+:is(.sheet-paper, .sheet-print-looked) .sheet-bb-thick { border-bottom: var(--sheet-line-thick) solid var(--sheet-line-ink); }
+:is(.sheet-paper, .sheet-print-looked) .sheet-bl-thick { border-left: var(--sheet-line-thick) solid var(--sheet-line-ink); }
+:is(.sheet-paper, .sheet-print-looked) .sheet-bt-dotted { border-top: var(--sheet-line-thin) dotted var(--sheet-line-ink); }
+:is(.sheet-paper, .sheet-print-looked) .sheet-br-dotted { border-right: var(--sheet-line-thin) dotted var(--sheet-line-ink); }
+:is(.sheet-paper, .sheet-print-looked) .sheet-bb-dotted { border-bottom: var(--sheet-line-thin) dotted var(--sheet-line-ink); }
+:is(.sheet-paper, .sheet-print-looked) .sheet-bl-dotted { border-left: var(--sheet-line-thin) dotted var(--sheet-line-ink); }
+:is(.sheet-paper, .sheet-print-looked) .sheet-bt-dashed { border-top: var(--sheet-line-thin) dashed var(--sheet-line-ink); }
+:is(.sheet-paper, .sheet-print-looked) .sheet-br-dashed { border-right: var(--sheet-line-thin) dashed var(--sheet-line-ink); }
+:is(.sheet-paper, .sheet-print-looked) .sheet-bb-dashed { border-bottom: var(--sheet-line-thin) dashed var(--sheet-line-ink); }
+:is(.sheet-paper, .sheet-print-looked) .sheet-bl-dashed { border-left: var(--sheet-line-thin) dashed var(--sheet-line-ink); }
+:is(.sheet-paper, .sheet-print-looked) .sheet-bt-double { border-top: var(--sheet-line-double) double var(--sheet-line-ink); }
+:is(.sheet-paper, .sheet-print-looked) .sheet-br-double { border-right: var(--sheet-line-double) double var(--sheet-line-ink); }
+:is(.sheet-paper, .sheet-print-looked) .sheet-bb-double { border-bottom: var(--sheet-line-double) double var(--sheet-line-ink); }
+:is(.sheet-paper, .sheet-print-looked) .sheet-bl-double { border-left: var(--sheet-line-double) double var(--sheet-line-ink); }
+
+/* Selection and focus over any fill: the selection is a wash laid over the cell (never a background that would hide the
+   fill), the active cell has a dark line inside a light one, and a cell a person types into has a small two-tone mark. */
+.sheet-paper .sheet-selected {
+  background-color: var(--color-surface);
+}
+
+.sheet-paper .sheet-selected:not(.sheet-active)::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: var(--sheet-select-wash);
+  pointer-events: none;
+}
+
+.sheet-paper .sheet-active {
+  outline: 2px solid var(--sheet-ring-dark);
+  outline-offset: -2px;
+  box-shadow: inset 0 0 0 4px var(--sheet-ring-light);
+}
+
+.sheet-paper .sheet-cell-input {
+  /* the corner mark is a gradient, not a box of its own: a box for every input cell made a scroll slower */
+  background-image: linear-gradient(
+    225deg,
+    var(--sheet-mark-ink) 0,
+    var(--sheet-mark-ink) var(--sheet-mark-size),
+    var(--sheet-mark-edge) var(--sheet-mark-size),
+    var(--sheet-mark-edge) calc(var(--sheet-mark-size) + var(--sheet-line-thin)),
+    transparent calc(var(--sheet-mark-size) + var(--sheet-line-thin))
+  );
+}
+
+/* The rows and columns kept in view while the rest scrolls. A fixed row is a sticky row (its place in the flow is where it
+   is drawn); the fixed columns of a row ride in a layer of no size that sticks to the left edge. */
+.sheet-row-fixed {
+  position: sticky;
+  left: auto;
+  z-index: 2;
+}
+
+.sheet-pane-left {
+  position: sticky;
+  left: 0;
+  width: 0;
+  height: 0;
+  z-index: 1;
+}
+
+.sheet-row-fixed-last {
+  box-shadow: 0 var(--sheet-line-medium) 0 var(--sheet-paper-border-strong);
+}
+
 @media (forced-colors: active) {
   .sheet-active,
   .sheet-selected {
@@ -2959,6 +3187,18 @@ form + .detail-section {
 
   .sheet-cell-fixed {
     border-bottom-style: solid;
+  }
+}
+
+/* A person who asks the system for its own colours gets them: the sheet's fills are theirs to override, and the ring is the system's. */
+@media (forced-colors: active) {
+  .sheet-paper .sheet-active {
+    outline-color: Highlight;
+    box-shadow: none;
+  }
+
+  .sheet-paper .sheet-cell-input {
+    background-image: none;
   }
 }
 

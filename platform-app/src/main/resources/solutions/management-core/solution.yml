@@ -1,14 +1,45 @@
-# The Management Core application (Functional track FA13A, ADR-0225): announced before it is built. Its tabs are announced.
-# It brings no objects and no access policies, so there is nothing to read or to protect. It has a plan feature of its
-# own, so an organization can have it with or without any other application. A tab becomes a real page later by
-# changing only this file and registering its page in the web application.
+# The Management Core solution, key management-core (Functional track, Management Core, MC1 and MC1.1, ADR-0257, ADR-0259).
+#
+# Management Core makes no documents of its own. Every document of every application is made in Document Management; the
+# number Plant QMS gives it decides which application it also belongs to. An organization says in Setup, Numbering,
+# Application routing, which combination of Identification and Part A belongs to which application (for example F with
+# Part A MC belongs to Management Core). The platform then writes the application on the document, once, when the number
+# is made, and a document with no matching rule belongs to Document Management alone.
+#
+# This application is therefore a view of the very same records that Document Management shows (it `uses` the same four
+# objects and names the same parts), narrowed to the documents, fill-ins and change requests that carry its name. The
+# narrowing chooses; it never grants: who may read a record is still the record store's and the decision API's answer.
+# It has no New document button, because documents are made in Document Management. The access policies are Document
+# Management's, made available with this application by their own files (`alsoAvailableWith`).
+#
+# What is particular to this application, all of it data:
+#   * routedByNumber: its documents come from Document Management and are chosen by the number (above);
+#   * footerDate: the footer of a document that belongs to this application carries the day the Revision was published,
+#     wherever the document is shown (the option follows the document, not the screen);
+#   * publishTo and publishDepartment: reserved for the act that publishes a form to the plants (MC2A); the publish of
+#     Document Management is not changed by them.
 key: management-core
 feature: management-core
 label: Management Core
 removalNote: >-
-  Taking this feature away hides the Management Core application from the organization at once. It holds no data, so nothing is lost,
-  and it comes back when the feature is given again.
+  Taking this feature away hides the Management Core application from the organization at once. Nothing is deleted:
+  the documents are Document Management's records, the routing rules and everything else stay, and the application comes
+  back when the feature is given again.
 order: 5
+uses:
+  - InspectionTemplate
+  - InspectionFill
+  - InspectionChangeRequest
+  - DepartmentGroup
+roles:
+  template: InspectionTemplate
+  fill: InspectionFill
+  changeRequest: InspectionChangeRequest
+options:
+  routedByNumber: "true"
+  footerDate: "true"
+  publishTo: places
+  publishDepartment: PLANTHEAD
 application:
   apiName: management-core
   label: Management Core
@@ -18,6 +49,23 @@ application:
     - type: PLATFORM
       label: Home
       pageKey: home
+      readsObject: InspectionTemplate
+    - type: PLATFORM
+      label: Document Control
+      pageKey: templates
+      readsObject: InspectionTemplate
+    - type: PLATFORM
+      label: Change requests
+      pageKey: change-requests
+      readsObject: InspectionChangeRequest
+    - type: PLATFORM
+      label: Record Control
+      pageKey: fill-ins
+      readsObject: InspectionFill
+    - type: PLATFORM
+      label: Report
+      pageKey: fill-in-report
+      readsObject: InspectionFill
     - type: PLATFORM
       label: KPI management
       pageKey: kpi-management
@@ -30,3 +78,5 @@ application:
       label: Plantwise Review
       pageKey: plantwise-review
       placeholder: true
+    - type: OBJECT
+      object: DepartmentGroup

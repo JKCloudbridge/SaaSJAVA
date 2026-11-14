@@ -44,9 +44,11 @@ final class SolutionLoader {
     private static final Pattern PLAIN_TEXT = Pattern.compile("[\\p{L}\\p{N}][\\p{L}\\p{N} .,;:!?&'()/+-]{0,499}");
 
     private static final Set<String> BUNDLE_KEYS = Set.of("key", "feature", "label", "removalNote", "application",
-            "applications", "objects", "sheetOwners", "accessPolicies", "uses", "order", "roles");
+            "applications", "objects", "sheetOwners", "accessPolicies", "uses", "order", "roles", "options");
     /** The name of a part (a role): a lower camel case word, chosen by the module that owns the functions. */
     private static final Pattern ROLE = Pattern.compile("[a-z][A-Za-z0-9]{0,29}");
+    /** The value of an option: a short word or number, no space and no markup. */
+    private static final Pattern OPTION_VALUE = Pattern.compile("[A-Za-z0-9_-]{1,40}");
     private static final Set<String> APPLICATION_KEYS = Set.of("apiName", "label", "iconKey", "group", "entries");
     private static final Set<String> ENTRY_KEYS = Set.of("type", "label", "object", "pageKey", "readsObject",
             "placeholder");
@@ -180,7 +182,32 @@ final class SolutionLoader {
                     rights(policy), abilities(policy), fieldRights(policy), alsoWith(policy)));
         }
         return new SolutionBundle(key, feature, label, note, applications, objects, sheetOwners, policies, uses,
-                order, roles(node, where, objects, uses));
+                order, roles(node, where, objects, uses), options(node, where));
+    }
+
+    /**
+     * Settings of the solution's applications (MC1, ADR-0257): a mapping of a lower camel case name to a short plain
+     * text. The names mean something only to the module that owns the functions, which checks them.
+     */
+    private static Map<String, String> options(Node node, String where) {
+        Object declared = node.optional("options");
+        if (declared == null) {
+            return Map.of();
+        }
+        if (!(declared instanceof Map<?, ?> map) || map.isEmpty()) {
+            throw new IllegalStateException(where + ": 'options' maps a name to a short plain text");
+        }
+        Map<String, String> options = new TreeMap<>();
+        for (Map.Entry<?, ?> entry : map.entrySet()) {
+            String name = String.valueOf(entry.getKey());
+            String value = entry.getValue() == null ? "" : String.valueOf(entry.getValue()).strip();
+            if (!ROLE.matcher(name).matches() || !OPTION_VALUE.matcher(value).matches()) {
+                throw new IllegalStateException(where + ": 'options' has a name that is not a lower camel case word "
+                        + "or a value that is not a short plain text");
+            }
+            options.put(name, value);
+        }
+        return options;
     }
 
     /**

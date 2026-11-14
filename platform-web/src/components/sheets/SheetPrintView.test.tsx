@@ -35,6 +35,13 @@ describe("the print view", () => {
     expect(screen.queryByText("typed by a filler")).toBeNull();
   });
 
+  it("ends with a second footer row, the day, when the footer carries it (MC1)", () => {
+    draw(sampleDoc(), "F/MR/16  Rev No.'00'\nDate: 13-Nov-2026");
+
+    expect(screen.getByTestId("sheet-print-footer").textContent).toBe("F/MR/16  Rev No.'00'");
+    expect(screen.getByTestId("sheet-print-footer-2").textContent).toBe("Date: 13-Nov-2026");
+  });
+
   it("ends with one footer row across the full width with the number and the revision at its right", () => {
     draw();
 
@@ -72,6 +79,46 @@ describe("the print view", () => {
 
     expect(screen.getByTestId("sheet-print-view").querySelector("style")?.textContent).toContain("size: A4 landscape");
     expect(screen.getByTestId("sheet-print-view").querySelector(".sheet-print-page")).toHaveClass("sheet-print-landscape");
+  });
+
+  it("draws the page the server describes and works out no orientation of its own (SH3)", () => {
+    const print = {
+      paper: "A3",
+      orientation: "landscape",
+      pageWidthMm: 420,
+      pageHeightMm: 297,
+      marginLeft: 0.5,
+      marginRight: 0.5,
+      marginTop: 0.6,
+      marginBottom: 0.6,
+    };
+    // The sheet is narrow, so its own width rule would say portrait: the server's description wins.
+    render(<SheetPrintView doc={sampleDoc()} print={print} footer="" label="Fire checks" onClose={vi.fn()} />);
+
+    const view = screen.getByTestId("sheet-print-view");
+    expect(view.querySelector("style")?.textContent).toContain("size: A3 landscape");
+    const page = view.querySelector(".sheet-print-page") as HTMLElement;
+    expect(page).toHaveClass("sheet-print-landscape");
+    expect(page.style.width).toBe("420mm");
+    expect(view).toHaveTextContent("A3, landscape.");
+  });
+
+  it("keeps the A4 widths of the tokens for an A4 description", () => {
+    const print = {
+      paper: "A4",
+      orientation: "portrait",
+      pageWidthMm: 210,
+      pageHeightMm: 297,
+      marginLeft: 0.5,
+      marginRight: 0.5,
+      marginTop: 0.6,
+      marginBottom: 0.6,
+    };
+    render(<SheetPrintView doc={sampleDoc()} print={print} footer="" label="Fire checks" onClose={vi.fn()} />);
+
+    const page = screen.getByTestId("sheet-print-view").querySelector(".sheet-print-page") as HTMLElement;
+    expect(page).toHaveClass("sheet-print-portrait");
+    expect(page.style.width).toBe("");
   });
 
   it("makes printing show only itself while it is open, and stops when it is closed", () => {

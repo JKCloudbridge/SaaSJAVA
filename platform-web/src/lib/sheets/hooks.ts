@@ -92,6 +92,8 @@ export function useVersion(owner: SheetOwner, versionNo: number, refresh: number
 export interface ServerAnswers {
   cells: Record<string, string>;
   columns: Record<string, string>;
+  /** The kind of each answer as the server names it (SH4): only a number is formatted and judged by the colour rules. */
+  kinds: { cells: Record<string, string>; columns: Record<string, string> };
 }
 
 /**
@@ -117,10 +119,17 @@ export function useServerAnswers(owner: SheetOwner, versionNo: number, stamp: nu
         return;
       }
       const cells: Record<string, string> = {};
-      for (const one of outcome.data.cells) cells[one.cell] = one.answer.value;
+      const kinds: ServerAnswers["kinds"] = { cells: {}, columns: {} };
+      for (const one of outcome.data.cells) {
+        cells[one.cell] = one.answer.value;
+        kinds.cells[one.cell] = one.answer.kind;
+      }
       const columns: Record<string, string> = {};
-      for (const one of outcome.data.columns) columns[one.column] = one.rows[0]?.value ?? "";
-      setLoaded({ key, answers: { cells, columns } });
+      for (const one of outcome.data.columns) {
+        columns[one.column] = one.rows[0]?.value ?? "";
+        kinds.columns[one.column] = one.rows[0]?.kind ?? "text";
+      }
+      setLoaded({ key, answers: { cells, columns, kinds } });
     });
     return () => {
       live = false;

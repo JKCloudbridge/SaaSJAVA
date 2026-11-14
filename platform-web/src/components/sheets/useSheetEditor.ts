@@ -3,7 +3,8 @@
 import { useCallback, useMemo, useReducer } from "react";
 import { sameDocument } from "@/lib/sheets/adapter";
 import {
-  answers,
+  answerSet,
+  type AnswerSet,
   barText,
   check,
   clearCellFormula,
@@ -143,7 +144,7 @@ export interface SheetEditor {
   /** Gives a column of a sheet where the filler adds the rows its formula; an empty text takes it off. */
   setColumnFormula(columnId: string, text: string): string | null;
   /** What the browser works out for every formula while a person types (the server's answer is the one that counts). */
-  previews: { cells: Record<string, string>; columns: Record<string, string> };
+  previews: AnswerSet;
   clear(rect: Rect): void;
   paste(row: number, column: number, matrix: string[][]): void;
   bold(): void;
@@ -226,7 +227,7 @@ export function useSheetEditor(initial: GridDoc, limits: SheetLimits): SheetEdit
   const selected = useMemo(() => selectionState(doc, rows, rect), [doc, rows, rect]);
   const dirty = useMemo(() => !sameDocument(doc, state.saved), [doc, state.saved]);
   const spec = useMemo(() => specOf(limits.formulas), [limits.formulas]);
-  const previews = useMemo(() => answers(doc, spec), [doc, spec]);
+  const previews = useMemo(() => answerSet(doc, spec), [doc, spec]);
 
   const run = useCallback((op: (d: GridDoc) => OpResult, success?: string) => dispatch({ type: "run", op, success }), []);
 

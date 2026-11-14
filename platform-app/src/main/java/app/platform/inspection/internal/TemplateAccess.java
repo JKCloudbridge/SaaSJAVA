@@ -1,5 +1,6 @@
 package app.platform.inspection.internal;
 
+import app.platform.data.BackgroundRecords;
 import app.platform.data.RecordTitles;
 import app.platform.security.Ability;
 import app.platform.security.Permissions;
@@ -35,11 +36,14 @@ class TemplateAccess {
     private final TenantContexts contexts;
     private final RecordTitles records;
     private final Permissions permissions;
+    private final BackgroundRecords background;
 
-    TemplateAccess(TenantContexts contexts, RecordTitles records, Permissions permissions) {
+    TemplateAccess(TenantContexts contexts, RecordTitles records, Permissions permissions,
+            BackgroundRecords background) {
         this.contexts = contexts;
         this.records = records;
         this.permissions = permissions;
+        this.background = background;
     }
 
     /** The member behind the request; "not found" where no member is involved (the platform host). */
@@ -51,11 +55,17 @@ class TemplateAccess {
 
     /**
      * The member, for a template of the set they can see. A template of another set is not found: the record store is
-     * asked about the set's own object, so an identifier from elsewhere is an unknown one.
+     * asked about the set's own object, so an identifier from elsewhere is an unknown one. In a set narrowed to one
+     * application (ADR-0259) a template that belongs to another application is not found either, in the same words:
+     * the narrowing only chooses, the record store has already decided that the member may see the template.
      */
     Caller visible(RecordSet set, UUID templateId) {
         Caller caller = member();
         if (templateId == null || !records.titlesOf(set.template(), List.of(templateId)).containsKey(templateId)) {
+            throw ApiException.notFound(NO_TEMPLATE);
+        }
+        if (set.narrowed() && !background.find(set.template(), templateId)
+                .map(template -> set.admits(template.fields())).orElse(false)) {
             throw ApiException.notFound(NO_TEMPLATE);
         }
         return caller;

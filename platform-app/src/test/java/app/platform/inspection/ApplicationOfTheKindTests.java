@@ -313,8 +313,8 @@ public abstract class ApplicationOfTheKindTests extends SolutionSupport {
         String numberHere = numbered(here, approverHere, world.admin(), templateObject(), first, processHere);
         String numberThere = numbered(there, approverThere, world.admin(), OTHER_TEMPLATE, second, processThere);
 
-        // The same identification in both applications starts at the same number: the counters are not shared, and the
-        // unique index of the number (one per object) never sees a clash.
+        // The same identification in both applications starts at the same number: the counters are not shared, and
+        // the unique index of the number (one per object) never sees a clash.
         assertThat(numberHere).isEqualTo("IMS/01");
         assertThat(numberThere).isEqualTo("IMS/01");
         // Approvers of one application cannot decide the other's request.

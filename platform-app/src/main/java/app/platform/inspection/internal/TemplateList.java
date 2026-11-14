@@ -108,8 +108,8 @@ class TemplateList {
             throw ApiException.validation("state", "Choose ACTIVE, APPROVED, IN_REVIEW, DRAFT, NONE or RETIRED.");
         }
         int limit = size == null || size <= 0 ? DEFAULT_SIZE : Math.min(size, MOST);
-        RecordQuery query = new RecordQuery(filter(search, extra, category, partA, retired), sort, FIELDS,
-                List.of(), limit, cursor);
+        RecordQuery query = new RecordQuery(set.narrow(filter(search, extra, category, partA, retired)), sort,
+                FIELDS, List.of(), limit, cursor);
         QueryResult result = records.query(set.template(), query);
         List<UUID> ids = result.records().stream().map(QueriedRecord::record).map(DataRecord::id).toList();
         Map<UUID, SheetLifecycle.Summary> summaries = sheets.summaries(set.template(), ids);
@@ -129,7 +129,10 @@ class TemplateList {
                         Templates.revisionShown(header.fields(), summary.active())));
             }
         }
-        boolean canCreate = decisions.can(caller.membershipId(), set.template(), ObjectAction.CREATE).allowed();
+        // Documents are made in Document Management only: an application narrowed to its own documents offers no New
+        // (ADR-0259). The record store still decides every create, wherever it is asked.
+        boolean canCreate = !set.narrowed()
+                && decisions.can(caller.membershipId(), set.template(), ObjectAction.CREATE).allowed();
         return new TemplatePage(rows, result.nextCursor(), canCreate, wantedState != null);
     }
 

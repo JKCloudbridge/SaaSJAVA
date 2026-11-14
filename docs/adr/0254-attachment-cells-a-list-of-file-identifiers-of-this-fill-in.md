@@ -1,6 +1,6 @@
 # ADR-0254: Attachment cells: a list of file identifiers of this fill-in
 
-- **Status:** Accepted on 2026-11-12 for the cell type `attachment` and its place in the format (built in SH1A as a field of a stated input cell); the lifecycle of the files, the removal callback and the check at Submit stay Proposed until SH5 builds them (proof of concept POC 2, 2026-11-12)
+- **Status:** Accepted on 2026-11-12 for the cell type `attachment` and its place in the format (built in SH1A as a field of a stated input cell); the lifecycle of the files, the removal callback and the check at Submit were built in SH5 and are Accepted (see "Built in SH5" at the end; proof of concept POC 2, 2026-11-12)
 - **Date:** 2026-11-12
 - **Track:** Functional track, proof of concept (no product code, no migration, no change to the API or the generated documents)
 - **Related:** [ADR-0251](0251-sheets-format-version-2-and-the-engine.md) (format version 2, the cell types), [ADR-0192](0192-fill-ins-the-header-record-the-cell-table-and-review-by-the-approval-engine.md) and [ADR-0193](0193-fill-ins-the-rest-attachments-reportable-columns-the-report-and-the-archive.md) (fill-ins, files against the whole fill-in, the rule of the lifecycle), [ADR-0120](0120-files-attached-to-records.md) and [ADR-0121](0121-the-object-store-cleanup-and-health.md) (files on records, no signed address, every download an attachment), [ADR-0115](0115-the-record-access-model-and-how-it-reaches-a-statement.md) (who sees a record), [ADR-0012](0012-observability.md) (what is never logged)
@@ -35,3 +35,21 @@ The plant activity form has places where the person who fills it attaches a file
 - **Changed:** `FillValidator` (format 3), `FillStructure` (the effective type of a cell), `CellValues` (the type), `FillFileRules`, `FileService`, `RecordFileRules`, `FillApprovalHooks` (Submit), `XlsxWriter`; the web fill model and form. The complete list by search of the code is in the report (section 2.2).
 - **Proved in the prototype:** 300 of 300 generated fill-ins accepted, 35 of 35 hostile fill-ins refused with a stable code and no repeated text (an attachment given text, a file of another fill-in, the same file twice, six files, an identifier that is a path, a list inside a list, a file in a cell that is not an input cell, ...), the plant form with 52 cells of mixed kinds, and "removing a file makes the four required attachment cells of the form missing again at Submit". **Not proved:** the lifecycle against a real database and object store (the local store did not answer in the proof).
 - **Not decided here:** a "has an attachment" report column; scanning files for malware (a deployment choice, ADR-0120); a preview of a file; several files with names shown in the cell (the owner chose "(n attachments)").
+
+## Built in SH5 (2026-11-14, Functional track, sheet engine part 6)
+
+- **The lifecycle table is the rule and is built.** While a fill-in is a draft or returned, the person who started it adds a file
+  (bytes streamed through the application to the header record's files, no address and no file name in the cell) and names it in
+  the cell by the same save; a cell holds at most `maxFiles` (default 5, at most 5) identifiers, none repeated.
+- **A cell names only files of its own header**: at every save each identifier is asked of the new shared-kernel contract
+  `RecordFileDirectory` (implemented by the data module); an identifier that is not an active file of this fill-in's header is
+  refused with `file_unknown`, in words that never repeat it.
+- **Removing a file takes its identifier out of every cell in the same transaction**: `RecordFileRules.removed(change)` is called by
+  the file service after the removal; the cluster's `FillFileRules` implements it through `FillLifecycle.forgetFile` (the filler's
+  own change in a draft or a returned fill-in, the counted correction in a sent or approved one).
+- **Sent or approved:** only the counted correction; it cannot take the last file from a required attachment cell
+  (`FillLifecycle.emptiesRequiredAttachment`, asked before the removal). Archived: nobody.
+- **At Submit** a required attachment cell needs at least one file that still exists; the refusal names the cell by identifiers.
+- **Report and archive:** an attachment cell is not reportable; the archive moves the identifiers and the files stay in the store.
+- **Not built:** a "has an attachment" report column, a malware scan, a preview of a file, the names of the files in the cell
+  (the owner chose "(n attachments)"). The decisions around it are in [ADR-0258](0258-fill-format-three-the-reviewers-window-and-the-calculation-of-a-fill-in.md).

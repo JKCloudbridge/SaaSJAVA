@@ -148,7 +148,8 @@ class FillIns {
         }
         DataRecord header;
         try {
-            header = headers.create(set, caller.userId(), templateId, nameOf(template));
+            header = headers.create(set, caller.userId(), templateId, nameOf(template),
+                    text(template, Templates.APPLICATION));
         } catch (BackgroundWriteException refused) {
             refuse("start", refused.reason().key());
             throw new ApiException(ErrorCode.CONFLICT, "The fill-in could not be started right now.");
@@ -241,8 +242,8 @@ class FillIns {
             throw ApiException.validation("status", "Choose DRAFT, SUBMITTED, RETURNED or APPROVED.");
         }
         int limit = size == null || size <= 0 ? DEFAULT_SIZE : Math.min(size, MOST);
-        RecordQuery query = new RecordQuery(filter(templateId, wantedStatus, extra, searchFilter(search)), sort, FIELDS,
-                List.of(), limit, cursor);
+        RecordQuery query = new RecordQuery(set.narrow(filter(templateId, wantedStatus, extra, searchFilter(search))),
+                sort, FIELDS, List.of(), limit, cursor);
         QueryResult result = records.query(set.fill(), query);
         return new FillInPage(rowsOf(set, result.records()), result.nextCursor());
     }

@@ -46,7 +46,8 @@ import org.springframework.stereotype.Component;
 @Component
 class TemplateApprovalHooks implements ApprovalHooks {
 
-    private static final List<String> NUMBER_FIELD = List.of("number");
+    /** What the hook may write: the number and the application the routing rules give it (MC1.1, ADR-0259). */
+    private static final List<String> WRITTEN = List.of(Templates.NUMBER, Templates.APPLICATION);
 
     private final BackgroundRecords records;
     private final NumberSeries numbers;
@@ -54,9 +55,12 @@ class TemplateApprovalHooks implements ApprovalHooks {
     private final NumberAssignments assignments;
     private final AudienceSuggestions suggestions;
     private final RecordSets sets;
+    private final DocumentRouting routing;
 
     TemplateApprovalHooks(BackgroundRecords records, NumberSeries numbers, SheetLifecycle sheets,
-            NumberAssignments assignments, AudienceSuggestions suggestions, RecordSets sets) {
+            NumberAssignments assignments, AudienceSuggestions suggestions, RecordSets sets,
+            DocumentRouting routing) {
+        this.routing = routing;
         this.sets = sets;
         this.suggestions = suggestions;
         this.records = records;
@@ -78,7 +82,7 @@ class TemplateApprovalHooks implements ApprovalHooks {
 
     @Override
     public List<String> writes() {
-        return NUMBER_FIELD;
+        return WRITTEN;
     }
 
     /** The set the call is about, by the object the engine names. */
@@ -118,6 +122,9 @@ class TemplateApprovalHooks implements ApprovalHooks {
             if (!assignments.fixed(set.series(), template.id(),
                     (String) template.fields().get(Templates.NUMBER))) {
                 checkNumbering(set, template.fields(), template.id());
+                // The number is fixed at this approval: the application is looked up once more, so it is the one the
+                // organization's rules give now, and from here on it never moves (ADR-0259).
+                route(set, template, writer, Map.of());
             }
             assignments.reserve(set.series(), set.template(), template.id(),
                     (String) template.fields().get(Templates.NUMBER), true);
@@ -133,7 +140,7 @@ class TemplateApprovalHooks implements ApprovalHooks {
                     + "check its identification, Part A and Part B (Edit), then approve again.");
         }
         try {
-            writer.set(Map.of(Templates.NUMBER, number));
+            route(set, template, writer, Map.of(Templates.NUMBER, number));
             assignments.reserve(set.series(), set.template(), template.id(), number, true);
         } catch (ApprovalHookWriteException refused) {
             throw new ApprovalHookRefusal("number_in_use", "Another template already has the number this one would "
@@ -151,6 +158,25 @@ class TemplateApprovalHooks implements ApprovalHooks {
         };
         sheets.reviewed(setOf(context.object()).template(), context.recordId(), context.requestId(), result,
                 context.endedBy());
+    }
+
+    /**
+     * Writes what this approval fixes on the template: the number when it has none, and the application the routing
+     * rules give it now, when that differs from what the template holds. One write, so the number and the application
+     * are never apart.
+     */
+    private void route(RecordSet set, DataRecord template, ApprovalHookWriter writer, Map<String, String> number) {
+        String wanted = routing.applicationFor(set.template(), template.fields());
+        String has = template.fields().get(Templates.APPLICATION) instanceof String text ? text : "";
+        Map<String, String> values = new java.util.LinkedHashMap<>(number);
+        // A rule that fits now is written; what the last Save gave stays when none fits (the write pipeline takes no
+        // empty value, and a Save is where a value is cleared).
+        if (wanted != null && !wanted.equals(has)) {
+            values.put(Templates.APPLICATION, wanted);
+        }
+        if (!values.isEmpty()) {
+            writer.set(values);
+        }
     }
 
     // ---- the numbering checks of the first approval ----

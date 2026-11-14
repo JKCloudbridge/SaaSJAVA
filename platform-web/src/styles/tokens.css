@@ -91,6 +91,36 @@
   --color-print-accent: #7a2f73;
   --color-print-success: #17693a;
   --color-print-danger: #a62323;
+  /*
+   * A sheet in format version 2 (SH4, ADR-0251): drawn on white paper in both themes, so the colours its author chose are never
+   * turned into something else. The roles below stand in for the page's own inside the grid; the stated borders, the two inks
+   * for a fill with no text colour, the double ring of the active cell and the mark of an input cell are chosen to be seen
+   * over any fill, light or dark. A colour a sheet states is data: it never appears here or anywhere in source.
+   */
+  --sheet-paper-surface: #ffffff;
+  --sheet-paper-surface-sunken: #f1f2f4;
+  --sheet-paper-text: #111111;
+  --sheet-paper-text-muted: #55595e;
+  --sheet-paper-border: #d4d7db;
+  --sheet-paper-border-strong: #b5bac0;
+  --sheet-paper-accent: #93418b;
+  --sheet-paper-accent-soft: #f6eef8;
+  --sheet-paper-success: #17693a;
+  --sheet-paper-danger: #a62323;
+  --sheet-line-ink: #000000;
+  --sheet-ink-dark: #000000;
+  --sheet-ink-light: #ffffff;
+  --sheet-ring-dark: #111111;
+  --sheet-ring-light: #ffffff;
+  --sheet-select-wash: rgb(147 65 139 / 22%);
+  --sheet-mark-ink: #111111;
+  --sheet-mark-edge: #ffffff;
+  --sheet-mark-size: 6px;
+  --sheet-point: 1pt;
+  --sheet-line-thin: 1px;
+  --sheet-line-medium: 2px;
+  --sheet-line-thick: 3px;
+  --sheet-line-double: 3px;
   --flow-column-width: 17rem;
   --flow-dot-size: 0.75rem;
   --flow-line-width: 2px;

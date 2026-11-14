@@ -411,7 +411,6 @@ final class WorkbookReader {
         private final Set<Integer> fallbackFonts = new HashSet<>();
         private int read;
         private int rulesRead;
-        private boolean sawView;
         private Conditional rule;
 
         Pass(RawSheet sheet, List<String> strings, StyleBook styles, boolean date1904) {
@@ -485,7 +484,7 @@ final class WorkbookReader {
                                 sheet.defaultColumnChars = columnWidth != null && columnWidth > 0 ? columnWidth
                                         : Math.floor(((base == null ? 8 : base) * 7 + 5) / 7 * 256) / 256;
                             }
-                            case "sheetView" -> sawView = true;
+                            case "sheetView" -> { }
                             case "pane" -> {
                                 if (isMain(r)) {
                                     pane(r);

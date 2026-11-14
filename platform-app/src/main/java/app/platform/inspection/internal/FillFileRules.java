@@ -38,6 +38,8 @@ class FillFileRules implements RecordFileRules {
             + "people who may correct it.";
     private static final String ARCHIVED = "This fill-in is archived, so its files can no longer be changed.";
     private static final String NO_FILL = "This fill-in does not exist.";
+    private static final String REQUIRED_FILE = "A file that a required attachment cell needs cannot be removed from "
+            + "a fill-in that was sent.";
 
     private final FillLifecycle fills;
     private final Permissions permissions;
@@ -96,7 +98,21 @@ class FillFileRules implements RecordFileRules {
             refuse(act, "sent");
             throw new RecordFileRefusal(RecordFileRefusal.Kind.FORBIDDEN, SENT);
         }
+        if (change.act() == Act.REMOVE && change.fileId() != null
+                && fills.emptiesRequiredAttachment(change.object(), change.recordId(), change.fileId())) {
+            // A fill-in that was sent stays complete: a correction cannot take the last file from a required cell.
+            refuse(act, "required_attachment");
+            throw new RecordFileRefusal(RecordFileRefusal.Kind.CONFLICT, REQUIRED_FILE);
+        }
         corrected(change, act, status);
+    }
+
+    /** The file is gone: no cell of the fill-in may go on naming it (SH5, ADR-0254). */
+    @Override
+    public void removed(Change change) {
+        if (change.fileId() != null && !sets.ofFill(change.object()).isEmpty()) {
+            fills.forgetFile(change.object(), change.recordId(), change.fileId(), change.userId());
+        }
     }
 
     /** A person who may correct changed the files of a fill-in that was sent: counted, and audited without a name. */

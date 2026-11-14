@@ -19,7 +19,17 @@ and no second set of approval processes, numbers or access policies.
 - **Because the access policies are shared,** anyone who can open the Quality Management System tabs also sees Document Management, and the
   reverse. Give or take a tile with the plan feature, not with the access policies.
 - Notices and inbox rows lead to the Quality Management System tab when the organization has it, and to Document Management when it has only
-  that one.
+  that one. A notice about a document that was routed to another application (see below) leads to that application when the organization has it.
+
+## Every application makes its documents here (MC1.1, ADR-0259)
+
+Document Management is where every document of every application is made, by the chain that works today. Setup, Numbering, **Application
+routing** says which combination of Identification and Part A also belongs to which application (for example `F` with Part A `MC` belongs to
+[Management Core](management-core.md)). The platform writes the application on the document once, when Plant QMS gives it its number, fixes it at
+the first approval, and never moves it afterwards; Document Management shows **every** document, whatever its application, and the field
+**Application** on the document says which. A document with no matching rule belongs to Document Management alone. A fill-in and a change request
+copy the application of their document, so an approval process for fill-ins can be chosen by it (entry criteria `ISBLANK(application)` or
+`application = '<key>'`). When a document is published, **its creator gets a notice and an e-mail** (category Documents in the preferences).
 
 ## For the contributor
 

@@ -18,7 +18,7 @@ its own. This table lists every application that exists.
 | CAPA | `capa` | `solutions/capa/` | `capa` | Tile only (Home). [Page](capa.md) |
 | Audit Management | `audit-management` | `solutions/audit-management/` | `audit-management` | Tile only (Home). [Page](audit-management.md) |
 | Supplier Management | `supplier-management` | `solutions/supplier-management/` | `supplier-management` | Announced tabs. [Page](supplier-management.md) |
-| Management Core | `management-core` | `solutions/management-core/` | `management-core` | Announced tabs. [Page](management-core.md) |
+| Management Core | `management-core` | `solutions/management-core/` (one file; code and pages are those of `inspection`) | `management-core` | A view of Document Management's records narrowed to the documents routed to it by their number (MC1.1, ADR-0259); no objects of its own, no New document; the footer day follows its documents. [Page](management-core.md) |
 | Quality Management System | `inspection` | `solutions/inspection/`, `platform-app/.../app/platform/inspection/`, `platform-web/src/solutions/inspection/` | `inspection` | Real: the whole of this page. It brings the four objects and the seven access policies |
 | Environment Management | `environment-management` | `solutions/environment-management/` (bundle, three objects, numbering; no code) | `environment-management` | Real: the same functions over records of its own. [Page](environment-management.md) |
 | the fifteen process applications | `marketing`, `qa`, ... | `solutions/processes/` | `process-applications` | Announced tabs. [Page](processes.md) |
@@ -353,9 +353,9 @@ administrator's view is [metadata-guide.md](../metadata-guide.md) section 39.
   from `SheetExports.xlsx` (module `sheets`, cluster only, an architecture test names it) which asks `SheetVersions.readable`, the rule of
   the Sheet tab. The footer text and the file name are `TemplateSheetTexts` (pure). The audit record is `inspection.template.downloaded`
   (template identifier, revision number, bytes); never the number or the file name.
-- **The file** is `XlsxWriter` in `sheets` (no library): inline strings only, the quote prefix on a text that starts with `=`, `+`, `-` or
+- **The file** was `XlsxWriter` (retired in SH3; `WorkbookWriter` over the library writes it now, see the last section): inline strings only, the quote prefix on a text that starts with `=`, `+`, `-` or
   `@`, no formula element, six parts, a bound of 5,000,000 bytes, the input cells empty, landscape when the columns add up to more than
-  720 pixels. A new rule about what the file holds is a case in `XlsxWriterTest`, which also reads the file back with the reader of ADR-0195.
+  720 pixels. A new rule about what the file holds is a case in `WorkbookWriterTest` (SH3), which also reads the file back with the reader of the upload.
 - **The footer row** is not in the stored grid. `SheetGrid` takes a `footer` text (absent: no row; empty: a blank row) and draws one more row;
   `SheetWorkspace` takes `footer` (a text, or a function of the revision that is open) and `actions` (extra buttons beside View);
   `TemplateDetail` builds the text with `footerText(number, activeRevision)` from `lib/sheets/revision.ts`, the same rule as
@@ -365,7 +365,7 @@ administrator's view is [metadata-guide.md](../metadata-guide.md) section 39.
   `--sheet-page-*` tokens; the page is white in both themes. It is in the generic sheets components and knows no business word.
 - **Revision**: `Revisions` (server) and `revision.ts` (browser) are the only places that turn a stored number into what people read. Do not
   write `version` followed by a number in any sentence a person reads.
-- **Tests.** No database: `XlsxWriterTest`, `TemplateSheetTextsTest`, `InspectionArchitectureTest`, `SolutionBoundaryTest`. Real PostgreSQL:
+- **Tests.** No database: `WorkbookWriterTest` (was `XlsxWriterTest`), `TemplateSheetTextsTest`, `InspectionArchitectureTest`, `SolutionBoundaryTest`. Real PostgreSQL:
   `TemplateSheetOptionsIT` (the options, who may change them, view only, download allowed and refused, another organization, the footer, the
   clean trail); the isolation harness lists the table. Frontend: `revision.test.ts`, `print.test.ts`, `SheetPrintView.test.tsx`,
   `SheetGridFooter.test.tsx`, `SheetWorkspaceView.test.tsx`, `SheetOptionsDialog.test.tsx`, `PublishDialog.test.tsx`.
@@ -442,7 +442,7 @@ sheet drawn inside the request page.
   `TemplateApprovalHooks.onSubmit`. The fill-in page and the change request page draw no Submit.
 - **View of the register** (`RegisterPrintView`, opened by the *View* button of `RegisterRequestPanel`): the shared `Modal` (new `wide`
   option), `printModel(doc, { labels: false })` for the cells, and the server's `RegisterView.print` (`SheetPages.PrintSettings`,
-  produced by `XlsxWriter.printSettings`, the method the file writer reads) for the size of the paper, the orientation and the margins.
+  produced by `PrintRules` since SH3, the class the file writer reads; was `XlsxWriter.printSettings`) for the size of the paper, the orientation and the margins.
   The raise popup has no View button.
 - **The asterisk** (`OpenRequestsMark`, `.open-requests-mark`) is inline after the word of the tab.
 - **Tests.** No database: `TemplateSendRuleTest`, `TemplateApprovalHooksTest` (the refusal words equal the rule's), `OpenRequestsMark.test.tsx`
@@ -577,5 +577,70 @@ Short form; the decision is ADR-0252 (Accepted, with its "Built in SH2" note), t
 - **A new refusal reason** needs the words in `FormulaWords` (and `types.ts`), a line in `hostile-grids.txt` (kind `two`, code `formula_<reason>`) and the code in the set of `SheetHostileCorpusTest`.
 - **Never log, audit or put in a metric** a formula, a text in it, a number typed or an answer; counts and codes only (`SheetsLogsAreCleanIT`, `SheetImportLogsAreCleanIT`).
 - **The growing token** `@{COL,*}` is accepted only in a sheet where the filler adds all the rows; the translator never writes it elsewhere.
-- **Download.** `DefaultSheetExports` writes the answer of each formula cell as text (SH3 writes formulas); `XlsxWriter` still writes any text starting with `=` as text.
+- **Download.** Until SH3 `DefaultSheetExports` wrote the answer of each formula cell as text; SH3 writes formulas as formulas (last section), and a text starting with `=` is still written as text.
 - **Tests.** No database: `FormulaCasesTest`, `FormulaHostileTest`, `FormulaPropertyTest`, `SheetFormulaDocumentTest`, `SheetCalculatorTest`, `FormulaImportTest`, `DefaultSheetExportsTest`, `SheetHostileCorpusTest` (the `formula_*` lines), `RealWorkbooksFormulaReportTest` (counts only, runs when `-DrealWorkbooks=` names the files). Real PostgreSQL: `SheetFormulaIT`, `SheetsLogsAreCleanIT`. Frontend: `formula/cases.test.ts`, `formula/edit.test.ts`, `FormulaBar.test.tsx`.
+
+
+## The download writes the look and the formulas (SH3)
+
+The download (`TemplateDownloads` then `SheetExports`) is unchanged in who may have it; the file is now written by `WorkbookWriter` from the stored version: a format version 2 sheet carries its look, number formats, borders, frozen pane, conditional colours, page set-up, links and **formulas as formulas with their answers**, with drop-down lists for Yes/No and picklist cells. The two "not yet" notes are gone; the file's information says "Made by the platform. Revision NN.". The Excel page of a change request (`SheetPages`) uses the same writer in its plain mode (no band, no footer). The page set-up of the template print view now comes from the server (`print` on the version). Left out: a print area, the date in the footer stamp (MC1). Tests: see the engineering guide section "The file out (SH3)".
+
+## The look on the screen (SH4)
+
+A sheet in format version 2 is drawn from its stored look; a sheet in format version 1 is drawn as it always was. The decision is [ADR-0256](../adr/0256-drawing-the-look-white-paper-the-route-of-a-free-colour-and-the-hidden-note.md); the code is `platform-web/src/lib/sheets/look/` (pure, tested without a browser) and `components/sheets/SheetGrid.tsx`, `SheetPrintView.tsx`.
+
+- **White paper.** The grid carries `sheet-paper`, which redefines the colour roles inside it to the paper tokens, so a stated colour is never changed for the dark theme.
+- **One road for what a sheet states** (`readLook` then `describe`): colours only after `^#[0-9a-fA-F]{6}$`, as custom properties `--sheet-fill`, `--sheet-text`, `--sheet-pt` set through the style object model; fonts, borders and number formats as keys of closed lists. A bad part is dropped and the cell is still drawn. The lists exist in the schema, in `look.ts` and in `globals.css`; `look.test.ts` fails until the three agree.
+- **Borders** (`borders.ts`): a cell draws its right and bottom edge resolved with its neighbour (the stronger wins), its top and left only at the outer edge; a merged area draws its own edge. A cell a person types into that states no look has thin lines, as the file out draws it.
+- **Number formats** (`numberFormat.ts`): on the decimal digits, half away from zero; the cases are in `platform-app/src/test/resources/sheets/look-cases.txt`, read by `numberFormat.test.ts` and by `LookCasesTest`. Only a number is formatted (a formula answer of kind number, or a number in a number column or a cell whose format formats numbers); dates are text.
+- **Conditions** (`conditions.ts`): display only, over the displayed number, with the fixed hidden words; the first fill and the first text colour win.
+- **Freeze** (`freeze.ts`, `SheetGrid.tsx`): fixed rows are sticky rows, fixed columns ride in a `sheet-pane-left` layer of no size inside each row; the line moves up or left past a merged area and the fixed part takes at most three fifths of the view.
+- **Answers carry their kind.** `answerSet` (browser) and the server's calculation both say number, text, boolean or error; `lib/sheets/look/sheetLook.ts` lays them out by cell key for the grid and the print view.
+- **Tests.** No database: `look.test.ts`, `numberFormat.test.ts`, `conditions.test.ts`, `ink.test.ts`, `borders.test.ts`, `freeze.test.ts`, `cellStyle.test.ts`, `display.test.ts`, `SheetGridLook.test.tsx`, `SheetPrintViewLook.test.tsx`, a fill-in fixture in `FillWorkspace.test.tsx`; server `LookCasesTest`. Real browser: `platform-web/browser-checks/sheet-look.mjs` (thresholds T1 to T12; `--workbooks` for the owner's two files and the pictures).
+
+## Filling a form on the new sheet format (SH5)
+
+The decisions are in [ADR-0258](../adr/0258-fill-format-three-the-reviewers-window-and-the-calculation-of-a-fill-in.md) and
+[ADR-0254](../adr/0254-attachment-cells-a-list-of-file-identifiers-of-this-fill-in.md).
+
+- **What changed for a person.** A published template in format version 2 (the Management Core forms) can be filled: start a
+  fill-in, fill the cells, add files, see the calculated columns, send it. A template in the first format works exactly as before.
+- **Fill format 3** is `{"formatVersion":3,"sheets":[{"key","rows":[...]}]}`; the validator is `FillValidator` with the effective type
+  of a cell from `FillStructure.effective`. The corpus of hostile documents is `src/test/resources/sheets/hostile-fills.txt`, read by
+  `FillFormatThreeCorpusTest`; a new refusal code needs a line there.
+- **Two classes of cells.** `FillClassRules` is the one place that says who may change which cell. The filler's own cells and the
+  reviewer's are typed by different people; a person who may correct a sent fill-in may change any input cell.
+- **The reviewer's edit** needs an open task of the pending request, changes only reviewer cells, is counted (`review_edits`) and
+  audited by size and fingerprint, and does not return the fill-in. The window at the database is V091.
+- **Calculation.** `FillCalculations` calls `SheetCalculator`; the answers are never stored. The browser shows the server's answers.
+- **Attachments.** `RecordFileDirectory` (shared kernel, implemented by the data module) answers which files a header holds;
+  `RecordFileRules.removed` lets the cluster take an identifier out of the cells; `FillLifecycle.forgetFile` and
+  `emptiesRequiredAttachment` are the two calls behind it.
+- **Tests.** No database: `FillFormatThreeTest`, `FillFormatThreeCorpusTest`; real PostgreSQL: `SheetFillGuardIT` (the reviewer's
+  window); frontend `fillModelThree.test.ts`. The tests of the whole flow against the real database and object store are listed in
+  `Sprint SH5.md` with what was and was not run.
+
+## Application routing, the narrowed application and the notice on publish (MC1.1)
+
+Short form; the decision is [ADR-0259](../adr/0259-documents-are-made-in-document-management-and-routed-to-applications-by-their-number.md). The
+Functional track is not a numbered sprint.
+
+- **What the cluster knows.** A `RecordSet` has an optional `application`: when it is set the set is the same objects narrowed to the records
+  that carry that name in their field `application` (`narrow` adds the condition to a record store question, `admits` checks a record already
+  read). The solution file says `options: routedByNumber: "true"`. Every source of records has exactly one set that shows all its records
+  (Document Management and the Quality Management System are the same set) and any other set of the same objects is narrowed.
+- **Where the field is written.** `TemplateIdentityWrites` (a permitted Save, with the number, through the write rule of ADR-0198) and
+  `TemplateApprovalHooks.beforeApprove` (the first approval, which writes a rule that fits and clears nothing, through the narrow writer of the hook, in the same write as the number).
+  `DocumentRouting.applicationFor` is the only reader of the rules (`DocumentRoutingStore`, the table `inspection_document_routing`, V092). The
+  fill-in and change-request headers copy it when they are made (`FillHeaders`, `ChangeRequestHeaders`).
+- **Where the narrowing is applied.** The master list (`TemplateList`), the list of fill-ins (`FillIns`), the report (`FillReport`), the list
+  of change requests (`ChangeRequestList`), the dashboard (`QualityHome`: the templates scan and the judge of fill-ins) and the one gate of a call
+  about one document (`TemplateAccess.visible`). A new place that reads these records must narrow too.
+- **The footer day** is `RecordSets.footerDate(document application)`, read in `TemplateDownloads` and the lifecycle view.
+- **The notice on publish** is `DocumentPublishedNotices` (module `inspection`); `NoticeKind.DOCUMENT_PUBLISHED` carries its mail template, and
+  `DefaultNotices` queues the mail with the notice, so the module needs no address and no new edge.
+- **The Observer policy** (`solutions/inspection/solution.yml`): read and view all on the three objects, nothing else.
+- **Every shipped policy lists `application` in its read lists**, or a narrowed list fails for a holder of it.
+- **Tests:** `RecordSetsTest`, `TemplateApprovalHooksTest`, `SolutionLoaderTest`, `SolutionOrderAndSharingTest`, `StandardMetadataLoaderTest`;
+  `DocumentRoutingRulesIT`, `DocumentRoutingIT`, `ShippedPoliciesIT`, `RetainedObjectsIT`; the isolation harness lists
+  `inspection_document_routing`; frontend `RoutingPanel.test.tsx`.

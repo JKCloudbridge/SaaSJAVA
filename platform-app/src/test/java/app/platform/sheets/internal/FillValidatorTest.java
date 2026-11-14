@@ -316,7 +316,7 @@ class FillValidatorTest {
     @Test
     void anUnknownPartAndAnotherFormatAreRefused() {
         assertThat(codes(check(named(), "{\"formatVersion\":1,\"rows\":[],\"extra\":1}"))).containsExactly("shape");
-        assertThat(codes(check(named(), "{\"formatVersion\":3,\"rows\":[]}"))).containsExactly("format");
+        assertThat(codes(check(named(), "{\"formatVersion\":4,\"rows\":[]}"))).containsExactly("format");
         assertThat(codes(check(named(), "{\"rows\":[]}"))).containsExactly("format");
         assertThat(codes(check(named(), "{\"formatVersion\":1}"))).containsExactly("shape");
         assertThat(codes(check(named(), "[]"))).containsExactly("shape");

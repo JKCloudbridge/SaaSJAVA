@@ -32,7 +32,7 @@ extensible: false
 requiresFeature: inspection
 # The Document Management application shows the same records (FA13A, ADR-0225): the object exists when either
 # application's plan feature is on, and nothing is stored twice.
-alsoAvailableWith: [document-management]
+alsoAvailableWith: [document-management, management-core]
 retainRecords: true
 sharingDefault: PRIVATE
 fields:
@@ -152,3 +152,15 @@ fields:
     type: TEXT
     platformWritten: true
     settings: { maxLength: 40 }
+
+  # MC1.1, ADR-0259: the application the document also belongs to. The platform writes it when the document's number is
+  # made, from the routing rules of the organization (Setup, Numbering, Application routing); it is empty for a document
+  # that belongs to Document Management alone and is never changed after the first approval. It is indexed because a
+  # routed application lists only the records that carry its name.
+  - apiName: application
+    label: Application
+    description: The application this document also belongs to. The platform sets it when the document gets its number, from the routing rules in Setup, Numbering; nobody types it. Empty means Document Management only.
+    type: TEXT
+    platformWritten: true
+    indexed: true
+    settings: { maxLength: 60 }

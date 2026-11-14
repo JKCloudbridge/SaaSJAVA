@@ -1,9 +1,11 @@
 package app.platform.sheets.internal;
 
 import app.platform.sheets.SheetExports;
+import app.platform.sheets.internal.WorkbookWriter.Page;
 import app.platform.sheets.internal.formula.FormulaLimits;
-import java.util.LinkedHashMap;
-import java.util.Map;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Locale;
 import java.util.UUID;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -11,59 +13,58 @@ import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.json.JsonMapper;
 
 /**
- * The sheet as a file (FA7, ADR-0201). The version comes from {@link SheetVersions#readable}, the one rule of who may
- * read a version; the grid is read into the typed model and written by {@link XlsxWriter}. A writer is made for each
- * call because it keeps the styles of the workbook it is writing.
+ * The sheet as a file (FA7, ADR-0201; SH3, ADR-0253). The version comes from {@link SheetVersions#readable}, the one
+ * rule of who may read a version; the document is read into the typed model and written by {@link WorkbookWriter}.
+ *
+ * <p>A sheet in format version 1 is written as it always was. A sheet in format version 2 is written with everything
+ * it states: the look, the frozen pane, the conditional colours, the page set-up and its formulas, as formulas, each
+ * with the answer the server calculates for it stored beside it. The information of the file says only that the
+ * platform made it and which Revision it is; nothing a person typed.
  */
 @Service
 @Transactional(readOnly = true)
 class DefaultSheetExports implements SheetExports {
 
-    /** What the information of a file written from a sheet in format version 2 says (plain words, no markup). */
-    static final String LOOK_NOT_YET = "Made from a sheet in the new format. Its colours, fonts, borders and number "
-            + "formats are not in this file yet.";
-
-    /** Said in the information of a file when the sheet has formulas: until SH3 an answer is written, not a formula. */
-    static final String FORMULAS_AS_ANSWERS = " Formulas are written as their calculated answers, not as formulas.";
+    /** What the information of a file says it was made by. */
+    static final String MADE_BY = "Made by the platform.";
 
     private final SheetVersions versions;
     private final FormulaProperties formulas;
+    private final WorkbookWriter writer;
     private final JsonMapper json = JsonMapper.builder().build();
 
-    DefaultSheetExports(SheetVersions versions, FormulaProperties formulas) {
+    DefaultSheetExports(SheetVersions versions, FormulaProperties formulas, WorkbookWriter writer) {
         this.versions = versions;
         this.formulas = formulas;
+        this.writer = writer;
     }
 
     @Override
     public byte[] xlsx(String ownerObject, UUID ownerId, int versionNo, String footerRight) {
         SheetVersionStore.WithGrid found = versions.readable(ownerObject, ownerId, versionNo);
-        JsonNode stored = json.readTree(found.grid());
-        SheetGrid grid = SheetGridReader.read(stored);
-        // A sheet in format version 2 is written as far as format version 1 goes: its text, widths, heights, merges and
-        // the footer. Its look is drawn by a later release (SH3), and the file says so. A formula is written as the
-        // answer the server calculates for it, as text, never as a formula (SH2); the file says so too.
-        String note = null;
-        if (SheetFormats.isFormatTwo(stored)) {
-            note = LOOK_NOT_YET;
-            SheetDocument.Tab tab = SheetDocumentReader.read(stored).sheets().get(0);
-            if (!tab.formulas().isEmpty()) {
-                grid = withAnswers(grid, tab, formulas.limits());
-                note += FORMULAS_AS_ANSWERS;
-            }
-        }
-        return new XlsxWriter().write(grid, footerRight, false, note);
+        int revision = found.row().revisionNo() != null ? found.row().revisionNo() : Math.max(0, versionNo - 1);
+        return writer.write(pagesOf(json.readTree(found.grid()), footerRight, formulas.limits()),
+                description(revision)).bytes();
     }
 
-    /** The grid with the answer of each formula cell as its text. */
-    static SheetGrid withAnswers(SheetGrid grid, SheetDocument.Tab tab, FormulaLimits limits) {
-        SheetCalculator.Outcome outcome = SheetCalculator.calculate(tab, SheetCalculator.Inputs.none(), limits);
-        Map<String, SheetGrid.Cell> cells = new LinkedHashMap<>(grid.cells());
-        outcome.cells().forEach((key, answer) -> {
-            SheetGrid.Cell held = cells.get(key);
-            cells.put(key, new SheetGrid.Cell(answer.value(), held == null ? null : held.style(), null));
-        });
-        return new SheetGrid(grid.dimension(), grid.rowsMode(), grid.columns(), grid.headerRows(), grid.rows(), cells,
-                grid.merges());
+    /** The worksheets of a stored document, each with the answers of its formulas. */
+    static List<Page> pagesOf(JsonNode stored, String footerRight, FormulaLimits limits) {
+        if (!SheetFormats.isFormatTwo(stored)) {
+            return List.of(Page.one(SheetGridReader.read(stored), footerRight));
+        }
+        List<Page> pages = new ArrayList<>();
+        for (SheetDocument.Tab tab : SheetDocumentReader.read(stored).sheets()) {
+            SheetCalculator.Outcome answers = tab.formulas().isEmpty() && tab.columnFormulas().isEmpty() ? null
+                    : SheetCalculator.calculate(tab, tab.body().dimension() == 1
+                            ? SheetCalculator.Inputs.emptyRows(WorkbookWriter.SAMPLE_ROWS)
+                            : SheetCalculator.Inputs.none(), limits);
+            pages.add(new Page(tab.title(), tab.body(), tab, answers, footerRight, false));
+        }
+        return pages;
+    }
+
+    /** The words of the file's information: fixed, and the Revision as people read it. */
+    static String description(int revision) {
+        return MADE_BY + String.format(Locale.ROOT, " Revision %02d.", Math.max(0, revision));
     }
 }

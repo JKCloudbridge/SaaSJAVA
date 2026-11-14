@@ -146,6 +146,8 @@ public final class TemplateViews {
      * @param canSubmit whether the template can be sent for approval now (FA10): the template's own rule, which the
      *        approval hook asks again; a screen greys Submit out when it is false and decides nothing else
      * @param submitNote a short fixed sentence for the hover of the greyed button, or null when it can be sent
+     * @param footerDate whether the footer of this application's sheets carries the day the Revision in use was
+     *        published (MC1, ADR-0257); the screen writes the day in the reader's own time zone
      */
     public record TemplateLifecycleView(@NotNull UUID id, @NotNull Boolean retired,
             @NotNull TemplateLifecycle lifecycle, @NotNull List<TemplateAudience> audience,
@@ -154,7 +156,8 @@ public final class TemplateViews {
             @NotNull List<VersionReview> versionReviews, @NotNull List<SuggestedAudience> suggestedAudience,
             @NotNull Integer suggestionDropped, String number, @NotNull Boolean viewOnly,
             @NotNull Boolean allowDownload, @NotNull Boolean canDownload, @NotNull Boolean canSetOptions,
-            String revision, Instant lastRevisedAt, @NotNull Boolean canSubmit, String submitNote) {
+            String revision, Instant lastRevisedAt, @NotNull Boolean canSubmit, String submitNote,
+            @NotNull Boolean footerDate) {
     }
 
     /**
@@ -203,8 +206,17 @@ public final class TemplateViews {
      * What the publish dialog offers: the locations and, for each, its departments (the dependent lists).
      *
      * @param locations the locations
+     * @param placesOnly whether this application publishes to places alone (MC1, ADR-0257): every location then
+     *        carries the one department that receives the template, and the dialog asks for no department
+     * @param placeDepartment the code of that department, or null when departments are chosen
      */
-    public record AudienceOptionsView(@NotNull List<AudienceLocation> locations) {
+    public record AudienceOptionsView(@NotNull List<AudienceLocation> locations, @NotNull Boolean placesOnly,
+            String placeDepartment) {
+
+        /** The lists as the organization keeps them: departments are chosen. */
+        public AudienceOptionsView(List<AudienceLocation> locations) {
+            this(locations, false, null);
+        }
     }
 
     /**

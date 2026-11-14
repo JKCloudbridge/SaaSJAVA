@@ -42,7 +42,7 @@ public abstract class SolutionSupport {
     protected static final String FILL = "InspectionFill";
     protected static final String REQUEST = "InspectionChangeRequest";
     protected static final List<String> SHIPPED_POLICIES = List.of("Author", "Approver", "Publisher", "Reader",
-            "Filler", "Reviewer", "Department setup");
+            "Filler", "Reviewer", "Department setup", "Observer");
 
     @LocalServerPort
     protected int port;

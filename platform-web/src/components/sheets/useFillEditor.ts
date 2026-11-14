@@ -3,15 +3,19 @@
 import { useMemo, useReducer } from "react";
 import {
   addFillRow,
+  canEditAs,
+  cellSpec,
   clearFillCells,
   displayDoc,
   formatFillCells,
   gridDisplayRows,
-  isInputCell,
   pasteFill,
   removeFillRow,
   sameFill,
+  setFillFiles,
   setFillValue,
+  type CellSpec,
+  type EditAs,
 } from "@/lib/sheets/fillModel";
 import type { FillDoc, FillLimits, FillOp, FillStyle } from "@/lib/sheets/fillTypes";
 import { normalized } from "@/lib/sheets/geometry";
@@ -78,8 +82,15 @@ export interface FillEditor extends SheetGridEditor {
   canRedo: boolean;
   /** Whether the cells differ from the last ones saved or loaded. */
   dirty: boolean;
-  /** Whether a person may type into the cell of this row and column (the sheet's own rule). */
+  /**
+   * Whether the caller may type into the cell of this row and column: the sheet's own rule, and the class of the cell
+   * against the person (the filler's cells and the reviewer's are not typed by the same person, SH5).
+   */
   canEditCell(rowId: string, columnId: string): boolean;
+  /** What the cell holds: its type, whether it is required, its class and its list, as the sheet states it. */
+  spec(rowId: string, columnId: string): CellSpec;
+  /** Names the files of an attachment cell (identifiers only); an empty list clears it. */
+  setFiles(rowId: string, columnId: string, files: readonly string[]): string | null;
   addRow(): void;
   removeRow(rowId: string): void;
   /** Starts again from cells just loaded: no history, nothing unsaved. */
@@ -95,7 +106,7 @@ export interface FillEditor extends SheetGridEditor {
  * (FF1, ADR-0192). Every edit is one of the pure operations of `lib/sheets/fillModel`; this hook only keeps their results,
  * and shows the sheet with the cells laid over it as the document the grid draws. It decides no rule and no permission.
  */
-export function useFillEditor(grid: GridDoc, initial: FillDoc, limits: FillLimits): FillEditor {
+export function useFillEditor(grid: GridDoc, initial: FillDoc, limits: FillLimits, editAs?: EditAs): FillEditor {
   const [state, dispatch] = useReducer(reduce, initial, (fill): State => ({
     history: hist.start(fill),
     saved: fill,
@@ -143,7 +154,13 @@ export function useFillEditor(grid: GridDoc, initial: FillDoc, limits: FillLimit
     say: (text, error = false) => dispatch({ type: "say", message: text ? { text, error } : null }),
     undo: () => dispatch({ type: "undo" }),
     redo: () => dispatch({ type: "redo" }),
-    canEditCell: (rowId, columnId) => isInputCell(grid, rowId, columnId),
+    canEditCell: (rowId, columnId) => canEditAs(grid, editAs, rowId, columnId),
+    spec: (rowId, columnId) => cellSpec(grid, rowId, columnId),
+    setFiles: (rowId, columnId, files) => {
+      const result = setFillFiles(grid, fill, rowId, columnId, files);
+      dispatch({ type: "run", op: (current) => setFillFiles(grid, current, rowId, columnId, files) });
+      return result.ok ? null : result.error;
+    },
     setText: (rowId, columnId, text) => {
       const result = setFillValue(grid, fill, rowId, columnId, text, limits);
       dispatch({ type: "run", op: (current) => setFillValue(grid, current, rowId, columnId, text, limits) });

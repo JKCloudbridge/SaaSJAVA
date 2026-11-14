@@ -57,6 +57,17 @@ class FileStore {
                 .query(FileStore::map).optional();
     }
 
+    /** Which of these files are active files of the record (SH5): identifiers only. */
+    java.util.Set<UUID> activeAmong(UUID recordId, java.util.Collection<UUID> ids) {
+        if (ids.isEmpty()) {
+            return java.util.Set.of();
+        }
+        return new java.util.HashSet<>(jdbc.sql("select id from record_file where tenant_id = :tenant "
+                        + "and record_id = :record and id in (:ids) and state = 'ACTIVE' and deleted_at is null")
+                .param("tenant", tenant()).param("record", recordId).param("ids", ids)
+                .query((rs, row) -> rs.getObject("id", UUID.class)).list());
+    }
+
     /** Takes the lock that serializes the uploads of one record, so that the limit holds when two arrive together. */
     void lockRecord(UUID recordId) {
         jdbc.sql("select pg_advisory_xact_lock(hashtextextended(:key, 0))").param("key", "files:" + recordId)

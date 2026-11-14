@@ -11,8 +11,11 @@ import java.util.Map;
  *
  * @param version the facts about the version
  * @param grid the grid (the schema {@code SheetGrid} of this document)
+ * @param print how the sheet is set up for paper, the description its file and its print view are both made from
+ *        (SH3); absent in an answer of an earlier release
  */
-public record SheetVersionView(@NotNull SheetVersionSummaryView version, @NotNull Map<String, Object> grid) {
+public record SheetVersionView(@NotNull SheetVersionSummaryView version, @NotNull Map<String, Object> grid,
+        SheetPrintView print) {
 
     /** Copies the grid, so that it cannot be changed from outside. */
     public SheetVersionView {

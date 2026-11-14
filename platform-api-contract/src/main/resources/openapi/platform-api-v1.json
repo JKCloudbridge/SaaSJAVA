@@ -2065,6 +2065,121 @@
         "tags" : [ "Access" ]
       }
     },
+    "/api/v1/document-routing" : {
+      "get" : {
+        "description" : "Needs numbering.manage. Every rule of the organization, the applications a rule can name (only those the organization has whose documents come from Document Management) and the Identification values. A rule names an Identification and, optionally, a Part A (empty means every Part A); the rule of the exact pair wins. A rule decides the application of documents numbered afterwards: it never moves a document that has its number.",
+        "operationId" : "listDocumentRouting",
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseRoutingView"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "The rules that route a document to an application",
+        "tags" : [ "Application routing" ]
+      },
+      "put" : {
+        "description" : "Needs numbering.manage. Without a version it makes the rule of the combination and is refused (CONFLICT) when one exists; with the version read it changes that rule's application. Audited by the application's key only.",
+        "operationId" : "saveDocumentRouting",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/SaveRoutingRuleRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseRoutingView"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "Make a rule, or change the application of one",
+        "tags" : [ "Application routing" ]
+      }
+    },
+    "/api/v1/document-routing/{ruleId}" : {
+      "delete" : {
+        "description" : "Needs numbering.manage and the version read. Documents already numbered keep their application. Audited by the application's key only.",
+        "operationId" : "removeDocumentRouting",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "ruleId",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "in" : "query",
+          "name" : "version",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseRoutingView"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "Remove a rule",
+        "tags" : [ "Application routing" ]
+      }
+    },
     "/api/v1/embedded-tokens" : {
       "post" : {
         "description" : "For a member of the organization of the host, with their own token. The new token is the member's own, narrowed: it ends with the sign-in it came from, lives a few minutes, works only as a bearer token, and reaches the data interface only (records, files, searches, reading definitions); everything else answers FORBIDDEN. Every call it makes is decided by the member's own permissions. It is shown once and stored only as a hash. A token of this kind cannot ask for another (FORBIDDEN). NOT_FOUND on the platform host; RATE_LIMITED past the hourly allowance. Audited.",
@@ -13749,6 +13864,52 @@
         "tags" : [ "Sheet fill-ins" ]
       }
     },
+    "/api/v1/sheet-fills/{fillObject}/{fillId}/calculation" : {
+      "get" : {
+        "description" : "Calculated now, by the server, from the sheet version the fill-in is pinned to and its cells; nothing calculated is stored, so every read is the answer of today's rules. A calculated column has one answer for each row of a sheet where the filler adds the rows. The browser's own calculation is only a preview while a person types. Readable by whoever may read the fill-in. NOT_FOUND for an object that has no fill-ins, for a fill-in that does not exist and for a header record the caller may not read (all three answer alike). A fill-in has no permission of its own: reading it needs the right to read the header record and changing it the right to update the header record. ",
+        "operationId" : "getSheetFillCalculation",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "fillObject",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "path",
+          "name" : "fillId",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseSheetCalculationView"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "The answers of the formulas of a fill-in",
+        "tags" : [ "Sheet fill-ins" ]
+      }
+    },
     "/api/v1/sheet-fills/{fillObject}/{fillId}/cells" : {
       "put" : {
         "description" : "The body is the cells document itself: formatVersion 1 or 2 and rows with an id and cells keyed by column identifier. Version 2 also accepts sparse styles keyed by column: bold/italic/underline booleans, fontSize SMALL, NORMAL, LARGE or TITLE, alignment LEFT/CENTER/RIGHT and colour DEFAULT/ACCENT/SUCCESS/DANGER, only on input cells. Old version 1 documents retain their canonical bytes. The row version that was read goes in the version parameter. The size is checked before anything is parsed, from the length the client announces and again on the bytes read: PAYLOAD_TOO_LARGE above the limit. Then the cells are checked in a fixed order and the first stage with a problem answers alone, with every place of that stage under cells: VALIDATION_ERROR. Only input cells accept a value, each value must fit the type of its column, and rows can be added only where the sheet allows it. A draft may be saved half done. CONCURRENT_MODIFICATION (409) when the fill-in has changed since it was read, and nothing changes. A fill-in that was sent for review can be changed only as a counted correction by a caller who may correct it (FORBIDDEN otherwise), and stays complete. CONFLICT when the sheet was retired. Audited by the size, the hash and counts, never by content. NOT_FOUND for an object that has no fill-ins, for a fill-in that does not exist and for a header record the caller may not read (all three answer alike). A fill-in has no permission of its own: reading it needs the right to read the header record and changing it the right to update the header record. ",
@@ -17963,6 +18124,15 @@
         },
         "required" : [ "data" ]
       },
+      "ApiResponseRoutingView" : {
+        "type" : "object",
+        "properties" : {
+          "data" : {
+            "$ref" : "#/components/schemas/RoutingView"
+          }
+        },
+        "required" : [ "data" ]
+      },
       "ApiResponseSharingRuleView" : {
         "type" : "object",
         "properties" : {
@@ -19038,9 +19208,15 @@
             "items" : {
               "$ref" : "#/components/schemas/AudienceLocation"
             }
+          },
+          "placeDepartment" : {
+            "type" : "string"
+          },
+          "placesOnly" : {
+            "type" : "boolean"
           }
         },
-        "required" : [ "locations" ]
+        "required" : [ "locations", "placesOnly" ]
       },
       "AudiencePick" : {
         "type" : "object",
@@ -26114,6 +26290,86 @@
         },
         "required" : [ "description", "id", "name" ]
       },
+      "RoutingApplicationView" : {
+        "type" : "object",
+        "properties" : {
+          "application" : {
+            "type" : "string"
+          },
+          "label" : {
+            "type" : "string"
+          }
+        },
+        "required" : [ "application", "label" ]
+      },
+      "RoutingIdentificationView" : {
+        "type" : "object",
+        "properties" : {
+          "active" : {
+            "type" : "boolean"
+          },
+          "label" : {
+            "type" : "string"
+          },
+          "value" : {
+            "type" : "string"
+          }
+        },
+        "required" : [ "active", "label", "value" ]
+      },
+      "RoutingRuleView" : {
+        "type" : "object",
+        "properties" : {
+          "application" : {
+            "type" : "string"
+          },
+          "applicationLabel" : {
+            "type" : "string"
+          },
+          "available" : {
+            "type" : "boolean"
+          },
+          "id" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "identification" : {
+            "type" : "string"
+          },
+          "partA" : {
+            "type" : "string"
+          },
+          "version" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        },
+        "required" : [ "application", "available", "id", "identification", "partA", "version" ]
+      },
+      "RoutingView" : {
+        "type" : "object",
+        "properties" : {
+          "applications" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/RoutingApplicationView"
+            }
+          },
+          "identifications" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/RoutingIdentificationView"
+            }
+          },
+          "rules" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/RoutingRuleView"
+            }
+          }
+        },
+        "required" : [ "applications", "identifications", "rules" ]
+      },
       "SaveAccessPolicyRequest" : {
         "type" : "object",
         "properties" : {
@@ -26391,6 +26647,31 @@
           }
         },
         "required" : [ "name" ]
+      },
+      "SaveRoutingRuleRequest" : {
+        "type" : "object",
+        "properties" : {
+          "application" : {
+            "type" : "string",
+            "maxLength" : 60,
+            "minLength" : 0
+          },
+          "identification" : {
+            "type" : "string",
+            "maxLength" : 10,
+            "minLength" : 0
+          },
+          "partA" : {
+            "type" : "string",
+            "maxLength" : 10,
+            "minLength" : 0
+          },
+          "version" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        },
+        "required" : [ "application", "identification" ]
       },
       "SaveSharingRuleRequest" : {
         "type" : "object",
@@ -27008,6 +27289,9 @@
           "correction" : {
             "type" : "boolean"
           },
+          "editAs" : {
+            "type" : "string"
+          },
           "fill" : {
             "$ref" : "#/components/schemas/SheetFillSummaryView"
           },
@@ -27497,6 +27781,42 @@
         },
         "required" : [ "fitToWidth", "orientation", "paper", "repeatHeaderRows" ]
       },
+      "SheetPrintView" : {
+        "type" : "object",
+        "properties" : {
+          "marginBottom" : {
+            "type" : "number",
+            "format" : "double"
+          },
+          "marginLeft" : {
+            "type" : "number",
+            "format" : "double"
+          },
+          "marginRight" : {
+            "type" : "number",
+            "format" : "double"
+          },
+          "marginTop" : {
+            "type" : "number",
+            "format" : "double"
+          },
+          "orientation" : {
+            "type" : "string"
+          },
+          "pageHeightMm" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "pageWidthMm" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "paper" : {
+            "type" : "string"
+          }
+        },
+        "required" : [ "marginBottom", "marginLeft", "marginRight", "marginTop", "orientation", "pageHeightMm", "pageWidthMm", "paper" ]
+      },
       "SheetRowDefinition" : {
         "type" : "object",
         "additionalProperties" : false,
@@ -27778,6 +28098,9 @@
             }, {
               "$ref" : "#/components/schemas/SheetDocument"
             } ]
+          },
+          "print" : {
+            "$ref" : "#/components/schemas/SheetPrintView"
           },
           "version" : {
             "$ref" : "#/components/schemas/SheetVersionSummaryView"
@@ -28357,6 +28680,9 @@
           "canUnpublish" : {
             "type" : "boolean"
           },
+          "footerDate" : {
+            "type" : "boolean"
+          },
           "id" : {
             "type" : "string",
             "format" : "uuid"
@@ -28410,7 +28736,7 @@
             "type" : "boolean"
           }
         },
-        "required" : [ "allowDownload", "audience", "canDownload", "canPublish", "canRetire", "canSetOptions", "canSubmit", "canUnpublish", "id", "lifecycle", "numberPreviewComplete", "openChangeRequests", "retired", "suggestedAudience", "suggestionDropped", "versionReviews", "viewOnly" ]
+        "required" : [ "allowDownload", "audience", "canDownload", "canPublish", "canRetire", "canSetOptions", "canSubmit", "canUnpublish", "footerDate", "id", "lifecycle", "numberPreviewComplete", "openChangeRequests", "retired", "suggestedAudience", "suggestionDropped", "versionReviews", "viewOnly" ]
       },
       "TemplatePage" : {
         "type" : "object",
