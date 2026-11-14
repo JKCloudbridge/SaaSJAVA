@@ -34,6 +34,14 @@ class DefaultGroupMembers implements GroupMembers {
     }
 
     @Override
+    public Set<UUID> usersOf(UUID groupId) {
+        if (groupId == null) {
+            return Set.of();
+        }
+        return work.run(() -> Set.copyOf(store.usersOfPeople(store.peopleIn(groupId))));
+    }
+
+    @Override
     public boolean exists(UUID groupId) {
         return groupId != null && work.run(() -> store.group(groupId).isPresent());
     }

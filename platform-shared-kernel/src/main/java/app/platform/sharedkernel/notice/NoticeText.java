@@ -74,6 +74,7 @@ public final class NoticeText {
             case TRIAL_NOTICE -> "About your trial";
             case CHANGE_REQUEST -> "A change request has news";
             case DOCUMENT_PUBLISHED -> "A document you made was published";
+            case DOCUMENT_AT_PLANT -> "A document is available at your plant";
         };
     }
 
@@ -88,6 +89,7 @@ public final class NoticeText {
             case TRIAL_NOTICE -> "";
             case CHANGE_REQUEST -> "On a change request about a record of {object}: {event}.";
             case DOCUMENT_PUBLISHED -> "A document of {object} that you made was published.";
+            case DOCUMENT_AT_PLANT -> "A document of {object} was made available to your plant.";
         };
     }
 

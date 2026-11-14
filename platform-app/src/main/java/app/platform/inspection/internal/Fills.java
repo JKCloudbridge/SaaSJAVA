@@ -15,6 +15,13 @@ final class Fills {
     /** The template the fill-in was started on, as the text of its identifier (a lookup a member could re-point). */
     static final String TEMPLATE_ID = "templateId";
     static final String STATUS = "status";
+    /**
+     * The plant (the code of a location) a monthly fill-in belongs to (MC2A, ADR-0260); written once, when the fill-in
+     * is started. Only the fill-in object of an application that asks for monthly fill-ins has it.
+     */
+    static final String PLANT = "plant";
+    /** The month a monthly fill-in is for, as {@code YYYY-MM}; written once, when the fill-in is started. */
+    static final String PERIOD = "period";
 
     private Fills() {
     }

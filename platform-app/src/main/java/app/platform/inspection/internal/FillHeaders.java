@@ -41,14 +41,23 @@ class FillHeaders {
      * @param application the application the template belongs to (MC1.1, ADR-0259), copied once so that lists,
      *        reports and an approval's entry criteria can tell which application the fill-in belongs to; null or
      *        empty for a template of Document Management alone, which leaves the field empty
+     * @param plant the plant of a monthly fill-in (MC2A, ADR-0260), written once, or null for a fill-in with no plant
+     * @param period the month of a monthly fill-in as {@code YYYY-MM}, written once, or null
      */
-    DataRecord create(RecordSet set, UUID owner, UUID templateId, String name, String application) {
+    DataRecord create(RecordSet set, UUID owner, UUID templateId, String name, String application, String plant,
+            String period) {
         List<Assignment> values = new ArrayList<>(List.of(
                 new Assignment(Fills.NAME, new Value.Literal(name)),
                 new Assignment(Fills.TEMPLATE_ID, new Value.Literal(templateId.toString())),
                 new Assignment(Fills.STATUS, new Value.Literal(FillStatus.DRAFT.name()))));
         if (application != null && !application.isBlank()) {
             values.add(new Assignment(RecordSets.APPLICATION_FIELD, new Value.Literal(application)));
+        }
+        if (plant != null && !plant.isBlank()) {
+            values.add(new Assignment(Fills.PLANT, new Value.Literal(plant)));
+        }
+        if (period != null && !period.isBlank()) {
+            values.add(new Assignment(Fills.PERIOD, new Value.Literal(period)));
         }
         return writes.create(Source.solution("fill.start", templateId), set.fill(), owner, values);
     }

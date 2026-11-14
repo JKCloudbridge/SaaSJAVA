@@ -110,6 +110,7 @@ class MailComposer {
                     MailTexts.Kind.APPROVAL_REMINDER, "approval_reminder_sent");
             case TRIAL_NOTICE -> trialNotice(mail);
             case DOCUMENT_PUBLISHED -> documentPublished(mail);
+            case DOCUMENT_AT_PLANT -> documentAtPlant(mail);
             case PASSWORD_CHANGED -> notice(mail, MailTexts.Kind.PASSWORD_CHANGED, "notice_sent");
             case ACCOUNT_LOCKED -> notice(mail, MailTexts.Kind.ACCOUNT_LOCKED, "notice_sent");
         };
@@ -206,6 +207,20 @@ class MailComposer {
      * title and no number. Nothing is sent when the person switched the category off for mail.
      */
     private Decision documentPublished(ClaimedMail mail) {
+        return documentMail(mail, NoticeKind.DOCUMENT_PUBLISHED, MailTexts.Kind.DOCUMENT_PUBLISHED,
+                "document_published_sent");
+    }
+
+    /**
+     * A document was made available to the recipient's plant (MC2A, ADR-0260): the same facts and the same link as the
+     * mail of a publish, with the platform's own words for the plant.
+     */
+    private Decision documentAtPlant(ClaimedMail mail) {
+        return documentMail(mail, NoticeKind.DOCUMENT_AT_PLANT, MailTexts.Kind.DOCUMENT_AT_PLANT,
+                "document_at_plant_sent");
+    }
+
+    private Decision documentMail(ClaimedMail mail, NoticeKind kind, MailTexts.Kind words, String outcome) {
         UUID tenantId = uuid(mail.variables().get("organization_id"));
         UUID recordId = uuid(mail.variables().get("record_id"));
         String application = mail.variables().get("application");
@@ -214,9 +229,8 @@ class MailComposer {
                 || !PAGE_PART.matcher(application).matches() || !PAGE_PART.matcher(entry).matches()) {
             return new Decision.Suppress("notice_unknown");
         }
-        return organizationMail(mail, tenantId, NoticeKind.DOCUMENT_PUBLISHED, MailTexts.Kind.DOCUMENT_PUBLISHED,
-                "document_published_sent", tenant -> links.document(tenant.slug().value(), application, entry,
-                        recordId));
+        return organizationMail(mail, tenantId, kind, words, outcome,
+                tenant -> links.document(tenant.slug().value(), application, entry, recordId));
     }
 
     /**

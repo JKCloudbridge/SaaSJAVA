@@ -6,6 +6,7 @@ import app.platform.inspection.internal.FillInViews.FillInStartedView;
 import app.platform.inspection.internal.FillInViews.FillInSubmittedView;
 import app.platform.inspection.internal.FillInViews.FillReportRequest;
 import app.platform.inspection.internal.FillInViews.ReportColumnsView;
+import app.platform.inspection.internal.FillInViews.StartFillInRequest;
 import app.platformapi.ApiPaths;
 import app.platformapi.ApiResponse;
 import io.swagger.v3.oas.annotations.Operation;
@@ -76,11 +77,17 @@ class FillInController {
                     + "The caller owns the new fill-in, and by the private default of the object nobody else sees "
                     + "it, apart from the people who may view every fill-in. CONFLICT for a retired template, when "
                     + "no version is in use and when the version moved while the request ran. Audited by the "
-                    + "identifiers and the version number. " + SEES)
+                    + "identifiers and the version number. For an application that asks for monthly fill-ins "
+                    + "(MC2A) the body names the plant and the month (both may be left out: a person of one plant "
+                    + "gets their plant, the month is this month); the caller must be plant head of a plant the "
+                    + "document is published to, a month that has not begun is refused and one fill-in exists for "
+                    + "a document, a plant and a month (CONFLICT otherwise). Any other application takes no body. "
+                    + SEES)
     ResponseEntity<ApiResponse<FillInStartedView>> start(@PathVariable UUID templateId,
-            @RequestParam @Parameter(description = APPLICATION) String application) {
+            @RequestParam @Parameter(description = APPLICATION) String application,
+            @Valid @RequestBody(required = false) StartFillInRequest request) {
         return ResponseEntity.status(HttpStatus.CREATED)
-                .body(ApiResponse.of(fillIns.start(sets.require(application), templateId)));
+                .body(ApiResponse.of(fillIns.start(sets.require(application), templateId, request)));
     }
 
     @PostMapping(ApiPaths.V1 + "/fill-ins/{fillId}/submit")

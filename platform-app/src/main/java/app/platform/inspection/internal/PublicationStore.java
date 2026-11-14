@@ -74,6 +74,17 @@ class PublicationStore {
                 .param("tenant", tenant()).param("template", templateId).query(PublicationStore::map).list();
     }
 
+    /**
+     * Whether the template is published to this group now. The creator's act of publishing to the plants asks it
+     * before taking a share back (MC2A, ADR-0260): a share that Document Management's publish still holds is not the
+     * plants' to remove.
+     */
+    boolean holdsGroup(UUID templateId, UUID groupId) {
+        return jdbc.sql("select exists (select 1 from inspection_publication where " + LIVE + " and group_id = :group)")
+                .param("tenant", tenant()).param("template", templateId).param("group", groupId)
+                .query(Boolean.class).single();
+    }
+
     Row insert(UUID templateId, int versionNo, String location, String department, UUID groupId, boolean madeShare,
             UUID actor) {
         return jdbc.sql("insert into inspection_publication (tenant_id, template_id, version_no, location, department, "

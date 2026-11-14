@@ -45,6 +45,11 @@ record RecordSet(String template, String fill, String request, String series, Ma
         return "true".equals(options.get(RecordSets.FOOTER_DATE));
     }
 
+    /** Whether the application asks for one fill-in each month for each plant (MC2A, ADR-0260). */
+    boolean monthlyFillIn() {
+        return "true".equals(options.get(RecordSets.MONTHLY_FILL_IN));
+    }
+
     /** Whether a template of this set is published to the places alone (each place's one fixed department). */
     boolean placesOnly() {
         return RecordSets.PLACES.equals(options.get(RecordSets.PUBLISH_TO));

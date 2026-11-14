@@ -164,6 +164,24 @@ class ApprovalArchitectureTest {
     }
 
     @Test
+    void theChosenReviewersAreAskedByTheApprovalModuleAndAnsweredByTheClusterOnly() {
+        // The inversion of ApprovalHooks (MC2A, ADR-0260): approval asks who was chosen, the module that keeps the
+        // choice answers, and nothing else knows the seam.
+        noClasses().that().resideOutsideOfPackages("app.platform.approval..", "app.platform.inspection..",
+                "app.platform.sharedkernel..")
+                .should().dependOnClassesThat()
+                .haveFullyQualifiedName("app.platform.sharedkernel.approval.PublicationReviewers")
+                .because("the people chosen to review a record are not a question for any other module")
+                .allowEmptyShould(true)
+                .check(platform);
+        noClasses().that().resideInAPackage("app.platform.approval..")
+                .should().dependOnClassesThat().resideInAPackage("app.platform.inspection..")
+                .because("approval never depends on the module that keeps a choice, only on the shared-kernel seam")
+                .allowEmptyShould(true)
+                .check(platform);
+    }
+
+    @Test
     void theApproverDirectoryIsAskedByTheApprovalModuleOnly() {
         noClasses().that().resideOutsideOfPackages("app.platform.approval..", "app.platform.security..")
                 .should().dependOnClassesThat().haveFullyQualifiedName("app.platform.security.ApproverDirectory")

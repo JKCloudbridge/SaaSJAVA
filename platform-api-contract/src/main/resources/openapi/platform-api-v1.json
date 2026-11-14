@@ -15448,7 +15448,7 @@
     },
     "/api/v1/templates/{templateId}/fill-ins" : {
       "post" : {
-        "description" : "Needs the right to create fill-ins (FORBIDDEN otherwise). The fill-in is pinned to the version in use at that moment for ever; the template and every other fill-in are untouched. The caller owns the new fill-in, and by the private default of the object nobody else sees it, apart from the people who may view every fill-in. CONFLICT for a retired template, when no version is in use and when the version moved while the request ran. Audited by the identifiers and the version number. NOT_FOUND for a template the caller cannot see, for one that does not exist and on the platform host (all alike). A template is visible by the rules of every record: the object permission, the private default of a template, and the shares. ",
+        "description" : "Needs the right to create fill-ins (FORBIDDEN otherwise). The fill-in is pinned to the version in use at that moment for ever; the template and every other fill-in are untouched. The caller owns the new fill-in, and by the private default of the object nobody else sees it, apart from the people who may view every fill-in. CONFLICT for a retired template, when no version is in use and when the version moved while the request ran. Audited by the identifiers and the version number. For an application that asks for monthly fill-ins (MC2A) the body names the plant and the month (both may be left out: a person of one plant gets their plant, the month is this month); the caller must be plant head of a plant the document is published to, a month that has not begun is refused and one fill-in exists for a document, a plant and a month (CONFLICT otherwise). Any other application takes no body. NOT_FOUND for a template the caller cannot see, for one that does not exist and on the platform host (all alike). A template is visible by the rules of every record: the object permission, the private default of a template, and the shares. ",
         "operationId" : "startFillIn",
         "parameters" : [ {
           "in" : "path",
@@ -15467,6 +15467,15 @@
             "type" : "string"
           }
         } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/StartFillInRequest"
+              }
+            }
+          }
+        },
         "responses" : {
           "200" : {
             "content" : {
@@ -15594,6 +15603,212 @@
           }
         },
         "summary" : "Set view only and allow download for a template",
+        "tags" : [ "Templates" ]
+      }
+    },
+    "/api/v1/templates/{templateId}/plants" : {
+      "get" : {
+        "description" : "available: the document belongs to an application that publishes to plants. canPublish: the caller made it (or holds the ability), a Revision is in use and it is not retired; the flag only hides a button, each act is decided again. The plants with their reviewers are told only to a caller who may publish. NOT_FOUND for a document the caller cannot see, for one that does not exist and on the platform host (all alike). ",
+        "operationId" : "getTemplatePlants",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "templateId",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "The application whose records are meant (its API name). It chooses among the sets of records only and proves nothing: NOT_FOUND, in the same words, for an application that does not exist, one the organization does not have and the platform host.",
+          "in" : "query",
+          "name" : "application",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponsePlantPublicationState"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "The plants a document is published to and whether the caller may change them",
+        "tags" : [ "Templates" ]
+      },
+      "put" : {
+        "description" : "Sets the whole: a plant listed and not published to yet is added (its plant heads can read the document and are told), a plant listed with other reviewers has them changed, and a plant published to and not listed is taken back (an empty list takes the document back from every plant). Every plant must have a group of plant heads with members and at least one reviewer; a reviewer is an active member or a public group. Every plant is checked before anything is shared: VALIDATION_ERROR with plants[i] or plants[i].reviewers[j] naming the place. A change of reviewers never reaches a review that is running. CONFLICT for a retired document and for one with no Revision in use. Audited by counts, never by a name. Allowed to the person who made the document and to a member who holds the ability to publish documents to plants (FORBIDDEN otherwise); CONFLICT for a document that does not belong to an application that publishes to plants. NOT_FOUND for a document the caller cannot see, for one that does not exist and on the platform host (all alike). ",
+        "operationId" : "publishTemplateToPlants",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "templateId",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "The application whose records are meant (its API name). It chooses among the sets of records only and proves nothing: NOT_FOUND, in the same words, for an application that does not exist, one the organization does not have and the platform host.",
+          "in" : "query",
+          "name" : "application",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/PublishPlantsRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponsePlantPublicationState"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "Publish a document to its plants and choose the reviewers of each",
+        "tags" : [ "Templates" ]
+      }
+    },
+    "/api/v1/templates/{templateId}/plants/options" : {
+      "get" : {
+        "description" : "Every location of the organization's list with whether a group of plant heads is set up for it; a location without one cannot be published to. Allowed to the person who made the document and to a member who holds the ability to publish documents to plants (FORBIDDEN otherwise); CONFLICT for a document that does not belong to an application that publishes to plants. NOT_FOUND for a document the caller cannot see, for one that does not exist and on the platform host (all alike). ",
+        "operationId" : "templatePlantOptions",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "templateId",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "The application whose records are meant (its API name). It chooses among the sets of records only and proves nothing: NOT_FOUND, in the same words, for an application that does not exist, one the organization does not have and the platform host.",
+          "in" : "query",
+          "name" : "application",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseAudienceOptionsView"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "The plants a document can be published to",
+        "tags" : [ "Templates" ]
+      }
+    },
+    "/api/v1/templates/{templateId}/plants/reviewer-choices" : {
+      "post" : {
+        "description" : "At most 20 active members and 20 public groups whose name contains the text; a person needs the text to match, so the answer cannot be used to list the directory. The text is typed by a person, so it travels in the body and is never logged. Allowed to the person who made the document and to a member who holds the ability to publish documents to plants (FORBIDDEN otherwise); CONFLICT for a document that does not belong to an application that publishes to plants. NOT_FOUND for a document the caller cannot see, for one that does not exist and on the platform host (all alike). ",
+        "operationId" : "templatePlantReviewerChoices",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "templateId",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "The application whose records are meant (its API name). It chooses among the sets of records only and proves nothing: NOT_FOUND, in the same words, for an application that does not exist, one the organization does not have and the platform host.",
+          "in" : "query",
+          "name" : "application",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/ReviewerSearch"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseReviewerChoices"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "The people and groups a reviewer can be chosen from",
         "tags" : [ "Templates" ]
       }
     },
@@ -17917,6 +18132,15 @@
         },
         "required" : [ "data" ]
       },
+      "ApiResponsePlantPublicationState" : {
+        "type" : "object",
+        "properties" : {
+          "data" : {
+            "$ref" : "#/components/schemas/PlantPublicationState"
+          }
+        },
+        "required" : [ "data" ]
+      },
       "ApiResponsePlatformOrganizationDetail" : {
         "type" : "object",
         "properties" : {
@@ -18111,6 +18335,15 @@
         "properties" : {
           "data" : {
             "$ref" : "#/components/schemas/RequestAccepted"
+          }
+        },
+        "required" : [ "data" ]
+      },
+      "ApiResponseReviewerChoices" : {
+        "type" : "object",
+        "properties" : {
+          "data" : {
+            "$ref" : "#/components/schemas/ReviewerChoices"
           }
         },
         "required" : [ "data" ]
@@ -21900,11 +22133,23 @@
           "canStart" : {
             "type" : "boolean"
           },
+          "currentPeriod" : {
+            "type" : "string"
+          },
+          "monthly" : {
+            "type" : "boolean"
+          },
+          "plants" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/FillInPlantChoice"
+            }
+          },
           "reason" : {
             "type" : "string"
           }
         },
-        "required" : [ "activeVersion", "canStart" ]
+        "required" : [ "activeVersion", "canStart", "monthly", "plants" ]
       },
       "FillInPage" : {
         "type" : "object",
@@ -21920,6 +22165,18 @@
           }
         },
         "required" : [ "rows" ]
+      },
+      "FillInPlantChoice" : {
+        "type" : "object",
+        "properties" : {
+          "label" : {
+            "type" : "string"
+          },
+          "plant" : {
+            "type" : "string"
+          }
+        },
+        "required" : [ "label", "plant" ]
       },
       "FillInQuery" : {
         "type" : "object",
@@ -21979,6 +22236,15 @@
             "type" : "string"
           },
           "name" : {
+            "type" : "string"
+          },
+          "period" : {
+            "type" : "string"
+          },
+          "plant" : {
+            "type" : "string"
+          },
+          "plantLabel" : {
             "type" : "string"
           },
           "rowCount" : {
@@ -24884,6 +25150,100 @@
         },
         "required" : [ "features", "key", "licences", "name" ]
       },
+      "PlantPick" : {
+        "type" : "object",
+        "properties" : {
+          "plant" : {
+            "type" : "string",
+            "pattern" : "[A-Za-z0-9_-]{1,10}"
+          },
+          "reviewers" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/PlantReviewerPick"
+            },
+            "maxItems" : 50,
+            "minItems" : 1
+          }
+        },
+        "required" : [ "plant", "reviewers" ]
+      },
+      "PlantPublicationState" : {
+        "type" : "object",
+        "properties" : {
+          "available" : {
+            "type" : "boolean"
+          },
+          "canPublish" : {
+            "type" : "boolean"
+          },
+          "plants" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/PlantPublicationView"
+            }
+          },
+          "reason" : {
+            "type" : "string"
+          }
+        },
+        "required" : [ "available", "canPublish", "plants" ]
+      },
+      "PlantPublicationView" : {
+        "type" : "object",
+        "properties" : {
+          "groupExists" : {
+            "type" : "boolean"
+          },
+          "label" : {
+            "type" : "string"
+          },
+          "plant" : {
+            "type" : "string"
+          },
+          "publishedAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "reviewers" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/PlantReviewerView"
+            }
+          }
+        },
+        "required" : [ "groupExists", "label", "plant", "publishedAt", "reviewers" ]
+      },
+      "PlantReviewerPick" : {
+        "type" : "object",
+        "properties" : {
+          "id" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "kind" : {
+            "type" : "string",
+            "pattern" : "USER|GROUP"
+          }
+        },
+        "required" : [ "id", "kind" ]
+      },
+      "PlantReviewerView" : {
+        "type" : "object",
+        "properties" : {
+          "id" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "kind" : {
+            "type" : "string"
+          },
+          "name" : {
+            "type" : "string"
+          }
+        },
+        "required" : [ "id", "kind" ]
+      },
       "PlatformOrganizationDetail" : {
         "type" : "object",
         "properties" : {
@@ -25202,6 +25562,20 @@
           }
         },
         "required" : [ "displayName", "email", "planKey", "slug" ]
+      },
+      "PublishPlantsRequest" : {
+        "type" : "object",
+        "properties" : {
+          "plants" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/PlantPick"
+            },
+            "maxItems" : 20,
+            "minItems" : 0
+          }
+        },
+        "required" : [ "plants" ]
       },
       "PublishPrefill" : {
         "type" : "object",
@@ -26265,6 +26639,50 @@
           }
         },
         "required" : [ "label", "left", "name", "nobody", "people", "skipped", "usesFallback" ]
+      },
+      "ReviewerChoice" : {
+        "type" : "object",
+        "properties" : {
+          "id" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "kind" : {
+            "type" : "string"
+          },
+          "label" : {
+            "type" : "string"
+          }
+        },
+        "required" : [ "id", "kind", "label" ]
+      },
+      "ReviewerChoices" : {
+        "type" : "object",
+        "properties" : {
+          "groups" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/ReviewerChoice"
+            }
+          },
+          "people" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/ReviewerChoice"
+            }
+          }
+        },
+        "required" : [ "groups", "people" ]
+      },
+      "ReviewerSearch" : {
+        "type" : "object",
+        "properties" : {
+          "text" : {
+            "type" : "string",
+            "maxLength" : 80,
+            "minLength" : 0
+          }
+        }
       },
       "RoleView" : {
         "type" : "object",
@@ -28155,6 +28573,19 @@
           }
         },
         "required" : [ "email" ]
+      },
+      "StartFillInRequest" : {
+        "type" : "object",
+        "properties" : {
+          "period" : {
+            "type" : "string",
+            "pattern" : "[0-9]{4}-[0-9]{2}"
+          },
+          "plant" : {
+            "type" : "string",
+            "pattern" : "[A-Za-z0-9_-]{1,10}"
+          }
+        }
       },
       "StartImportRequest" : {
         "type" : "object",

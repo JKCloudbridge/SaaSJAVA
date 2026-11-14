@@ -5827,7 +5827,7 @@ export interface paths {
         put?: never;
         /**
          * Start a fill-in on the version of a template that is in use
-         * @description Needs the right to create fill-ins (FORBIDDEN otherwise). The fill-in is pinned to the version in use at that moment for ever; the template and every other fill-in are untouched. The caller owns the new fill-in, and by the private default of the object nobody else sees it, apart from the people who may view every fill-in. CONFLICT for a retired template, when no version is in use and when the version moved while the request ran. Audited by the identifiers and the version number. NOT_FOUND for a template the caller cannot see, for one that does not exist and on the platform host (all alike). A template is visible by the rules of every record: the object permission, the private default of a template, and the shares.
+         * @description Needs the right to create fill-ins (FORBIDDEN otherwise). The fill-in is pinned to the version in use at that moment for ever; the template and every other fill-in are untouched. The caller owns the new fill-in, and by the private default of the object nobody else sees it, apart from the people who may view every fill-in. CONFLICT for a retired template, when no version is in use and when the version moved while the request ran. Audited by the identifiers and the version number. For an application that asks for monthly fill-ins (MC2A) the body names the plant and the month (both may be left out: a person of one plant gets their plant, the month is this month); the caller must be plant head of a plant the document is published to, a month that has not begun is refused and one fill-in exists for a document, a plant and a month (CONFLICT otherwise). Any other application takes no body. NOT_FOUND for a template the caller cannot see, for one that does not exist and on the platform host (all alike). A template is visible by the rules of every record: the object permission, the private default of a template, and the shares.
          */
         post: operations["startFillIn"];
         delete?: never;
@@ -5870,6 +5870,70 @@ export interface paths {
          */
         put: operations["setTemplateSheetOptions"];
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/templates/{templateId}/plants": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The plants a document is published to and whether the caller may change them
+         * @description available: the document belongs to an application that publishes to plants. canPublish: the caller made it (or holds the ability), a Revision is in use and it is not retired; the flag only hides a button, each act is decided again. The plants with their reviewers are told only to a caller who may publish. NOT_FOUND for a document the caller cannot see, for one that does not exist and on the platform host (all alike).
+         */
+        get: operations["getTemplatePlants"];
+        /**
+         * Publish a document to its plants and choose the reviewers of each
+         * @description Sets the whole: a plant listed and not published to yet is added (its plant heads can read the document and are told), a plant listed with other reviewers has them changed, and a plant published to and not listed is taken back (an empty list takes the document back from every plant). Every plant must have a group of plant heads with members and at least one reviewer; a reviewer is an active member or a public group. Every plant is checked before anything is shared: VALIDATION_ERROR with plants[i] or plants[i].reviewers[j] naming the place. A change of reviewers never reaches a review that is running. CONFLICT for a retired document and for one with no Revision in use. Audited by counts, never by a name. Allowed to the person who made the document and to a member who holds the ability to publish documents to plants (FORBIDDEN otherwise); CONFLICT for a document that does not belong to an application that publishes to plants. NOT_FOUND for a document the caller cannot see, for one that does not exist and on the platform host (all alike).
+         */
+        put: operations["publishTemplateToPlants"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/templates/{templateId}/plants/options": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The plants a document can be published to
+         * @description Every location of the organization's list with whether a group of plant heads is set up for it; a location without one cannot be published to. Allowed to the person who made the document and to a member who holds the ability to publish documents to plants (FORBIDDEN otherwise); CONFLICT for a document that does not belong to an application that publishes to plants. NOT_FOUND for a document the caller cannot see, for one that does not exist and on the platform host (all alike).
+         */
+        get: operations["templatePlantOptions"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/templates/{templateId}/plants/reviewer-choices": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * The people and groups a reviewer can be chosen from
+         * @description At most 20 active members and 20 public groups whose name contains the text; a person needs the text to match, so the answer cannot be used to list the directory. The text is typed by a person, so it travels in the body and is never logged. Allowed to the person who made the document and to a member who holds the ability to publish documents to plants (FORBIDDEN otherwise); CONFLICT for a document that does not belong to an application that publishes to plants. NOT_FOUND for a document the caller cannot see, for one that does not exist and on the platform host (all alike).
+         */
+        post: operations["templatePlantReviewerChoices"];
         delete?: never;
         options?: never;
         head?: never;
@@ -6648,6 +6712,9 @@ export interface components {
         ApiResponsePlanInfo: {
             data: components["schemas"]["PlanInfo"];
         };
+        ApiResponsePlantPublicationState: {
+            data: components["schemas"]["PlantPublicationState"];
+        };
         ApiResponsePlatformOrganizationDetail: {
             data: components["schemas"]["PlatformOrganizationDetail"];
         };
@@ -6713,6 +6780,9 @@ export interface components {
         };
         ApiResponseRequestAccepted: {
             data: components["schemas"]["RequestAccepted"];
+        };
+        ApiResponseReviewerChoices: {
+            data: components["schemas"]["ReviewerChoices"];
         };
         ApiResponseRoleView: {
             data: components["schemas"]["RoleView"];
@@ -7940,11 +8010,18 @@ export interface components {
             /** Format: int32 */
             activeVersion: number;
             canStart: boolean;
+            currentPeriod?: string;
+            monthly: boolean;
+            plants: components["schemas"]["FillInPlantChoice"][];
             reason?: string;
         };
         FillInPage: {
             nextCursor?: string;
             rows: components["schemas"]["FillInRow"][];
+        };
+        FillInPlantChoice: {
+            label: string;
+            plant: string;
         };
         FillInQuery: {
             cursor?: string;
@@ -7966,6 +8043,9 @@ export interface components {
             fillId: string;
             filledBy?: string;
             name?: string;
+            period?: string;
+            plant?: string;
+            plantLabel?: string;
             /** Format: int32 */
             rowCount: number;
             status: string;
@@ -8886,6 +8966,35 @@ export interface components {
             /** Format: int32 */
             trialDays?: number;
         };
+        PlantPick: {
+            plant: string;
+            reviewers: components["schemas"]["PlantReviewerPick"][];
+        };
+        PlantPublicationState: {
+            available: boolean;
+            canPublish: boolean;
+            plants: components["schemas"]["PlantPublicationView"][];
+            reason?: string;
+        };
+        PlantPublicationView: {
+            groupExists: boolean;
+            label: string;
+            plant: string;
+            /** Format: date-time */
+            publishedAt: string;
+            reviewers: components["schemas"]["PlantReviewerView"][];
+        };
+        PlantReviewerPick: {
+            /** Format: uuid */
+            id: string;
+            kind: string;
+        };
+        PlantReviewerView: {
+            /** Format: uuid */
+            id: string;
+            kind: string;
+            name?: string;
+        };
         PlatformOrganizationDetail: {
             displayName: string;
             entitlements: components["schemas"]["EntitlementInfo"][];
@@ -8995,6 +9104,9 @@ export interface components {
             email: string;
             planKey: string;
             slug: string;
+        };
+        PublishPlantsRequest: {
+            plants: components["schemas"]["PlantPick"][];
         };
         PublishPrefill: {
             allowDownload: boolean;
@@ -9330,6 +9442,19 @@ export interface components {
             people: components["schemas"]["ApprovalPersonView"][];
             skipped: boolean;
             usesFallback: boolean;
+        };
+        ReviewerChoice: {
+            /** Format: uuid */
+            id: string;
+            kind: string;
+            label: string;
+        };
+        ReviewerChoices: {
+            groups: components["schemas"]["ReviewerChoice"][];
+            people: components["schemas"]["ReviewerChoice"][];
+        };
+        ReviewerSearch: {
+            text?: string;
         };
         RoleView: {
             description: string;
@@ -10011,6 +10136,10 @@ export interface components {
         };
         SignUpRequest: {
             email: string;
+        };
+        StartFillInRequest: {
+            period?: string;
+            plant?: string;
         };
         StartImportRequest: {
             delimiter?: string;
@@ -22354,7 +22483,11 @@ export interface operations {
             };
             cookie?: never;
         };
-        requestBody?: never;
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["StartFillInRequest"];
+            };
+        };
         responses: {
             /** @description OK */
             200: {
@@ -22435,6 +22568,150 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ApiResponseTemplateLifecycleView"];
+                };
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    getTemplatePlants: {
+        parameters: {
+            query: {
+                /** @description The application whose records are meant (its API name). It chooses among the sets of records only and proves nothing: NOT_FOUND, in the same words, for an application that does not exist, one the organization does not have and the platform host. */
+                application: string;
+            };
+            header?: never;
+            path: {
+                templateId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponsePlantPublicationState"];
+                };
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    publishTemplateToPlants: {
+        parameters: {
+            query: {
+                /** @description The application whose records are meant (its API name). It chooses among the sets of records only and proves nothing: NOT_FOUND, in the same words, for an application that does not exist, one the organization does not have and the platform host. */
+                application: string;
+            };
+            header?: never;
+            path: {
+                templateId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PublishPlantsRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponsePlantPublicationState"];
+                };
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    templatePlantOptions: {
+        parameters: {
+            query: {
+                /** @description The application whose records are meant (its API name). It chooses among the sets of records only and proves nothing: NOT_FOUND, in the same words, for an application that does not exist, one the organization does not have and the platform host. */
+                application: string;
+            };
+            header?: never;
+            path: {
+                templateId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseAudienceOptionsView"];
+                };
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    templatePlantReviewerChoices: {
+        parameters: {
+            query: {
+                /** @description The application whose records are meant (its API name). It chooses among the sets of records only and proves nothing: NOT_FOUND, in the same words, for an application that does not exist, one the organization does not have and the platform host. */
+                application: string;
+            };
+            header?: never;
+            path: {
+                templateId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReviewerSearch"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseReviewerChoices"];
                 };
             };
             /** @description Error. The code says what went wrong; the message is safe to show. */

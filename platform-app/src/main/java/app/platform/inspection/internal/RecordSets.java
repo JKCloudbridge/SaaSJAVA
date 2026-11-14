@@ -53,8 +53,13 @@ final class RecordSets {
     static final String ROUTED = "routedByNumber";
     /** The field, on the documents, fill-ins and change requests, that holds the application a record belongs to. */
     static final String APPLICATION_FIELD = "application";
+    /**
+     * Option: the application asks for one fill-in each month for each plant (MC2A, ADR-0260): a plant head chooses
+     * their plant and the month when they start one. It follows the document, like the footer day.
+     */
+    static final String MONTHLY_FILL_IN = "monthlyFillIn";
     private static final Set<String> OPTION_NAMES = Set.of(FOOTER_DATE, PUBLISH_TO,
-            PUBLISH_DEPARTMENT, ROUTED);
+            PUBLISH_DEPARTMENT, ROUTED, MONTHLY_FILL_IN);
 
     private static final String NO_APPLICATION = "This application does not exist.";
 
@@ -208,6 +213,21 @@ final class RecordSets {
                 .findFirst();
     }
 
+    /**
+     * The set of the application a document was routed to, when that application publishes to places and the
+     * organization has it (MC2A, ADR-0260); empty for a document that carries no application, one whose application the
+     * organization lacks and one whose application does not publish to places. The creator's act of publishing to the
+     * plants is offered only where this is present.
+     *
+     * @param application the value of the document's {@code application} field, or null
+     */
+    Optional<RecordSet> plantSetOf(Object application) {
+        if (!(application instanceof String name) || !routable(name)) {
+            return Optional.empty();
+        }
+        return routedSet(name).filter(RecordSet::placesOnly);
+    }
+
     /** Whether an application is one a number can route to and the organization of the request has. */
     boolean routable(String application) {
         return application != null && routedApplications().contains(application)
@@ -225,6 +245,18 @@ final class RecordSets {
     boolean footerDate(Object application) {
         return application instanceof String name && applicationsOf.keySet().stream()
                 .anyMatch(set -> name.equals(set.application()) && set.footerDate());
+    }
+
+    /**
+     * Whether a fill-in of this document is a monthly one: one for each plant and month (MC2A, ADR-0260). The option
+     * belongs to the application the document carries, wherever the document is shown; a document that carries no
+     * application, or one whose application does not ask for it, has plain fill-ins.
+     *
+     * @param application the value of the document's {@code application} field, or null
+     */
+    boolean monthlyFillIn(Object application) {
+        return application instanceof String name && applicationsOf.keySet().stream()
+                .anyMatch(set -> name.equals(set.application()) && set.monthlyFillIn());
     }
 
     /**

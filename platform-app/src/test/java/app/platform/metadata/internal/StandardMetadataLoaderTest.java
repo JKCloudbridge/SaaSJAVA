@@ -275,7 +275,7 @@ class StandardMetadataLoaderTest {
         assertThat(fill.fields().stream().skip(standard.systemFields().size())).allSatisfy(
                 field -> assertThat(field.platformWritten()).as(field.apiName()).isTrue());
         assertThat(fill.fields().stream().skip(standard.systemFields().size()).map(FieldDefinition::apiName))
-                .containsExactly("name", "templateId", "status", "application");
+                .containsExactly("name", "templateId", "status", "application", "plant", "period");
         // A change request's review record (FA6E, ADR-0199): private, kept, and every field one only the platform
         // writes.
         ObjectDefinition request = standard.object("InspectionChangeRequest").orElseThrow();

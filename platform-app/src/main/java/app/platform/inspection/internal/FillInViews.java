@@ -4,6 +4,7 @@ import app.platformapi.QueryFilterNode;
 import app.platformapi.QuerySortKey;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 import java.time.Instant;
 import java.util.List;
@@ -29,7 +30,35 @@ public final class FillInViews {
      * @param activeVersion the version a fill-in started now would be made on, or 0 when none is in use
      * @param reason why not, in words for a person, or null when canStart is true. Never a name
      */
-    public record FillInOptionsView(@NotNull Boolean canStart, @NotNull Integer activeVersion, String reason) {
+    public record FillInOptionsView(@NotNull Boolean canStart, @NotNull Integer activeVersion, String reason,
+            @NotNull Boolean monthly, @NotNull List<FillInPlantChoice> plants, String currentPeriod) {
+    }
+
+    /**
+     * A plant the caller may start a monthly fill-in for (MC2A, ADR-0260).
+     *
+     * @param plant the plant's code
+     * @param label what people read
+     */
+    public record FillInPlantChoice(@NotNull String plant, @NotNull String label) {
+    }
+
+    /**
+     * What a plant head says when starting a monthly fill-in. Both parts may be left out: a person of one plant gets
+     * their plant, and the month is this month. An application that does not ask for monthly fill-ins refuses both.
+     *
+     * @param plant the plant's code
+     * @param period the month as {@code YYYY-MM}; not a month that has not begun
+     */
+    public record StartFillInRequest(
+            @Pattern(regexp = "[A-Za-z0-9_-]{1,10}") String plant,
+            @Pattern(regexp = "[0-9]{4}-[0-9]{2}") String period) {
+
+        /** Prints nothing: the plant and the month are the organization's text and requests are logged. */
+        @Override
+        public String toString() {
+            return "StartFillInRequest[redacted]";
+        }
     }
 
     /**
@@ -70,11 +99,14 @@ public final class FillInViews {
      * @param archivedAt when its cells were moved to the archive (FF2, ADR-0193), or null; an archived fill-in is
      *        read-only and its cells are read back on demand
      * @param templateNumber the stored number when the caller may read it, otherwise null (FA6B)
+     * @param plant the plant code of a monthly fill-in, or null (MC2A, ADR-0260)
+     * @param plantLabel what people read for the plant, or null
+     * @param period the month of a monthly fill-in as {@code YYYY-MM}, or null
      */
     public record FillInRow(@NotNull UUID fillId, @NotNull UUID templateId, String name, @NotNull String status,
             @NotNull Integer versionNo, @NotNull Boolean versionInUse, @NotNull Integer rowCount, String filledBy,
             @NotNull Instant createdAt, @NotNull Instant updatedAt, Instant submittedAt, Instant archivedAt,
-            String templateNumber) {
+            String templateNumber, String plant, String plantLabel, String period) {
     }
 
     /**

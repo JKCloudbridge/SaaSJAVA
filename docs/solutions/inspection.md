@@ -644,3 +644,33 @@ Functional track is not a numbered sprint.
 - **Tests:** `RecordSetsTest`, `TemplateApprovalHooksTest`, `SolutionLoaderTest`, `SolutionOrderAndSharingTest`, `StandardMetadataLoaderTest`;
   `DocumentRoutingRulesIT`, `DocumentRoutingIT`, `ShippedPoliciesIT`, `RetainedObjectsIT`; the isolation harness lists
   `inspection_document_routing`; frontend `RoutingPanel.test.tsx`.
+
+## Publishing to the plants, the reviewers of a plant and the monthly fill-in (MC2A)
+
+Short form; the decision is [ADR-0260](../adr/0260-the-creator-publishes-to-the-plants-the-reviewers-of-a-plant-and-the-monthly-fill-in.md), the
+application's page is [management-core.md](management-core.md), the administrator's view is in [../metadata-guide.md](../metadata-guide.md) section
+51. Migration V093 (expand only).
+
+- **The act belongs to the creator.** `PlantPublishRule` is the one place that says who may (the member sees the document, the document's application
+  publishes to places and the organization has it, and the member owns the document or holds `sheets.publish-plants`); the view and every act ask it.
+  `PlantPublishing` does the work in one transaction and `PlantPublicationController` is the four endpoints under `/api/v1/templates/{id}/plants`
+  (state, options, reviewer choices, set the whole). It never uses `TemplatePublishing` and never `sheets.publish`.
+- **Its memory is its own.** `inspection_plant_publication` and `inspection_plant_reviewer` are named only by `PlantPublicationStore` (a test scans the
+  sources). A share is taken back only when this act made it and no other live row of either memory holds the group (`PlantPublicationStore.holdsGroup`
+  and `PublicationStore.holdsGroup`). A new path that takes a share of a template back must ask both.
+- **The reviewers are asked through a seam.** The approver kind `PUBLICATION_REVIEWERS` (no value) asks `PublicationReviewers` (shared kernel) when a
+  step becomes active; `PlantReviewers` answers from the fill-in header's document and plant. Groups are expanded by the approval module at that moment.
+  Never read the reviewer table from another place to decide who may decide: the engine's task is the one fact.
+- **The monthly fill-in.** The option `monthlyFillIn` follows the document's application (`RecordSets.monthlyFillIn`). The header fields `plant` and
+  `period` are written once by `FillHeaders.create`; the claim is `inspection_fill_period` (`FillPeriodStore`), written in the start transaction, with
+  the unique index as the backstop (a violation becomes the same fixed words and undoes the start). The new header is shared read only with the plant's
+  group. A list that projects `plant` and `period` asks `FillIns.projection(set)`, which adds them only when the fill-in object has them: never name
+  the two fields in code that serves every application.
+- **A field a policy does not list does not exist for the person:** every shipped policy that lists fields of the fill-in lists `plant` and `period`
+  (`FillInFieldsInPoliciesTest`).
+- **Never log, audit or put in a notice** a plant, a month, a reviewer, a group or its name; the audit has counts. The notice kind is
+  `DOCUMENT_AT_PLANT` (facts: event, application, entry).
+- **Frontend:** `PlantPublishDialog` (plants, then the reviewers of each, found by a search the server answers), `plantPublication.ts` (calls and the
+  pure choices), `StartFillIn` (plant and month), the Plant and Month columns of `FillInsPage`. They show what the API answers in its words and decide
+  nothing.
+- **Tests:** see [management-core.md](management-core.md).

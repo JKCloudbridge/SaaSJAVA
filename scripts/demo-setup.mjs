@@ -185,9 +185,14 @@ const MANAGEMENT_PEOPLE = [
   { email: "top-management-1@example.test", name: "Top management 1", groups: ["Level 5"], role: "CEO" },
   { email: "department-qms-1@example.test", name: "Department QMS 1", groups: ["Level 2"], role: "Department users" },
   { email: "management-user-1@example.test", name: "Management user 1", groups: ["Level 2"], role: "Management users" },
-  { email: "plant-head-1@example.test", name: "Plant head 1", groups: ["Level 1"], role: "Plant head" },
-  { email: "plant-head-2@example.test", name: "Plant head 2", groups: ["Level 1"], role: "Plant head" },
+  // MC2A: each plant has its own group of plant heads (the people who receive a document published to the plants)
+  { email: "plant-head-1@example.test", name: "Plant head 1", groups: ["Level 1", "Plant 1 plant heads"], role: "Plant head" },
+  { email: "plant-head-2@example.test", name: "Plant head 2", groups: ["Level 1", "Plant 2 plant heads"], role: "Plant head" },
+  { email: "plant-head-3@example.test", name: "Plant head 3", groups: ["Level 1", "Plant 1 plant heads"], role: "Plant head" },
+  // The people a creator can choose as reviewers of a plant (one by one, or through the group of reviewers)
   { email: "reviewer-1@example.test", name: "Reviewer 1", groups: [], role: "Reviewers" },
+  { email: "reviewer-2@example.test", name: "Reviewer 2", groups: ["Review group"], role: "Reviewers" },
+  { email: "reviewer-3@example.test", name: "Reviewer 3", groups: ["Review group"], role: "Reviewers" },
 ];
 // the people of the Document Management demo who also stand at a level, and the role they hold
 const LEVEL_OF = {
@@ -202,6 +207,11 @@ const LEVEL_GROUP_POLICIES = {
   "Level 3": ["Approver", "Publisher", "Reader"],
   "Level 4": ["Approver", "Publisher", "Reader"],
   "Level 5": ["Observer"],
+  // MC2A: the groups of plant heads that the Department group records of the fixed department point at, one per plant
+  "Plant 1 plant heads": ["Filler", "Reader"],
+  "Plant 2 plant heads": ["Filler", "Reader"],
+  // a group of reviewers a creator can choose for a plant; it holds no access policy: being asked to review needs none
+  "Review group": [],
 };
 // Plant QMS publishes a document to Level 2 (and Level 1) of a plant: a department of that name and a Department group
 // record for each plant that points at the level's group
@@ -209,8 +219,14 @@ const LEVEL_DEPARTMENTS = [
   { value: "LEVEL1", label: "LEVEL1 - Level 1", group: "Level 1" },
   { value: "LEVEL2", label: "LEVEL2 - Level 2", group: "Level 2" },
 ];
-const MANAGEMENT_DEPARTMENT_GROUPS = LEVEL_DEPARTMENTS.flatMap((level) => ["PLANT1", "PLANT2"]
-  .map((location) => ({ name: level.group, location, department: level.value })));
+// MC2A: the department that receives a document published to the plants; each plant points at its own group
+const PLANT_HEAD_DEPARTMENT = { value: "PLANTHEAD", label: "PLANTHEAD - Plant head" };
+const MANAGEMENT_DEPARTMENT_GROUPS = [
+  ...LEVEL_DEPARTMENTS.flatMap((level) => ["PLANT1", "PLANT2"]
+    .map((location) => ({ name: level.group, location, department: level.value }))),
+  { name: "Plant 1 plant heads", location: "PLANT1", department: PLANT_HEAD_DEPARTMENT.value },
+  { name: "Plant 2 plant heads", location: "PLANT2", department: PLANT_HEAD_DEPARTMENT.value },
+];
 // "Identification F with Part A MC belongs to Management Core"
 const ROUTING_RULE = { identification: "F", partA: "MC", application: "management-core" };
 
@@ -496,14 +512,33 @@ async function ensureRouting(admin) {
 /**
  * The approval processes of fill-ins. The engine takes the one active process whose entry criteria the fill-in meets and
  * refuses when two fit, so the two below never fit together: one for documents that belong to Document Management alone
- * (application empty), one as an example for documents routed to Management Core. The Management Core one is only an
- * example: its real steps (reviewers per plant, top management last) come with MC2A and MC2B.
+ * (application empty), one for documents routed to Management Core (MC2A: the reviewers chosen for the plant, then top
+ * management; the score and the Action plan are MC2B). A process that exists is left as it is unless the caller asks for
+ * it to be brought up to date (`upgrade`), which saves the same process with the steps wanted.
  */
 async function ensureFillProcess(admin, wanted, steps) {
   const existing = must(await admin.get("/api/v1/metadata/approvals?object=InspectionFill"), "reading approval processes");
-  if (existing.some((p) => p.apiName === wanted.name)) return say("ok", `approval process for fill-ins: ${wanted.label} (left as it is)`);
-  const missingGroup = steps.some((step) => !step.approvers[0].value);
+  const found = existing.find((p) => p.apiName === wanted.name || p.apiName === `${wanted.name}__c`);
+  // a rule of the kind PUBLICATION_REVIEWERS (MC2A) names nobody: the reviewers are chosen for each document and plant
+  const missingGroup = steps.some((step) => step.approvers.some((rule) => rule.kind !== "PUBLICATION_REVIEWERS" && !rule.value));
+  const shapeOf = (list) => list.map((step) => step.approvers.map((rule) => `${rule.kind}:${rule.value ?? ""}`).join(",")).join("|");
+  if (found && (!wanted.upgrade || shapeOf(found.steps) === shapeOf(steps))) return say("ok", `approval process for fill-ins: ${wanted.label} (left as it is)`);
   if (checkOnly || missingGroup) return say("missing", `the approval process for fill-ins: ${wanted.label}`);
+  if (found) {
+    must(
+      await admin.put(`/api/v1/metadata/approvals/InspectionFill/${found.apiName}`, {
+        label: wanted.label,
+        description: wanted.description,
+        active: true,
+        entryCriteria: wanted.criteria,
+        allowSelfApproval: false,
+        steps,
+        version: found.version,
+      }),
+      `bringing the approval process ${wanted.label} up to date`,
+    );
+    return say("made", `approval process ${wanted.label} brought up to date (reviewers chosen for each plant, then Level 5)`);
+  }
   must(
     await admin.post("/api/v1/metadata/approvals/InspectionFill", {
       name: wanted.name,
@@ -551,7 +586,7 @@ async function main() {
   const members = await ensurePeople(admin, password);
   const groupIds = await ensureGroups(admin, members);
   await ensureLists(admin);
-  if (hasManagementCore) for (const level of LEVEL_DEPARTMENTS) await ensureDepartmentValue(admin, level);
+  if (hasManagementCore) for (const level of [...LEVEL_DEPARTMENTS, PLANT_HEAD_DEPARTMENT]) await ensureDepartmentValue(admin, level);
   await ensureDepartmentGroups(admin, groupIds);
   await ensureProcess(admin, groupIds);
   await ensureRequestProcess(admin, groupIds);
@@ -563,11 +598,13 @@ async function main() {
   if (hasManagementCore) {
     await ensureRoles(admin, PEOPLE);
     await ensureRouting(admin);
+    // MC2A: step 1 is asked of the reviewers the creator chose for the plant of the fill-in (one process for every
+    // document); step 2 is top management. What top management decides in the score is MC2B.
     await ensureFillProcess(admin, { name: "ManagementCoreFillInReview", label: "Management Core fill-in review",
-      description: "An example for fill-ins of documents routed to Management Core: Level 3 reviews, then Level 5. The real steps come with MC2A and MC2B.",
-      criteria: "application = 'management-core'" },
+      description: "Fill-ins of documents routed to Management Core: the reviewers chosen for the plant review them, then Level 5.",
+      criteria: "application = 'management-core'", upgrade: true },
     [
-      { name: "Level3", label: "Level 3", completion: "ANY", skipWhenNobody: false, asksForChoice: false, approvers: [{ kind: "GROUP", value: groupIds["Level 3"] }] },
+      { name: "PlantReviewers", label: "Plant reviewers", completion: "ANY", skipWhenNobody: false, asksForChoice: false, approvers: [{ kind: "PUBLICATION_REVIEWERS" }] },
       { name: "Level5", label: "Level 5", completion: "ANY", skipWhenNobody: false, asksForChoice: false, approvers: [{ kind: "GROUP", value: groupIds["Level 5"] }] },
     ]);
   }

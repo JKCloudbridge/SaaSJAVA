@@ -193,6 +193,21 @@ final class MailTexts {
                 changes.
                 """),
 
+        DOCUMENT_AT_PLANT(
+                "A document is available at your plant",
+                """
+                Hello,
+
+                A document of {{objectLabel}} was made available to your plant in the organization \
+                "{{organization}}". Open it here:
+
+                {{link}}
+
+                You need to sign in, and what you see is what your access allows. Nothing is decided by opening the \
+                link. If you do not know this organization or did not expect this message, ignore it: nothing \
+                changes.
+                """),
+
         TRIAL_ENDING(
                 "The trial of your organization is ending",
                 """

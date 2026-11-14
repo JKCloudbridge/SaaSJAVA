@@ -9,14 +9,19 @@ import app.platform.data.QueryFilterNodes;
 import app.platform.data.QueryResult;
 import app.platform.data.QuerySort;
 import app.platform.data.RecordQuery;
+import app.platform.data.RecordShares;
 import app.platform.data.Records;
 import app.platform.inspection.internal.FillInViews.FillInOptionsView;
+import app.platform.inspection.internal.FillInViews.FillInPlantChoice;
+import app.platform.inspection.internal.FillInViews.StartFillInRequest;
 import app.platform.inspection.internal.FillInViews.FillInPage;
 import app.platform.inspection.internal.FillInViews.FillInRow;
 import app.platform.inspection.internal.FillInViews.FillInStartedView;
 import app.platform.inspection.internal.FillInViews.FillInSubmittedView;
 import app.platform.inspection.internal.TemplateAccess.Caller;
+import app.platform.metadata.Metadata;
 import app.platform.security.Ability;
+import app.platform.security.Grantee;
 import app.platform.sharedkernel.approval.ApprovalApplicability;
 import app.platform.sharedkernel.audit.AuditOutcome;
 import app.platform.sharedkernel.audit.AuditRecord;
@@ -31,6 +36,7 @@ import app.platform.tenant.TenantContexts;
 import app.platformapi.ApiException;
 import app.platformapi.ErrorCode;
 import io.micrometer.core.instrument.MeterRegistry;
+import java.time.YearMonth;
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -38,6 +44,7 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
+import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -72,9 +79,14 @@ class FillIns {
     private static final int MOST = 200;
     private static final Set<String> STATUSES = Set.of("DRAFT", "SUBMITTED", "RETURNED", "APPROVED");
     private static final List<String> FIELDS = List.of(Fills.NAME, Fills.TEMPLATE_ID, Fills.STATUS);
+    private static final List<String> MONTHLY_FIELDS = List.of(Fills.NAME, Fills.TEMPLATE_ID, Fills.STATUS, Fills.PLANT,
+            Fills.PERIOD);
     /** The words of the refusal to start a fill-in on a template that is only a reference (FA7, ADR-0201). */
     static final String VIEW_ONLY = "This template is view only, so no fill-in can be started from it.";
     private static final String CHANGED = "The template changed while you started. Try again.";
+    private static final String NO_PLANT = "This document is not published to a plant you are plant head of.";
+    private static final String MONTH_TAKEN = "A fill-in for this document, this plant and this month exists already. "
+            + "Open it from the list.";
 
     private final TemplateAccess access;
     private final BackgroundRecords background;
@@ -92,12 +104,25 @@ class FillIns {
     private final TemplateOptionStore templateOptions;
     private final DepartmentAudiences departments;
     private final QualityHomeStore home;
+    private final RecordSets sets;
+    private final PlantPublicationStore plants;
+    private final FillPeriodStore periods;
+    private final FillPeriods clock;
+    private final RecordShares shares;
+    private final Metadata metadata;
 
     FillIns(TemplateAccess access, BackgroundRecords background, Records records, SheetLifecycle sheets,
             FillLifecycle fills, FillHeaders headers, FillSubmission submission, ApprovalApplicability approvals,
             List<ReferenceLabels> labels, AuditRecorder audit, TenantContexts contexts, MeterRegistry meters,
             TemplateNumbers templateNumbers, TemplateOptionStore templateOptions, DepartmentAudiences departments,
-            QualityHomeStore home) {
+            QualityHomeStore home, RecordSets sets, PlantPublicationStore plants, FillPeriodStore periods,
+            FillPeriods clock, RecordShares shares, Metadata metadata) {
+        this.sets = sets;
+        this.plants = plants;
+        this.periods = periods;
+        this.clock = clock;
+        this.shares = shares;
+        this.metadata = metadata;
         this.departments = departments;
         this.home = home;
         this.templateOptions = templateOptions;
@@ -123,7 +148,87 @@ class FillIns {
         DataRecord template = template(set, templateId);
         int active = activeVersion(set, templateId);
         String reason = why(caller, template, templateId, active);
-        return new FillInOptionsView(reason == null, active, reason);
+        if (!sets.monthlyFillIn(template.fields().get(Templates.APPLICATION))) {
+            return new FillInOptionsView(reason == null, active, reason, false, List.of(), null);
+        }
+        List<FillInPlantChoice> offered = plantChoices(template, templateId, caller);
+        if (reason == null && offered.isEmpty()) {
+            reason = NO_PLANT;
+        }
+        return new FillInOptionsView(reason == null, active, reason, true, offered, clock.current());
+    }
+
+    /**
+     * The plants a plant head may start a fill-in for: the plants they are plant head of (their groups, through the
+     * mapping an administrator keeps) that the document is published to now.
+     */
+    private List<FillInPlantChoice> plantChoices(DataRecord template, UUID templateId, Caller caller) {
+        RecordSet plantSet = sets.plantSetOf(template.fields().get(Templates.APPLICATION)).orElse(null);
+        if (plantSet == null) {
+            return List.of();
+        }
+        List<String> mine = headOf(plantSet, caller);
+        Map<String, String> places = departments.labels(Templates.LOCATION);
+        return plants.livePlants(templateId).stream().map(PlantPublicationStore.Plant::plant)
+                .filter(mine::contains).map(code -> new FillInPlantChoice(code, places.getOrDefault(code, code)))
+                .toList();
+    }
+
+    /** The plants whose group of plant heads the caller belongs to (the codes, each once). */
+    private List<String> headOf(RecordSet plantSet, Caller caller) {
+        return departments.placesOf(caller.membershipId()).stream()
+                .filter(place -> place.department().equals(plantSet.placeDepartment()))
+                .map(QualityHomeStore.Place::location).distinct().toList();
+    }
+
+    /** What a monthly fill-in is started with; both parts are null for a fill-in that has no plant. */
+    private record Monthly(String plant, String period, UUID group) {
+    }
+
+    /**
+     * Judges the plant and the month a person asks for. A document whose application does not ask for monthly fill-ins
+     * takes neither; one that does needs a plant the person is plant head of and the document is published to, and a
+     * month that has begun that has no fill-in yet.
+     */
+    private Monthly monthly(DataRecord template, UUID templateId, Caller caller, StartFillInRequest asked) {
+        boolean monthly = sets.monthlyFillIn(template.fields().get(Templates.APPLICATION));
+        String plant = asked == null ? null : asked.plant();
+        String period = asked == null ? null : asked.period();
+        if (!monthly) {
+            if (plant != null) {
+                throw ApiException.validation("plant", "This document does not ask for a plant.");
+            }
+            if (period != null) {
+                throw ApiException.validation("period", "This document does not ask for a month.");
+            }
+            return new Monthly(null, null, null);
+        }
+        List<FillInPlantChoice> offered = plantChoices(template, templateId, caller);
+        if (offered.isEmpty()) {
+            refuse("start", "no_plant");
+            throw new ApiException(ErrorCode.CONFLICT, NO_PLANT);
+        }
+        String chosen = plant != null ? plant : offered.size() == 1 ? offered.get(0).plant() : null;
+        if (chosen == null) {
+            throw ApiException.validation("plant", "Choose the plant this fill-in is for.");
+        }
+        if (offered.stream().noneMatch(one -> one.plant().equals(chosen))) {
+            throw ApiException.validation("plant", "You can start a fill-in only for a plant you are plant head of "
+                    + "and this document is published to.");
+        }
+        String month = period != null ? period : clock.current();
+        YearMonth parsed = FillPeriods.parse(month).orElseThrow(() -> ApiException.validation("period",
+                "Give the month as year and month, for example 2026-05."));
+        if (clock.inTheFuture(parsed)) {
+            throw ApiException.validation("period", "A month that has not begun cannot be started.");
+        }
+        if (periods.taken(templateId, chosen, month)) {
+            refuse("start", "month_taken");
+            throw new ApiException(ErrorCode.CONFLICT, MONTH_TAKEN);
+        }
+        UUID group = plants.livePlants(templateId).stream().filter(row -> row.plant().equals(chosen)).findFirst()
+                .map(PlantPublicationStore.Plant::groupId).orElse(null);
+        return new Monthly(chosen, month, group);
     }
 
     /**
@@ -132,7 +237,7 @@ class FillIns {
      * @throws ApiException {@code NOT_FOUND} (a template the caller cannot see), {@code FORBIDDEN} (no right to start
      *         fill-ins), {@code CONFLICT} (retired, no version in use, or the version moved while this ran)
      */
-    FillInStartedView start(RecordSet set, UUID templateId) {
+    FillInStartedView start(RecordSet set, UUID templateId, StartFillInRequest request) {
         Caller caller = access.visible(set, templateId);
         DataRecord template = template(set, templateId);
         if (!access.has(caller, Ability.SHEETS_FILL)) {
@@ -146,10 +251,11 @@ class FillIns {
                     : templateOptions.find(templateId).viewOnly() ? "view_only" : "not_in_use");
             throw new ApiException(ErrorCode.CONFLICT, reason);
         }
+        Monthly monthly = monthly(template, templateId, caller, request);
         DataRecord header;
         try {
             header = headers.create(set, caller.userId(), templateId, nameOf(template),
-                    text(template, Templates.APPLICATION));
+                    text(template, Templates.APPLICATION), monthly.plant(), monthly.period());
         } catch (BackgroundWriteException refused) {
             refuse("start", refused.reason().key());
             throw new ApiException(ErrorCode.CONFLICT, "The fill-in could not be started right now.");
@@ -162,11 +268,15 @@ class FillIns {
             throw new ApiException(ErrorCode.CONFLICT, refusal.reason() == FillRefusal.Reason.NOT_IN_USE ? CHANGED
                     : refusal.getMessage());
         }
+        if (monthly.plant() != null) {
+            claimMonth(set, header.id(), templateId, monthly, caller);
+        }
         // The departments of the filler are kept as codes, once, so the home page can count fill-ins by department.
         home.recordFillPlaces(header.id(), departments.placesOf(caller.membershipId()), caller.userId());
         audit.record(AuditRecord.of("inspection.fill.started", AuditOutcome.SUCCESS).forUser(caller.userId())
                 .inTenant(contexts.require().tenantId()).onObject(set.fill(), header.id().toString())
-                .with("template", templateId.toString()).with("version_no", Integer.toString(active)));
+                .with("template", templateId.toString()).with("version_no", Integer.toString(active))
+                .with("monthly", Boolean.toString(monthly.plant() != null)));
         meters.counter("platform.inspection.fill", "act", "start", "result", "ok").increment();
         return new FillInStartedView(header.id(), templateId, active);
     }
@@ -243,7 +353,7 @@ class FillIns {
         }
         int limit = size == null || size <= 0 ? DEFAULT_SIZE : Math.min(size, MOST);
         RecordQuery query = new RecordQuery(set.narrow(filter(templateId, wantedStatus, extra, searchFilter(search))),
-                sort, FIELDS, List.of(), limit, cursor);
+                sort, projection(set), List.of(), limit, cursor);
         QueryResult result = records.query(set.fill(), query);
         return new FillInPage(rowsOf(set, result.records()), result.nextCursor());
     }
@@ -273,6 +383,10 @@ class FillIns {
      */
     @Transactional(readOnly = true)
     List<FillInRow> rowsOf(RecordSet set, List<QueriedRecord> visible) {
+        Map<String, String> places = new java.util.HashMap<>();
+        if (visible.stream().anyMatch(found -> text(found.record(), Fills.PLANT) != null)) {
+            places.putAll(departments.labels(Templates.LOCATION));
+        }
         List<UUID> ids = visible.stream().map(QueriedRecord::record).map(DataRecord::id).toList();
         Map<UUID, FillLifecycle.Summary> summaries = fills.summaries(set.fill(), ids);
         Set<UUID> templates = new LinkedHashSet<>();
@@ -297,12 +411,43 @@ class FillIns {
             rows.add(new FillInRow(header.id(), template, text(header, Fills.NAME), summary.status().name(),
                     summary.versionNo(), inUse != null && inUse.active() == summary.versionNo(), summary.rowCount(),
                     people.get(header.ownerId()), summary.createdAt(), summary.updatedAt(), summary.submittedAt(),
-                    summary.archivedAt(), numbers.get(template)));
+                    summary.archivedAt(), numbers.get(template), text(header, Fills.PLANT),
+                    plantLabel(places, text(header, Fills.PLANT)), text(header, Fills.PERIOD)));
         }
         return rows;
     }
 
     // ---- helpers ----
+
+    /**
+     * The fields a list of fill-ins reads: those of every fill-in, and the plant and the month when the fill-in object
+     * has them (MC2A, ADR-0260). Only the fill-in object of an application that asks for monthly fill-ins has them, so
+     * the code shared by every application never asks an object for a field it does not have.
+     */
+    List<String> projection(RecordSet set) {
+        boolean monthly = metadata.object(set.fill()).map(object -> object.field(Fills.PLANT).isPresent()
+                && object.field(Fills.PERIOD).isPresent()).orElse(false);
+        return monthly ? MONTHLY_FIELDS : FIELDS;
+    }
+
+    private static String plantLabel(Map<String, String> places, String plant) {
+        return plant == null ? null : places.getOrDefault(plant, plant);
+    }
+
+    /** Makes the claim of the month and shares the new fill-in with the plant's plant heads, read only. */
+    private void claimMonth(RecordSet set, UUID fillId, UUID templateId, Monthly monthly, Caller caller) {
+        try {
+            periods.claim(templateId, fillId, monthly.plant(), monthly.period(), caller.userId());
+        } catch (DuplicateKeyException taken) {
+            // Two plant heads starting the same month at the same moment: the database let one of them in. The whole
+            // start of this one is undone with the exception, header and all.
+            refuse("start", "month_taken");
+            throw new ApiException(ErrorCode.CONFLICT, MONTH_TAKEN);
+        }
+        if (monthly.group() != null) {
+            shares.grantRead(set.fill(), fillId, new Grantee(Grantee.Kind.GROUP, monthly.group()), caller.userId());
+        }
+    }
 
     /** The words that say why a fill-in cannot be started, or null when it can. */
     private String why(Caller caller, DataRecord template, UUID templateId, int active) {

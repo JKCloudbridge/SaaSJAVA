@@ -184,8 +184,8 @@ class ApprovalProcessRules {
         ApproverKind kind = asked.kind() == null ? null
                 : ApproverKind.fromCode(asked.kind().strip().toUpperCase(Locale.ROOT)).orElse(null);
         if (kind == null) {
-            problems.add(place + ".kind", "Choose one of USER, PROFILE, ROLE, GROUP, OWNER, RECORD_USER or "
-                    + "OWNER_ROLE_MANAGER.");
+            problems.add(place + ".kind", "Choose one of USER, PROFILE, ROLE, GROUP, OWNER, RECORD_USER, "
+                    + "OWNER_ROLE_MANAGER or PUBLICATION_REVIEWERS.");
             return null;
         }
         if (fallback && kind != ApproverKind.USER && kind != ApproverKind.GROUP) {

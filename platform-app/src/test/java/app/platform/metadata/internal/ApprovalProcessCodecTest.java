@@ -50,6 +50,24 @@ class ApprovalProcessCodecTest {
     }
 
     @Test
+    void theReviewersChosenAtPublicationRoundTripWithAndWithoutTheKindAndOldVersionsAreUnchanged() {
+        // MC2A, ADR-0260: the kind is additive, so a process stored without it reads and writes as it always did.
+        List<ApprovalStepSpec> before = codec.readSteps(BEFORE_THE_FLAG);
+        ApprovalStepSpec reviewers = new ApprovalStepSpec("Reviewers", "Reviewers", "ANY", List.of(
+                new app.platformapi.ApprovalApproverSpec("PUBLICATION_REVIEWERS", null)), false);
+
+        List<ApprovalStepSpec> read = codec.readSteps(codec.writeSteps(List.of(reviewers)));
+
+        assertThat(read.get(0).approvers().get(0).kind()).isEqualTo("PUBLICATION_REVIEWERS");
+        assertThat(read.get(0).approvers().get(0).value()).isNull();
+        ApprovalProcessDefinition.Step step = ApprovalProcessCodec.step(read.get(0));
+        assertThat(step.approvers().get(0).kind())
+                .isEqualTo(ApprovalProcessDefinition.ApproverKind.PUBLICATION_REVIEWERS);
+        assertThat(codec.writeSteps(codec.readSteps(codec.writeSteps(before)))).isEqualTo(codec.writeSteps(before));
+        assertThat(codec.writeSteps(before)).doesNotContain("PUBLICATION_REVIEWERS");
+    }
+
+    @Test
     void theChoiceFlagSurvivesTheStoredFormAndReachesTheDefinitionAndAnOldVersionMeansFalse() {
         ApprovalStepSpec asking = new ApprovalStepSpec("Second", "Second", "ANY", List.of(
                 new app.platformapi.ApprovalApproverSpec("OWNER", null)), false, true);

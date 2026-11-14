@@ -90,13 +90,15 @@ class TemplatePublishing {
     private final QualityHomeStore home;
     private final RecordSets sets;
     private final DocumentPublishedNotices publishedNotices;
+    private final PlantPublicationStore plants;
 
     TemplatePublishing(TemplateAccess access, PublicationStore store, SheetLifecycle sheets, RecordShares shares,
             DepartmentAudiences audiences, BackgroundRecords records, BackgroundWrites writes, GroupMembers groups,
             AuditRecorder audit, TenantContexts contexts, MeterRegistry meters, NumberSeries numbers,
             ChangeRequestCounts requestCounts, AudienceSuggestions suggestions, TemplateOptionStore optionStore,
             TemplateRevisions revisions, RecordLocks locks, QualityHomeStore home, RecordSets sets,
-            DocumentPublishedNotices publishedNotices) {
+            DocumentPublishedNotices publishedNotices, PlantPublicationStore plants) {
+        this.plants = plants;
         this.sets = sets;
         this.publishedNotices = publishedNotices;
         this.home = home;
@@ -301,8 +303,11 @@ class TemplatePublishing {
         int ended = 0;
         for (PublicationStore.Row row : store.live(templateId)) {
             store.revoke(row.id(), "unpublished", caller.userId());
-            if (row.madeShare() && shares.revoke(set.template(), templateId,
-                    new Grantee(Grantee.Kind.GROUP, row.groupId()), caller.userId())) {
+            // A share the plants still hold is theirs to keep (MC2A, ADR-0260): unpublishing here never takes the
+            // document away from the plant heads.
+            if (row.madeShare() && !plants.holdsGroup(templateId, row.groupId())
+                    && shares.revoke(set.template(), templateId,
+                            new Grantee(Grantee.Kind.GROUP, row.groupId()), caller.userId())) {
                 ended++;
             }
         }
@@ -398,8 +403,9 @@ class TemplatePublishing {
                 }
             } else {
                 store.revoke(row.id(), "changed", actor);
-                if (row.madeShare() && shares.revoke(set.template(), templateId,
-                    new Grantee(Grantee.Kind.GROUP, row.groupId()), actor)) {
+                if (row.madeShare() && !plants.holdsGroup(templateId, row.groupId())
+                        && shares.revoke(set.template(), templateId,
+                                new Grantee(Grantee.Kind.GROUP, row.groupId()), actor)) {
                     ended++;
                 }
             }

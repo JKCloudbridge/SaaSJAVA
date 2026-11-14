@@ -95,6 +95,17 @@ class ApprovalProcessRulesTest {
     }
 
     @Test
+    void theReviewersChosenAtPublicationTakeNoValueAndAreRefusedAsAFallback() {
+        // MC2A, ADR-0260: the kind names nobody; the reviewers are chosen for each document and plant.
+        assertThat(problems(null, List.of(step("A", "ANY", new ApprovalApproverSpec("PUBLICATION_REVIEWERS", null)),
+                step("B", "ANY", new ApprovalApproverSpec("publication_reviewers", " "))), null, null)).isEmpty();
+        assertThat(problems(null, List.of(step("A", "ANY", new ApprovalApproverSpec("PUBLICATION_REVIEWERS",
+                UUID.randomUUID().toString()))), null, null)).containsKey("steps[0].approvers[0].value");
+        assertThat(problems(null, List.of(step("A", "ANY", user())), null,
+                new ApprovalApproverSpec("PUBLICATION_REVIEWERS", null))).containsKey("fallback.kind");
+    }
+
+    @Test
     void aRuleGivenTwiceAndMoreRulesThanTheLimitAreRefused() {
         ApprovalApproverSpec owner = new ApprovalApproverSpec("OWNER", null);
         ApprovalApproverSpec user = user();

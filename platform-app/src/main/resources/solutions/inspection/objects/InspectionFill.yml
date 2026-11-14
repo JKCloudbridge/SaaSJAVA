@@ -60,3 +60,23 @@ fields:
     platformWritten: true
     indexed: true
     settings: { maxLength: 60 }
+
+  # MC2A, ADR-0260: the plant and the month of a monthly fill-in (an application whose file says `monthlyFillIn`). Both
+  # are written once, when the plant head starts the fill-in, and never change; empty means the fill-in belongs to no
+  # plant (every other application). One fill-in exists for a document, a plant and a month: the database holds that
+  # (inspection_fill_period, V093), not these fields.
+  - apiName: plant
+    label: Plant
+    description: The plant (a location) the fill-in is for. Empty for a fill-in that belongs to no plant.
+    type: TEXT
+    platformWritten: true
+    indexed: true
+    settings: { maxLength: 10 }
+
+  - apiName: period
+    label: Month
+    description: The month the fill-in is for, as year and month (2026-05). Empty for a fill-in that has no month.
+    type: TEXT
+    platformWritten: true
+    indexed: true
+    settings: { maxLength: 7 }

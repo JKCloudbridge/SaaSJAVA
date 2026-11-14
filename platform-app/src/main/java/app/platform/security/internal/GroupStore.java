@@ -2,6 +2,7 @@ package app.platform.security.internal;
 
 import app.platform.sharedkernel.ActorId;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
@@ -10,6 +11,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
+import java.util.stream.Collectors;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.stereotype.Repository;
 
@@ -238,6 +240,20 @@ class GroupStore {
                         + "where gm.member_membership_id is not null and gm.deleted_at is null")
                 .param("group", groupId)
                 .query((rs, row) -> result.add(rs.getObject("member_membership_id", UUID.class))).list();
+        return result;
+    }
+
+    /** The users behind these memberships; a membership that has no access row is not in the answer. */
+    Set<UUID> usersOfPeople(Collection<UUID> memberships) {
+        Set<UUID> result = new HashSet<>();
+        if (memberships.isEmpty()) {
+            return result;
+        }
+        String ids = memberships.stream().map(UUID::toString).collect(Collectors.joining(",", "{", "}"));
+        jdbc.sql("select ma.user_id from member_access ma where ma.membership_id = any(cast(:memberships as uuid[])) "
+                        + "and ma.deleted_at is null")
+                .param("memberships", ids)
+                .query((rs, row) -> result.add(rs.getObject("user_id", UUID.class))).list();
         return result;
     }
 

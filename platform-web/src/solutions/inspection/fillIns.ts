@@ -18,6 +18,7 @@ export type FillInPage = components["schemas"]["FillInPage"];
 export type FillInRow = components["schemas"]["FillInRow"];
 export type FillInOptions = components["schemas"]["FillInOptionsView"];
 export type FillInStarted = components["schemas"]["FillInStartedView"];
+export type StartFillInBody = components["schemas"]["StartFillInRequest"];
 export type FillInSubmitted = components["schemas"]["FillInSubmittedView"];
 export type ReportColumns = components["schemas"]["ReportColumnsView"];
 export type ReportColumn = components["schemas"]["ReportColumnView"];
@@ -101,9 +102,15 @@ export function getFillInOptions(templateId: string): Promise<Outcome<FillInOpti
   );
 }
 
-export function startFillIn(templateId: string): Promise<Outcome<FillInStarted>> {
+/** Starts a fill-in; a monthly application takes the plant and the month in the body (MC2A, ADR-0260). */
+export function startFillIn(templateId: string, body?: StartFillInBody): Promise<Outcome<FillInStarted>> {
   return unwrap(
-    call(() => api.POST("/api/v1/templates/{templateId}/fill-ins", { params: { path: { templateId }, query: scopeQuery() } })),
+    call(() =>
+      api.POST("/api/v1/templates/{templateId}/fill-ins", {
+        params: { path: { templateId }, query: scopeQuery() },
+        body,
+      }),
+    ),
   );
 }
 
