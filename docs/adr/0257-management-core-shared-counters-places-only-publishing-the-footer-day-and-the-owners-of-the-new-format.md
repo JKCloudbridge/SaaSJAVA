@@ -1,6 +1,6 @@
 # ADR-0257: Management Core: shared counters, publishing to places alone, the footer day and the owners of the new format
 
-- **Status:** Accepted (the product owner asked for these four points in the MC1 prompt of 2026-11-13 and accepted the recommendations)
+- **Status:** Accepted; **superseded in part by ADR-0259** (2026-11-14): the shared counter (decision 1), the local list of owners (decision 4) and Management Core's own objects and policies were removed when the owner changed the design (every document is made in Document Management and routed by its number); decisions 2 (places alone, kept as an option) and 3 (the footer day, now following the document) stand. The product owner asked for these four points in the MC1 prompt of 2026-11-13 and accepted the recommendations
 - **Date:** 2026-11-13
 - **Track:** Functional (Management Core, part 1 of 3). No migration. One shared-kernel contract widened (the number series
   declaration gains `counterSeries`, the application's parts gain `options`). No new module edge.

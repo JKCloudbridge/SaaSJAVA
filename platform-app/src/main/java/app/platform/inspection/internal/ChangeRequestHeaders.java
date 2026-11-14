@@ -8,6 +8,7 @@ import app.platform.data.DataRecord;
 import app.platform.data.RecordShares;
 import app.platform.security.Grantee;
 import app.platform.sharedkernel.directory.ReferenceDirectory;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 import org.springframework.stereotype.Component;
@@ -45,13 +46,20 @@ class ChangeRequestHeaders {
      * @param templateOwner the owner of the template, who is given the right to read the record, or null
      * @param templateId the template the request is about
      * @param name the name shown for it in the approval inbox: that of the template at the time
+     * @param application the application the template belongs to (MC1.1, ADR-0259), copied once; null or empty for a
+     *        template of Document Management alone
      */
-    DataRecord create(RecordSet set, UUID requester, UUID templateOwner, UUID templateId, String name) {
+    DataRecord create(RecordSet set, UUID requester, UUID templateOwner, UUID templateId, String name,
+            String application) {
+        List<Assignment> values = new ArrayList<>(List.of(
+                new Assignment(RequestRecords.NAME, new Value.Literal(name)),
+                new Assignment(RequestRecords.TEMPLATE_ID, new Value.Literal(templateId.toString())),
+                new Assignment(RequestRecords.STATUS, new Value.Literal(ChangeRequestStatus.OPEN.name()))));
+        if (application != null && !application.isBlank()) {
+            values.add(new Assignment(RecordSets.APPLICATION_FIELD, new Value.Literal(application)));
+        }
         DataRecord made = writes.create(Source.solution("request.raise", templateId), set.request(),
-                requester, List.of(
-                        new Assignment(RequestRecords.NAME, new Value.Literal(name)),
-                        new Assignment(RequestRecords.TEMPLATE_ID, new Value.Literal(templateId.toString())),
-                        new Assignment(RequestRecords.STATUS, new Value.Literal(ChangeRequestStatus.OPEN.name()))));
+                requester, values);
         // A refusal of the share would end the whole request, so a template owner who has left is not asked for.
         if (templateOwner != null && !templateOwner.equals(requester) && isMember(templateOwner)) {
             shares.grantRead(set.request(), made.id(), new Grantee(Grantee.Kind.USER, templateOwner),

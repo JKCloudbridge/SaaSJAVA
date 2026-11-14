@@ -38,6 +38,16 @@ class MailLinks {
     }
 
     /**
+     * The page of a document in an application, on the organization's own host (MC1.1, ADR-0259). The caller passes
+     * parts it has checked: the application's key, the entry's identity and the document's identifier. Nothing is
+     * decided by opening it.
+     */
+    String document(String slug, String application, String entry, java.util.UUID recordId) {
+        return scheme + "://" + slug + "." + baseDomain + port + "/apps/" + application + "/" + entry + "?open="
+                + recordId;
+    }
+
+    /**
      * The approver's inbox on the organization's own host (ADR-0152). A decision is never made from a link: this only
      * opens the page where the person signs in and decides.
      */

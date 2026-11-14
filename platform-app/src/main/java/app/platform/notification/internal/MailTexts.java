@@ -178,6 +178,21 @@ final class MailTexts {
                 it: nothing changes.
                 """),
 
+        DOCUMENT_PUBLISHED(
+                "A document you made was published",
+                """
+                Hello,
+
+                A document of {{objectLabel}} that you made in the organization "{{organization}}" was published. \
+                Open it here:
+
+                {{link}}
+
+                You need to sign in, and what you see is what your access allows. Nothing is decided by opening the \
+                link. If you do not know this organization or did not expect this message, ignore it: nothing \
+                changes.
+                """),
+
         TRIAL_ENDING(
                 "The trial of your organization is ending",
                 """

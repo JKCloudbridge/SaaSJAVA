@@ -49,6 +49,27 @@ public interface FillLifecycle {
     void submit(String fillObject, UUID fillId, UUID requestId, UUID actor);
 
     /**
+     * Whether taking this file off the header would leave a required attachment cell with no file (SH5, ADR-0254). The
+     * cluster's file rule asks it before it lets a person remove a file from a fill-in that was sent.
+     *
+     * @param fillObject the object of the header record
+     * @param fillId the header record
+     * @param fileId the file about to be removed
+     * @return true when some required attachment cell names only this file
+     */
+    boolean emptiesRequiredAttachment(String fillObject, UUID fillId, UUID fileId);
+
+    /**
+     * Takes the identifier of a removed file out of every cell that names it, in the transaction of the removal
+     * (SH5, ADR-0254), so that no cell names a file that is gone. In a draft or a returned fill-in it is the filler's
+     * own change; in a sent or approved one it is the counted correction of the person who removed the file. Nothing
+     * happens when no cell names the file.
+     *
+     * @param actor the person who removed the file
+     */
+    void forgetFile(String fillObject, UUID fillId, UUID fileId, UUID actor);
+
+    /**
      * The review of a request ended: the fill-in it reviewed becomes {@code APPROVED}, {@code RETURNED} (a rejection)
      * or {@code DRAFT} (the filler took it back). Nothing happens when the request reviewed no fill-in of this header.
      *

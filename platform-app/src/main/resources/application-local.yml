@@ -63,10 +63,8 @@ platform:
     # Try the new sheet format on this machine (SH1A, ADR-0251). Production keeps it off.
     format-two:
       enabled: true
-      # Only the Management Core templates make the new format when a spreadsheet is uploaded (MC1, ADR-0257); the other
-      # applications keep making sheets that can be filled in until fill-ins exist for the new format. Leave the list
-      # empty to let every application make it.
-      owners: [ManagementTemplate]
+      # Every document is made in Document Management now (MC1.1, ADR-0259), so the list of owners that make the new
+      # format stays empty: every owner makes it. Fill-ins on the new format exist since SH5.
   secrets:
     kek:
       # The key of infra/local/.env (made by init-env.ps1). It must stay the same between starts, or the credentials

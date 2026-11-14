@@ -77,7 +77,13 @@ class SolutionLoaderTest {
         assertThat(bundle.sheetOwners()).containsExactly("InspectionTemplate");
         assertThat(bundle.policies()).extracting(SolutionBundle.Policy::name)
                 .containsExactly("Author", "Approver", "Publisher", "Reader", "Filler", "Reviewer",
-                        "Department setup");
+                        "Department setup", "Observer");
+        // The Observer sees every document, fill-in and change request and changes nothing (MC1.1, ADR-0259).
+        assertThat(policy(bundle, "observer").objects()).containsOnlyKeys("InspectionTemplate", "InspectionFill",
+                "InspectionChangeRequest");
+        assertThat(policy(bundle, "observer").objects().values()).allSatisfy(actions -> assertThat(actions)
+                .containsExactlyInAnyOrder(ObjectAction.READ, ObjectAction.VIEW_ALL));
+        assertThat(policy(bundle, "observer").abilities()).isEmpty();
         assertThat(policy(bundle, "author").objects().get("InspectionTemplate")).containsExactlyInAnyOrder(
                 ObjectAction.CREATE, ObjectAction.READ, ObjectAction.UPDATE);
         assertThat(policy(bundle, "author").abilities()).isEmpty();

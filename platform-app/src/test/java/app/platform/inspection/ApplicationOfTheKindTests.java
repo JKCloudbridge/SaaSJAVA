@@ -53,11 +53,6 @@ public abstract class ApplicationOfTheKindTests extends SolutionSupport {
     /** The name of its policy that approves them. */
     protected abstract String approverPolicy();
 
-    /** Whether the application's number series draws its counters from the Quality Management System's (ADR-0257). */
-    protected boolean sharesCountersWithTheQualityManagementSystem() {
-        return false;
-    }
-
     // ---- the people ----
 
     private record World(Organization organization, TestBrowser admin) {
@@ -318,11 +313,10 @@ public abstract class ApplicationOfTheKindTests extends SolutionSupport {
         String numberHere = numbered(here, approverHere, world.admin(), templateObject(), first, processHere);
         String numberThere = numbered(there, approverThere, world.admin(), OTHER_TEMPLATE, second, processThere);
 
-        // By default the same identification in both applications starts at the same number: the counters are not
-        // shared, and the unique index of the number (one per object) never sees a clash. An application whose series
-        // draws its counters from the other's (Management Core, ADR-0257) takes the next number instead.
+        // The same identification in both applications starts at the same number: the counters are not shared, and
+        // the unique index of the number (one per object) never sees a clash.
         assertThat(numberHere).isEqualTo("IMS/01");
-        assertThat(numberThere).isEqualTo(sharesCountersWithTheQualityManagementSystem() ? "IMS/02" : "IMS/01");
+        assertThat(numberThere).isEqualTo("IMS/01");
         // Approvers of one application cannot decide the other's request.
         Response sentThere = there.browser().postJson("/api/v1/objects/" + OTHER_TEMPLATE + "/records/" + second
                 + "/approval", "{\"process\":\"" + processHere + "\",\"comment\":null}");

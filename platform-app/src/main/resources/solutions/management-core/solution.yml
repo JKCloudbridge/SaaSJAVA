@@ -1,33 +1,42 @@
-# The Management Core solution, key management-core (Functional track, Management Core part 1, MC1, ADR-0257).
+# The Management Core solution, key management-core (Functional track, Management Core, MC1 and MC1.1, ADR-0257, ADR-0259).
 #
-# The same functions as the Quality Management System application (templates and their sheets, approval, numbering,
-# publishing, revisions through change requests, fill-ins, the report and the home dashboard), over records of its own
-# (ADR-0226): the three objects below play the parts named under `roles`, so a form made here is never listed in any other
-# application, and the reverse. Approval processes are not shipped: an administrator sets them up in Setup like any other.
-# Access policies carry names of their own, and holders of the other applications' policies get no access here until an
-# administrator assigns these.
+# Management Core makes no documents of its own. Every document of every application is made in Document Management; the
+# number Plant QMS gives it decides which application it also belongs to. An organization says in Setup, Numbering,
+# Application routing, which combination of Identification and Part A belongs to which application (for example F with
+# Part A MC belongs to Management Core). The platform then writes the application on the document, once, when the number
+# is made, and a document with no matching rule belongs to Document Management alone.
 #
-# What is particular to this application, all of it data (MC1, ADR-0257):
-#   * its numbers draw from the counters of the Document Management series (numbering.yml, `counterSeries`), so a
-#     management form and a document never get the same number;
-#   * its forms are published to places (plants) alone: the one department "Plant head" of each place receives them
-#     (`options`), so no department is chosen;
-#   * the footer of its sheets carries the day the Revision was published (`options`).
+# This application is therefore a view of the very same records that Document Management shows (it `uses` the same four
+# objects and names the same parts), narrowed to the documents, fill-ins and change requests that carry its name. The
+# narrowing chooses; it never grants: who may read a record is still the record store's and the decision API's answer.
+# It has no New document button, because documents are made in Document Management. The access policies are Document
+# Management's, made available with this application by their own files (`alsoAvailableWith`).
+#
+# What is particular to this application, all of it data:
+#   * routedByNumber: its documents come from Document Management and are chosen by the number (above);
+#   * footerDate: the footer of a document that belongs to this application carries the day the Revision was published,
+#     wherever the document is shown (the option follows the document, not the screen);
+#   * publishTo and publishDepartment: reserved for the act that publishes a form to the plants (MC2A); the publish of
+#     Document Management is not changed by them.
 key: management-core
 feature: management-core
 label: Management Core
 removalNote: >-
-  Taking this feature away hides the Management Core application and its objects from the organization at once.
-  Nothing is deleted: the forms, fill-ins, change requests, approvals in flight and access policies stay, and
-  everything comes back when the feature is given again.
+  Taking this feature away hides the Management Core application from the organization at once. Nothing is deleted:
+  the documents are Document Management's records, the routing rules and everything else stay, and the application comes
+  back when the feature is given again.
 order: 5
 uses:
+  - InspectionTemplate
+  - InspectionFill
+  - InspectionChangeRequest
   - DepartmentGroup
 roles:
-  template: ManagementTemplate
-  fill: ManagementFill
-  changeRequest: ManagementChangeRequest
+  template: InspectionTemplate
+  fill: InspectionFill
+  changeRequest: InspectionChangeRequest
 options:
+  routedByNumber: "true"
   footerDate: "true"
   publishTo: places
   publishDepartment: PLANTHEAD
@@ -40,23 +49,23 @@ application:
     - type: PLATFORM
       label: Home
       pageKey: home
-      readsObject: ManagementTemplate
+      readsObject: InspectionTemplate
     - type: PLATFORM
       label: Document Control
       pageKey: templates
-      readsObject: ManagementTemplate
+      readsObject: InspectionTemplate
     - type: PLATFORM
       label: Change requests
       pageKey: change-requests
-      readsObject: ManagementChangeRequest
+      readsObject: InspectionChangeRequest
     - type: PLATFORM
       label: Record Control
       pageKey: fill-ins
-      readsObject: ManagementFill
+      readsObject: InspectionFill
     - type: PLATFORM
       label: Report
       pageKey: fill-in-report
-      readsObject: ManagementFill
+      readsObject: InspectionFill
     - type: PLATFORM
       label: KPI management
       pageKey: kpi-management
@@ -71,93 +80,3 @@ application:
       placeholder: true
     - type: OBJECT
       object: DepartmentGroup
-objects:
-  - ManagementTemplate
-  - ManagementFill
-  - ManagementChangeRequest
-# The records of this object own a sheet: the grid of the template, kept in versions (FA3, ADR-0186).
-sheetOwners:
-  - ManagementTemplate
-# The rights of the policies are those of the other applications', on this application's objects. Licence, access policy
-# and plan feature stay three mechanisms: these policies are not bound to a licence.
-accessPolicies:
-  - key: author
-    name: Management Author
-    description: Writes templates and sends them for approval. Comes with the Management Core application and cannot be changed.
-    objects:
-      ManagementTemplate: [create, read, update]
-      ManagementChangeRequest: [read]
-    fields:
-      ManagementTemplate:
-        edit: [name, level, documentType]
-        read: [id, category, partA, partB, number, retired, revision, lastRevisedAt, createdAt, updatedAt, ownerId,
-                createdById, updatedById]
-      ManagementChangeRequest:
-        read: [id, name, templateId, status, createdAt, updatedAt, ownerId, createdById, updatedById]
-  - key: approver
-    name: Management Approver
-    description: Sees every template and change request, and changes a template that is in review. Does not publish or retire; that is the Management Publisher policy. Comes with the Management Core application and cannot be changed.
-    objects:
-      ManagementTemplate: [read, update, view-all, modify-all]
-      ManagementFill: [read, update, view-all, modify-all]
-      ManagementChangeRequest: [read, update, view-all, modify-all]
-    abilities:
-      - approvals.override-lock
-      - field-values.add
-    fields:
-      ManagementTemplate:
-        edit: [name, level, documentType, category, partA, partB, serial]
-        read: [id, number, retired, revision, lastRevisedAt, createdAt, updatedAt, ownerId, createdById, updatedById]
-      ManagementFill:
-        read: [id, name, templateId, status, createdAt, updatedAt, ownerId, createdById, updatedById]
-      ManagementChangeRequest:
-        read: [id, name, templateId, status, createdAt, updatedAt, ownerId, createdById, updatedById]
-  - key: publisher
-    name: Management Publisher
-    description: Publishes an approved template to departments, takes it back and retires it. Give it to the group that has the last word. Comes with the Management Core application and cannot be changed.
-    objects:
-      ManagementTemplate: [read, view-all]
-    abilities:
-      - sheets.publish
-      - sheets.retire
-    fields:
-      ManagementTemplate:
-        read: [id, name, number, level, documentType, category, partA, partB, retired, revision, lastRevisedAt, createdAt,
-                updatedAt, ownerId, createdById, updatedById]
-  - key: reader
-    name: Management Reader
-    description: Reads the templates published to them. Comes with the Management Core application and cannot be changed.
-    objects:
-      ManagementTemplate: [read]
-      ManagementChangeRequest: [read]
-    fields:
-      ManagementTemplate:
-        read: [id, name, number, level, documentType, category, partA, partB, retired, revision, lastRevisedAt, createdAt,
-                updatedAt, ownerId, createdById, updatedById]
-      ManagementChangeRequest:
-        read: [id, name, templateId, status, createdAt, updatedAt, ownerId, createdById, updatedById]
-  - key: filler
-    name: Management Filler
-    description: Fills in published templates (the plant heads). Fill-ins of a form in the new sheet format come with a later release. Comes with the Management Core application and cannot be changed.
-    objects:
-      ManagementTemplate: [read]
-      ManagementFill: [read, update]
-      ManagementChangeRequest: [read]
-    abilities:
-      - sheets.fill
-    fields:
-      ManagementTemplate:
-        read: [id, name, number, level, documentType, category, partA, partB, retired, revision, lastRevisedAt, createdAt,
-                updatedAt, ownerId, createdById, updatedById]
-      ManagementFill:
-        read: [id, name, templateId, status, createdAt, updatedAt, ownerId, createdById, updatedById]
-      ManagementChangeRequest:
-        read: [id, name, templateId, status, createdAt, updatedAt, ownerId, createdById, updatedById]
-  - key: reviewer
-    name: Management Reviewer
-    description: Sees every fill-in. Whether a person reviews one is decided by the approval process. Comes with the Management Core application and cannot be changed.
-    objects:
-      ManagementFill: [read, view-all]
-    fields:
-      ManagementFill:
-        read: [id, name, templateId, status, createdAt, updatedAt, ownerId, createdById, updatedById]

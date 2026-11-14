@@ -139,7 +139,7 @@ class DefaultNumberSeries implements NumberSeries {
         // A format change may produce a spelling issued by another scope. Never recycle a reserved spelling.
         for (int attempt = 0; attempt < 1000; attempt++) {
             long counter = jdbc.sql(NEXT).param("tenant", contexts.require().tenantId().value())
-                    .param("series", series.counterKey()).param("scope", scope)
+                    .param("series", series.key()).param("scope", scope)
                     .param("actor", ActorId.SYSTEM.value()).query(Long.class).optional()
                     .orElseThrow(() -> new NumberSeriesException(Reason.COUNTER_EXHAUSTED));
             String candidate = format.render(values, counter);
@@ -170,7 +170,7 @@ class DefaultNumberSeries implements NumberSeries {
         OptionalLong next = OptionalLong.empty();
         if (format.hasCounter() && complete) {
             next = jdbc.sql(COUNTER).param("tenant", contexts.require().tenantId().value())
-                    .param("series", series.counterKey())
+                    .param("series", series.key())
                     .param("scope", NumberingFormats.scope(series, format, values))
                     .query(Long.class).optional().map(OptionalLong::of).orElse(OptionalLong.empty());
         }
@@ -201,7 +201,7 @@ class DefaultNumberSeries implements NumberSeries {
         String candidate = format.render(values, first);
         String scope = NumberingFormats.scope(series, format, values);
         jdbc.sql(START).param("tenant", contexts.require().tenantId().value())
-                .param("series", series.counterKey())
+                .param("series", series.key())
                 .param("scope", scope).param("after", first + 1).param("actor", ActorId.SYSTEM.value())
                 .query(Long.class).optional().orElseThrow(() -> new NumberSeriesException(Reason.ALREADY_STARTED));
         if (used(series, candidate)) {

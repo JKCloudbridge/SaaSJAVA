@@ -87,16 +87,19 @@ EnvironmentTemplate.serial TEXT
 EnvironmentTemplate.number TEXT platformWritten
 EnvironmentTemplate.revision TEXT platformWritten
 EnvironmentTemplate.lastRevisedAt TEXT platformWritten
+EnvironmentTemplate.application TEXT indexed platformWritten
 Group managedBy=security
 Group.name TEXT
 InspectionChangeRequest managedBy=none requiresFeature=inspection retainRecords sharingDefault=PRIVATE
 InspectionChangeRequest.name TEXT platformWritten
 InspectionChangeRequest.templateId TEXT indexed platformWritten
 InspectionChangeRequest.status TEXT indexed platformWritten
+InspectionChangeRequest.application TEXT indexed platformWritten
 InspectionFill managedBy=none requiresFeature=inspection retainRecords sharingDefault=PRIVATE
 InspectionFill.name TEXT platformWritten
 InspectionFill.templateId TEXT indexed platformWritten
 InspectionFill.status TEXT indexed platformWritten
+InspectionFill.application TEXT indexed platformWritten
 InspectionTemplate managedBy=none requiresFeature=inspection retainRecords sharingDefault=PRIVATE
 InspectionTemplate.name TEXT
 InspectionTemplate.level PICKLIST codeValues organizationValues
@@ -109,30 +112,11 @@ InspectionTemplate.serial TEXT
 InspectionTemplate.number TEXT platformWritten
 InspectionTemplate.revision TEXT platformWritten
 InspectionTemplate.lastRevisedAt TEXT platformWritten
+InspectionTemplate.application TEXT indexed platformWritten
 LicenceType managedBy=licensing
 LicenceType.key TEXT
 LicenceType.name TEXT
 LicenceType.kind PICKLIST values=Seat,AddOn
-ManagementChangeRequest managedBy=none requiresFeature=management-core retainRecords sharingDefault=PRIVATE
-ManagementChangeRequest.name TEXT platformWritten
-ManagementChangeRequest.templateId TEXT indexed platformWritten
-ManagementChangeRequest.status TEXT indexed platformWritten
-ManagementFill managedBy=none requiresFeature=management-core retainRecords sharingDefault=PRIVATE
-ManagementFill.name TEXT platformWritten
-ManagementFill.templateId TEXT indexed platformWritten
-ManagementFill.status TEXT indexed platformWritten
-ManagementTemplate managedBy=none requiresFeature=management-core retainRecords sharingDefault=PRIVATE
-ManagementTemplate.name TEXT
-ManagementTemplate.level PICKLIST codeValues organizationValues
-ManagementTemplate.documentType PICKLIST codeValues organizationValues dependsOn=level
-ManagementTemplate.retired BOOLEAN platformWritten
-ManagementTemplate.category PICKLIST codeValues organizationValues
-ManagementTemplate.partA TEXT
-ManagementTemplate.partB TEXT
-ManagementTemplate.serial TEXT
-ManagementTemplate.number TEXT platformWritten
-ManagementTemplate.revision TEXT platformWritten
-ManagementTemplate.lastRevisedAt TEXT platformWritten
 Opportunity managedBy=none
 Opportunity.name TEXT
 Opportunity.accountId LOOKUP target=Account

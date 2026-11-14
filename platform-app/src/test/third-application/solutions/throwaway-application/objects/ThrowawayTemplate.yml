@@ -138,3 +138,11 @@ fields:
     type: TEXT
     platformWritten: true
     settings: { maxLength: 40 }
+
+  - apiName: application
+    label: Application
+    description: The shared template functions write this field on every template object they serve (ADR-0259).
+    type: TEXT
+    platformWritten: true
+    indexed: true
+    settings: { maxLength: 60 }

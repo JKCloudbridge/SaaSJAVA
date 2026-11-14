@@ -2,8 +2,23 @@
 
 import { useEffect, useId, useMemo, useState } from "react";
 import { fromApi } from "@/lib/sheets/adapter";
-import { getFill, useFill, type FillOwner, type FillSummary, type FillView } from "@/lib/sheets/fillApi";
-import { explainFillPlace, fromApiFill, problemsByCell, reapplyFill } from "@/lib/sheets/fillModel";
+import {
+  getFill,
+  useFill,
+  useFillCalculation,
+  type FillOwner,
+  type FillSummary,
+  type FillView,
+} from "@/lib/sheets/fillApi";
+import {
+  answersByCell,
+  explainFillPlace,
+  fromApiFill,
+  hasFormulas,
+  problemsByCell,
+  reapplyFill,
+  toApiFill,
+} from "@/lib/sheets/fillModel";
 import { fillStatusTag, fillStatusWords, versionWords } from "@/lib/sheets/fillTags";
 import type { FillDoc } from "@/lib/sheets/fillTypes";
 import { problemsFromFields } from "@/lib/sheets/hints";
@@ -11,6 +26,7 @@ import type { GridDoc, Problem } from "@/lib/sheets/types";
 import { FillForm } from "./FillForm";
 import { SheetGrid } from "./SheetGrid";
 import { SheetPrintView } from "./SheetPrintView";
+import type { EditAs } from "@/lib/sheets/fillModel";
 import { useFillEditor } from "./useFillEditor";
 import { useNarrowScreen } from "./useNarrowScreen";
 import { FillToolbar } from "./FillToolbar";
@@ -155,7 +171,7 @@ function FillPane({
 }) {
   const grid = useMemo<GridDoc>(() => fromApi(view.grid), [view.grid]);
   const initial = useMemo<FillDoc>(() => fromApiFill(view.cells), [view.cells]);
-  const editor = useFillEditor(grid, initial, view.limits);
+  const editor = useFillEditor(grid, initial, view.limits, view.editAs as EditAs);
   const narrow = useNarrowScreen();
   const [tab, setTab] = useState<"form" | "grid">(narrow ? "form" : "grid");
   const [summary, setSummary] = useState(view.fill);
@@ -212,6 +228,30 @@ function FillPane({
     }),
   });
   const { saving, saved } = autosave;
+  // The server's answers of the formulas (SH5): asked for again after every save. The row an answer belongs to is read
+  // from the cells as they were saved, because that is the document the server calculated.
+  const calculation = useFillCalculation(owner, summary.version, hasFormulas(grid));
+  const answers = useMemo(
+    () =>
+      calculation
+        ? answersByCell(calculation, toApiFill(grid, autosave.baseline.current).rows.map((row) => row.id))
+        : null,
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- the baseline is a ref read once when an answer arrives
+    [calculation, grid],
+  );
+  // Taking a file off changes the stored cells on the server, so the page reads the fill-in again afterwards; what was
+  // typed before was saved first (`beforeRemove`), so nothing is lost.
+  const afterRemove = async () => {
+    const answer = await getFill(owner);
+    if (!answer.ok) {
+      setRefused((held) => held ?? { sent: editor.fill, problems: [], message: answer.failure.message, stale: false });
+      return;
+    }
+    const remote = fromApiFill(answer.data.cells);
+    autosave.rebase(remote, answer.data.fill.version);
+    editor.reset(remote);
+    setSummary(answer.data.fill);
+  };
   const save = () => autosave.flush(true);
   const leave = async (next: () => void) => {
     if (!dirty || await autosave.flush()) next();
@@ -225,7 +265,8 @@ function FillPane({
       setRefused((held) => held && { ...held, message: answer.failure.message });
       return;
     }
-    if (!answer.data.canEdit || answer.data.fill.archivedAt || !["DRAFT", "RETURNED"].includes(answer.data.fill.status)) {
+    const mayStill = ["DRAFT", "RETURNED"].includes(answer.data.fill.status) || answer.data.editAs === "REVIEWER";
+    if (!answer.data.canEdit || answer.data.fill.archivedAt || !mayStill) {
       setRefused((held) => held && { ...held, message: "This fill-in can no longer be edited. Your changes are kept here." });
       return;
     }
@@ -343,6 +384,13 @@ function FillPane({
           correction is recorded in the audit trail, with its size and a fingerprint, never its content.
         </p>
       ) : null}
+      {view.editAs === "REVIEWER" && !readOnly ? (
+        <p className="hint" role="note" data-testid="fill-review-note">
+          You are asked to review this fill-in. You can fill the cells meant for the reviewer; everything else is read
+          only. Every change you save is recorded in the audit trail, with its size and a fingerprint, never its
+          content.
+        </p>
+      ) : null}
       {showing ? (
         <div role="alert" className="form-message" data-testid="save-refused">
           <p>{showing.message}</p>
@@ -395,7 +443,18 @@ function FillPane({
       </div>
       {tab === "form" ? (
         <div role="tabpanel" id={`${tabs}-form`} aria-labelledby={`${tabs}-form-tab`}>
-          <FillForm editor={editor} readOnly={readOnly} problems={targets?.cells ?? new Map()} />
+          <FillForm
+            editor={editor}
+            readOnly={readOnly}
+            problems={targets?.cells ?? new Map()}
+            answers={answers}
+            attach={{
+              object: owner.object,
+              recordId: owner.id,
+              beforeRemove: () => autosave.flush(true),
+              afterRemove,
+            }}
+          />
         </div>
       ) : (
         <div role="tabpanel" id={`${tabs}-grid`} aria-labelledby={`${tabs}-grid-tab`}>
@@ -411,6 +470,8 @@ function FillPane({
               editor={editor}
               readOnly={readOnly || narrow}
               canEditCell={editor.canEditCell}
+              formulaAnswers={answers?.text}
+              formulaKinds={answers?.kinds}
               label={`${label}, ${revisionWords(summary.versionNo).toLowerCase()}`}
             />
             <p className="hint">
@@ -425,6 +486,7 @@ function FillPane({
         <SheetPrintView
           doc={editor.doc}
           showInput
+          answers={answers ?? undefined}
           label={label}
           footer={(typeof footer === "function" ? footer(summary.versionNo) : footer) ?? ""}
           onClose={() => setViewing(false)}

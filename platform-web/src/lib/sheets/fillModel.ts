@@ -1,8 +1,8 @@
 import type { FillDisplayRow, FillDoc, FillLimits, FillOp, FillRow, FillStyle, FillValue } from "./fillTypes";
 import { at, cellKey, cellKind, DEFAULT_ROW_HEIGHT, indexesOf, mergeRects, splitKey } from "./geometry";
 import { newId } from "./ids";
-import type { DisplayRow, GridCell, GridColumn, GridDoc, GridLine } from "./types";
-import { ALIGNMENTS, TEXT_COLOURS } from "./types";
+import type { ColumnType, DisplayRow, GridCell, GridColumn, GridDoc, GridLine } from "./types";
+import { ALIGNMENTS, COLUMN_TYPES, TEXT_COLOURS } from "./types";
 import { TEXT_UNSAFE, unsafeText, valueProblem } from "./values";
 
 /**
@@ -44,6 +44,86 @@ function coveredKeys(grid: GridDoc): ReadonlySet<string> {
   return keys;
 }
 
+/** Who fills a cell: the person who fills the form in, or the person asked to review it (SH5). */
+export type CellClass = "filler" | "reviewer";
+
+/** What one cell holds, by its own statement in the sheet's `inputs` and else its column's (SH5, ADR-0251). */
+export interface CellSpec {
+  type: ColumnType | "attachment";
+  required: boolean;
+  cls: CellClass;
+  picklist: string[] | null;
+  maxFiles: number;
+}
+
+/** The most files an attachment cell holds when the sheet says nothing (the server's default). */
+export const DEFAULT_MAX_FILES = 5;
+
+interface InputStatement {
+  type?: unknown;
+  required?: unknown;
+  class?: unknown;
+  picklist?: { values?: unknown } | null;
+  maxFiles?: unknown;
+}
+
+/**
+ * The effective type of a cell, for the person's convenience: the server's own rule (`FillStructure.effective`) decides
+ * again on every save. A statement of the cell wins; a part it does not state is its column's.
+ */
+export function cellSpec(grid: GridDoc, rowId: string, columnId: string): CellSpec {
+  const column = grid.columns.find((item) => item.id === columnId);
+  const own = grid.sheet?.inputs?.[cellKey(rowId, columnId)] as InputStatement | undefined;
+  let type: CellSpec["type"] = column?.type ?? "text";
+  let picklist = column?.picklist?.values ?? null;
+  let required = column?.required === true;
+  let cls: CellClass = "filler";
+  if (own) {
+    if (typeof own.type === "string" && [...COLUMN_TYPES, "attachment"].includes(own.type)) {
+      type = own.type as CellSpec["type"];
+    }
+    if (own.picklist && Array.isArray(own.picklist.values)) {
+      picklist = own.picklist.values.filter((value): value is string => typeof value === "string");
+    }
+    required = required || own.required === true;
+    cls = own.class === "reviewer" ? "reviewer" : "filler";
+  }
+  const stated = typeof own?.maxFiles === "number" ? own.maxFiles : DEFAULT_MAX_FILES;
+  return { type, required, cls, picklist, maxFiles: type === "attachment" ? stated : 0 };
+}
+
+/** Whether the sheet has any cell of the reviewer's class. */
+export function hasReviewerCells(grid: GridDoc): boolean {
+  return Object.values(grid.sheet?.inputs ?? {}).some((one) => (one as InputStatement).class === "reviewer");
+}
+
+/** Which cells the caller may change, as the API says ("editAs" of the fill-in): the screen offers only those. */
+export type EditAs = "FILLER" | "REVIEWER" | "CORRECTOR" | null | undefined;
+
+/**
+ * Whether the caller may type into this cell: an input cell, of the class the caller writes. A person who fills the form
+ * writes the filler's cells, a reviewer the reviewer's, and a person who corrects a form that was sent any input cell.
+ */
+export function canEditAs(grid: GridDoc, editAs: EditAs, rowId: string, columnId: string): boolean {
+  if (!isInputCell(grid, rowId, columnId)) {
+    return false;
+  }
+  if (editAs === "CORRECTOR" || !editAs || grid.formatVersion !== 2) {
+    return true;
+  }
+  return cellSpec(grid, rowId, columnId).cls === (editAs === "REVIEWER" ? "reviewer" : "filler");
+}
+
+/** The words that say how many files a cell holds. */
+export function attachmentWords(count: number): string {
+  return count === 1 ? "(1 attachment)" : `(${count} attachments)`;
+}
+
+/** Whether two values of a cell are the same value. */
+function sameValue(a: FillValue | undefined, b: FillValue | undefined): boolean {
+  return Array.isArray(a) && Array.isArray(b) ? a.length === b.length && a.every((item, i) => item === b[i]) : a === b;
+}
+
 /** Whether the sheet names this row. */
 export function isNamedRow(grid: GridDoc, rowId: string): boolean {
   return grid.rows.some((line) => line.id === rowId);
@@ -63,6 +143,10 @@ export function isInputCell(grid: GridDoc, rowId: string, columnId: string): boo
   if (!grid.columns.some((column) => column.id === columnId) || grid.headerRows.some((line) => line.id === rowId)) {
     return false;
   }
+  // A calculated column and a cell that holds a formula are drawn by the server's answer and never typed into (SH2).
+  if (grid.sheet?.columnFormulas?.[columnId] || grid.sheet?.cells[cellKey(rowId, columnId)]?.formula) {
+    return false;
+  }
   if (!isNamedRow(grid, rowId)) {
     return true;
   }
@@ -73,8 +157,15 @@ export function isInputCell(grid: GridDoc, rowId: string, columnId: string): boo
 /** Reads an answer of the API into a fill-in: every part present, nothing unknown kept. */
 export function fromApiFill(raw: unknown): FillDoc {
   const rows: FillRow[] = [];
-  const source = typeof raw === "object" && raw !== null ? (raw as { rows?: unknown; formatVersion?: unknown }) : {};
-  for (const item of Array.isArray(source.rows) ? source.rows : []) {
+  const source = typeof raw === "object" && raw !== null
+    ? (raw as { rows?: unknown; formatVersion?: unknown; sheets?: unknown })
+    : {};
+  const three = source.formatVersion === 3;
+  const sheet = three && Array.isArray(source.sheets) && typeof source.sheets[0] === "object" && source.sheets[0] !== null
+    ? (source.sheets[0] as { key?: unknown; rows?: unknown })
+    : {};
+  const list = three ? sheet.rows : source.rows;
+  for (const item of Array.isArray(list) ? list : []) {
     const row = typeof item === "object" && item !== null ? (item as { id?: unknown; cells?: unknown; styles?: unknown }) : {};
     if (typeof row.id !== "string") {
       continue;
@@ -84,6 +175,8 @@ export function fromApiFill(raw: unknown): FillDoc {
     for (const [columnId, value] of Object.entries(given)) {
       if (typeof value === "string" || typeof value === "boolean") {
         cells[columnId] = value;
+      } else if (three && Array.isArray(value) && value.every((file) => typeof file === "string")) {
+        cells[columnId] = [...(value as string[])];
       }
     }
     const styles: Record<string, FillStyle> = {};
@@ -103,6 +196,9 @@ export function fromApiFill(raw: unknown): FillDoc {
     }
     rows.push({ id: row.id, cells, ...(Object.keys(styles).length ? { styles } : {}) });
   }
+  if (three) {
+    return { formatVersion: 3, ...(typeof sheet.key === "string" ? { sheetKey: sheet.key } : {}), rows };
+  }
   return { formatVersion: source.formatVersion === 2 ? 2 : 1, rows };
 }
 
@@ -116,10 +212,25 @@ export function toApiFill(grid: GridDoc, fill: FillDoc): FillDoc {
     .map((line) => fill.rows.find((row) => row.id === line.id))
     .filter((row): row is FillRow => row !== undefined && (Object.keys(row.cells).length > 0 || Object.keys(row.styles ?? {}).length > 0));
   const added = fill.rows.filter((row) => !isNamedRow(grid, row.id));
-  return { formatVersion: fill.formatVersion, rows: [...named, ...added].map((row) => ({
-    id: row.id, cells: { ...row.cells },
-    ...(fill.formatVersion === 2 && Object.keys(row.styles ?? {}).length ? { styles: row.styles } : {}),
-  })) };
+  const sheetKey = grid.formatVersion === 2 ? (grid.sheet?.key ?? fill.sheetKey) : undefined;
+  return { formatVersion: grid.formatVersion === 2 ? 3 : fill.formatVersion,
+    ...(sheetKey ? { sheetKey } : {}),
+    rows: [...named, ...added].map((row) => ({
+      id: row.id, cells: { ...row.cells },
+      ...(fill.formatVersion === 2 && Object.keys(row.styles ?? {}).length ? { styles: row.styles } : {}),
+    })) };
+}
+
+/**
+ * The cells as they go to the server. A fill-in on a sheet in format version 2 is written in format 3, which names the
+ * sheet and holds its rows inside it; every other fill-in is written as it always was.
+ */
+export function toWire(grid: GridDoc, fill: FillDoc): unknown {
+  const body = toApiFill(grid, fill);
+  if (body.formatVersion !== 3) {
+    return body;
+  }
+  return { formatVersion: 3, sheets: [{ key: body.sheetKey, rows: body.rows }] };
 }
 
 function sorted(value: unknown): unknown {
@@ -161,7 +272,7 @@ export function reapplyFill(base: FillDoc, local: FillDoc, remote: FillDoc, grid
     if (!before) { rows.set(edited.id, structuredClone(edited)); continue; }
     const target = rows.get(edited.id) ?? { id: edited.id, cells: {} };
     for (const key of new Set([...Object.keys(before.cells), ...Object.keys(edited.cells)])) {
-      if (before.cells[key] === edited.cells[key]) continue;
+      if (sameValue(before.cells[key], edited.cells[key])) continue;
       if (edited.cells[key] === undefined) delete target.cells[key];
       else target.cells[key] = edited.cells[key];
     }
@@ -180,7 +291,10 @@ export function reapplyFill(base: FillDoc, local: FillDoc, remote: FillDoc, grid
     }
     rows.set(edited.id, { ...target, ...(Object.keys(styles).length ? { styles } : { styles: undefined }) });
   }
-  return { formatVersion: local.formatVersion === 2 || remote.formatVersion === 2 ? 2 : 1, rows: [...rows.values()] };
+  const sheetKey = local.sheetKey ?? remote.sheetKey;
+  const formatVersion = local.formatVersion === 3 || remote.formatVersion === 3 ? 3
+    : local.formatVersion === 2 || remote.formatVersion === 2 ? 2 : 1;
+  return { formatVersion, ...(sheetKey ? { sheetKey } : {}), rows: [...rows.values()] };
 }
 
 /** The rows as they are drawn below the header rows: the rows the sheet names, then the rows the filler added. */
@@ -224,7 +338,8 @@ export function displayDoc(grid: GridDoc, fill: FillDoc): GridDoc {
     for (const [columnId, value] of Object.entries(row.cells)) {
       if (isInputCell(grid, row.id, columnId)) {
         const key = cellKey(row.id, columnId);
-        cells[key] = { ...cells[key], value, kind: "input" };
+        // An attachment cell is drawn as the number of its files; the files themselves are the form view's.
+        cells[key] = { ...cells[key], value: Array.isArray(value) ? attachmentWords(value.length) : value, kind: "input" };
       }
     }
     for (const [columnId, style] of Object.entries(row.styles ?? {})) {
@@ -336,8 +451,35 @@ export function setFillValue(grid: GridDoc, fill: FillDoc, rowId: string, column
   if (!isInputCell(grid, rowId, columnId)) {
     return { ok: false, error: NOT_INPUT };
   }
-  const parsed = parseCell(column, text, limits);
+  const spec = cellSpec(grid, rowId, columnId);
+  if (spec.type === "attachment") {
+    return { ok: false, error: "Files are added with the attach control, not typed." };
+  }
+  const effective: GridColumn = {
+    ...column,
+    type: spec.type,
+    picklist: spec.picklist ? { values: spec.picklist } : column.picklist,
+  };
+  const parsed = parseCell(effective, text, limits);
   return parsed.ok ? { ok: true, fill: withValue(fill, grid, rowId, columnId, parsed.value) } : { ok: false, error: parsed.error };
+}
+
+/**
+ * Names the files of an attachment cell (SH5, ADR-0254): the identifiers the file service gave, in the order shown. An
+ * empty list clears the cell. The server checks that each file is on the fill-in's header and that there are not too many.
+ */
+export function setFillFiles(grid: GridDoc, fill: FillDoc, rowId: string, columnId: string, files: readonly string[]): FillOp {
+  if (!isNamedRow(grid, rowId) && !fill.rows.some((row) => row.id === rowId)) {
+    return { ok: false, error: "This row does not exist." };
+  }
+  const spec = cellSpec(grid, rowId, columnId);
+  if (!isInputCell(grid, rowId, columnId) || spec.type !== "attachment") {
+    return { ok: false, error: NOT_INPUT };
+  }
+  if (files.length > spec.maxFiles) {
+    return { ok: false, error: `This cell holds at most ${spec.maxFiles} files.` };
+  }
+  return { ok: true, fill: withValue(fill, grid, rowId, columnId, files.length === 0 ? null : [...files]) };
 }
 
 /** Empties the input cells of these rows and columns; cells the sheet fixes are left as they are. */
@@ -460,10 +602,12 @@ export function missingRequired(grid: GridDoc, fill: FillDoc): Missing[] {
   const out: Missing[] = [];
   const rowIds = [...grid.rows.map((line) => line.id), ...fill.rows.filter((row) => !isNamedRow(grid, row.id)).map((row) => row.id)];
   for (const column of grid.columns) {
-    if (!column.required) {
-      continue;
-    }
     for (const rowId of rowIds) {
+      const spec = cellSpec(grid, rowId, column.id);
+      // The filler is asked for the cells of the filler's class; the reviewer's cells are the reviewer's to fill.
+      if (!spec.required || spec.cls !== "filler") {
+        continue;
+      }
       const given = fill.rows.find((row) => row.id === rowId)?.cells[column.id];
       if (given === undefined && isInputCell(grid, rowId, column.id)) {
         out.push({ rowId, columnId: column.id });
@@ -523,6 +667,48 @@ export function problemsByCell(
     cells.set(key, [...(cells.get(key) ?? []), problem.message]);
   }
   return { cells, other };
+}
+
+/** Whether the sheet has a formula anywhere, so that the server's answers are worth asking for (SH2, SH5). */
+export function hasFormulas(grid: GridDoc): boolean {
+  return Object.keys(grid.sheet?.columnFormulas ?? {}).length > 0
+    || Object.values(grid.sheet?.cells ?? {}).some((cell) => cell.formula !== undefined);
+}
+
+/** The server's answers of a fill-in's formulas as the grid draws them: by cell key, with the kind of each. */
+export interface FillAnswers {
+  text: Record<string, string>;
+  kinds: Record<string, string>;
+}
+
+/**
+ * Turns the server's calculation of a fill-in into answers by cell key. A calculated column has one answer for each row
+ * of the cells as the server read them, in order; `rowIds` are the ids of those rows, so an answer lands on its own row.
+ * A kind is the server's word (`number`, `text`, `boolean`, `error`): only a number is formatted and judged by a rule.
+ */
+export function answersByCell(
+  calculation: {
+    cells: readonly { cell: string; answer: { kind: string; value: string } }[];
+    columns: readonly { column: string; rows: readonly { kind: string; value: string }[] }[];
+  },
+  rowIds: readonly string[],
+): FillAnswers {
+  const text: Record<string, string> = {};
+  const kinds: Record<string, string> = {};
+  for (const one of calculation.cells) {
+    text[one.cell] = one.answer.value;
+    kinds[one.cell] = one.answer.kind;
+  }
+  for (const column of calculation.columns) {
+    column.rows.forEach((answer, index) => {
+      const rowId = rowIds[index];
+      if (rowId !== undefined) {
+        text[cellKey(rowId, column.column)] = answer.value;
+        kinds[cellKey(rowId, column.column)] = answer.kind;
+      }
+    });
+  }
+  return { text, kinds };
 }
 
 /** Whether the filler adds every row and there is none yet. */

@@ -5,8 +5,12 @@
  * person may type into; the fill-in holds values and, in version 2, sparse input-cell style overrides.
  */
 
-/** What a cell of a fill-in holds: text (a number and a date travel as text), or yes or no. */
-export type FillValue = string | boolean;
+/**
+ * What a cell of a fill-in holds: text (a number and a date travel as text), yes or no, or, in an attachment cell of a
+ * fill-in in format 3, the identifiers of the files of the fill-in's header record. A file is never named by an address
+ * or a file name in a cell.
+ */
+export type FillValue = string | boolean | string[];
 
 /** One row: the identifier of a row of the sheet, or one this browser made for a row the filler added. */
 export type FillStyle = import("./types").CellStyle;
@@ -18,7 +22,10 @@ export interface FillRow {
 }
 
 export interface FillDoc {
-  formatVersion: 1 | 2;
+  /** 1 and 2 for a sheet in format version 1; 3 for a sheet in format version 2 (SH5), which also names its sheet. */
+  formatVersion: 1 | 2 | 3;
+  /** The key of the sheet the cells belong to; only in format 3. */
+  sheetKey?: string;
   rows: FillRow[];
 }
 

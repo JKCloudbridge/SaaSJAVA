@@ -4,6 +4,7 @@ import app.platformapi.ApiException;
 import app.platformapi.ApiPaths;
 import app.platformapi.ApiResponse;
 import app.platformapi.ErrorCode;
+import app.platformapi.SheetCalculationView;
 import app.platformapi.SheetFillSummaryView;
 import app.platformapi.SheetFillView;
 import io.swagger.v3.oas.annotations.Operation;
@@ -63,6 +64,21 @@ class SheetFillController {
     ResponseEntity<ApiResponse<SheetFillView>> get(@PathVariable String fillObject, @PathVariable UUID fillId) {
         return ResponseEntity.ok().header(HttpHeaders.CACHE_CONTROL, "no-store")
                 .body(ApiResponse.of(fills.get(fillObject, fillId)));
+    }
+
+    @GetMapping(FILL + "/calculation")
+    @Operation(
+            operationId = "getSheetFillCalculation",
+            summary = "The answers of the formulas of a fill-in",
+            description = "Calculated now, by the server, from the sheet version the fill-in is pinned to and its "
+                    + "cells; nothing calculated is stored, so every read is the answer of today's rules. A "
+                    + "calculated column has one answer for each row of a sheet where the filler adds the rows. The "
+                    + "browser's own calculation is only a preview while a person types. Readable by whoever may "
+                    + "read the fill-in. " + UNKNOWN)
+    ResponseEntity<ApiResponse<SheetCalculationView>> calculation(@PathVariable String fillObject,
+            @PathVariable UUID fillId) {
+        return ResponseEntity.ok().header(HttpHeaders.CACHE_CONTROL, "no-store")
+                .body(ApiResponse.of(fills.calculation(fillObject, fillId)));
     }
 
     @PutMapping(value = FILL + "/cells", consumes = MediaType.APPLICATION_JSON_VALUE)

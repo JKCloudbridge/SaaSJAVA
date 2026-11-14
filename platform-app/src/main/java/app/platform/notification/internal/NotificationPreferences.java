@@ -38,7 +38,9 @@ class NotificationPreferences {
             Category.ACCOUNT, new String[] {"Your account and organization",
                 "Security of your account and the standing of your organization. These always reach you."},
             Category.REQUESTS, new String[] {"Change requests",
-                "Requests for a change that you asked for, or that were made on something you own."});
+                "Requests for a change that you asked for, or that were made on something you own."},
+            Category.DOCUMENTS, new String[] {"Documents",
+                "Documents you made that were published."});
 
     private final PreferenceStore store;
     private final TenantContexts contexts;
@@ -109,6 +111,7 @@ class NotificationPreferences {
                 return category;
             }
         }
-        throw ApiException.validation(place + ".category", "Choose APPROVALS, WORKFLOWS, ACCOUNT or REQUESTS.");
+        throw ApiException.validation(place + ".category",
+                "Choose APPROVALS, WORKFLOWS, ACCOUNT, REQUESTS or DOCUMENTS.");
     }
 }

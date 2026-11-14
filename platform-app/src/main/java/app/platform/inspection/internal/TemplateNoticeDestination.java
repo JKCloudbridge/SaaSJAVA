@@ -47,11 +47,11 @@ class TemplateNoticeDestination implements NoticeDestination {
             return Optional.empty();
         }
         try {
-            records.get(set.template(), id);
+            Object routed = records.get(set.template(), id).fields().get(Templates.APPLICATION);
             // A notice about a change request names the request, and the person opens its page (FA6E, ADR-0199); the
             // page decides again whether they may see it. Older notices and the others open the template.
             String request = facts == null ? null : facts.get("request");
-            String application = sets.applicationFor(set);
+            String application = sets.applicationFor(set, routed);
             if (request != null && isIdentifier(request)) {
                 return Optional.of(RequestRecords.pathOf(application, id, UUID.fromString(request)));
             }

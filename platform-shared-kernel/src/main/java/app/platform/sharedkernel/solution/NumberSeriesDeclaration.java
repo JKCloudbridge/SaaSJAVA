@@ -18,17 +18,9 @@ import java.util.Objects;
  * @param formats the formats, by value of the selector (a series with no selector has the one format under the empty
  *        text). A value of the selector that has no format here cannot be numbered
  * @param defaults optional closed fallback formats and the optional field that chooses between them (FA6B)
- * @param counterSeries the key of another series whose counters this one draws from, or an empty text (MC1,
- *        ADR-0257): the two series then share one number space for the scopes they have in common
  */
 public record NumberSeriesDeclaration(String key, String object, String field, String selector,
-        Map<String, String> formats, Map<String, String> defaults, String counterSeries) {
-
-    /** A declaration with fallback formats and counters of its own. */
-    public NumberSeriesDeclaration(String key, String object, String field, String selector,
-            Map<String, String> formats, Map<String, String> defaults) {
-        this(key, object, field, selector, formats, defaults, "");
-    }
+        Map<String, String> formats, Map<String, String> defaults) {
 
     /** A declaration without fallback formats, retained for existing solutions. */
     public NumberSeriesDeclaration(String key, String object, String field, String selector,
@@ -44,7 +36,6 @@ public record NumberSeriesDeclaration(String key, String object, String field, S
         selector = selector == null ? "" : selector;
         formats = Map.copyOf(formats);
         defaults = Map.copyOf(defaults);
-        counterSeries = counterSeries == null ? "" : counterSeries;
     }
 
     /** Prints the key only: the formats are the platform's but the rest of a log line should never need them. */

@@ -90,6 +90,12 @@ class SheetFillStore {
             + "version = version + 1, updated_by = :actor where " + WHERE_FILL
             + " and status in ('SUBMITTED', 'APPROVED') and version = :version returning " + COLUMNS;
 
+    // The reviewer's edit (SH5, ADR-0258): only while the review is pending, counted apart from the correction.
+    private static final String UPDATE_CELLS_REVIEWED = "update sheet_fill set cells = cast(:cells as jsonb), "
+            + "cells_hash = :hash, cells_bytes = :bytes, row_count = :rows, review_edits = review_edits + 1, "
+            + "version = version + 1, updated_by = :actor where " + WHERE_FILL
+            + " and status = 'SUBMITTED' and version = :version returning " + COLUMNS;
+
     private static final String SUBMIT = "update sheet_fill set status = 'SUBMITTED', submitted_at = now(), "
             + "approval_request_id = :request, version = version + 1, updated_by = :actor where " + WHERE_FILL
             + " and status in ('DRAFT', 'RETURNED') returning " + COLUMNS;
@@ -237,6 +243,23 @@ class SheetFillStore {
         // Switched off again at once. Not in a finally: if the statement failed, the transaction is already aborted and
         // the setting, which lasts only as long as the transaction, goes with it.
         jdbc.sql("select set_config('platform.fill_correction', 'off', true)").query().listOfRows();
+        return changed;
+    }
+
+    /**
+     * The reviewer's counted edit of a fill-in under review (SH5, ADR-0258). The database lets the cells of a submitted
+     * fill-in change in this way only in a transaction that sets {@code platform.fill_review_edit} to {@code on} and
+     * raises {@code review_edits} by exactly one; as with the correction the setting is on for this one statement.
+     */
+    Optional<Row> updateCellsReviewed(String object, UUID fill, long version, FillValidator.Checked checked,
+            UUID actor) {
+        jdbc.sql("select set_config('platform.fill_review_edit', 'on', true)").query().listOfRows();
+        Optional<Row> changed = jdbc.sql(UPDATE_CELLS_REVIEWED).param("tenant", tenant()).param("object", object)
+                .param("fill", fill).param("version", version).param("cells", checked.canonical())
+                .param("hash", checked.hash()).param("bytes", checked.bytes())
+                .param("rows", checked.doc().rows().size()).param("actor", actor).query(SheetFillStore::map)
+                .optional();
+        jdbc.sql("select set_config('platform.fill_review_edit', 'off', true)").query().listOfRows();
         return changed;
     }
 

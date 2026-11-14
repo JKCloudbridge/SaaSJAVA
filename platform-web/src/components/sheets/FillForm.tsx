@@ -1,9 +1,18 @@
 "use client";
 
 import { useId, useState } from "react";
-import { canAddRows, fillDisplayRows, isInputCell, missingRequired, needsARow } from "@/lib/sheets/fillModel";
+import {
+  attachmentWords,
+  canAddRows,
+  fillDisplayRows,
+  isInputCell,
+  missingRequired,
+  needsARow,
+  type FillAnswers,
+} from "@/lib/sheets/fillModel";
 import type { FillValue } from "@/lib/sheets/fillTypes";
 import type { GridColumn } from "@/lib/sheets/types";
+import { FillAttachments } from "./FillAttachments";
 import type { FillEditor } from "./useFillEditor";
 
 /** What a value says on a screen: text as it is, a yes or no in words. */
@@ -13,6 +22,9 @@ function shown(value: FillValue | undefined): string {
   }
   if (value === false) {
     return "No";
+  }
+  if (Array.isArray(value)) {
+    return attachmentWords(value.length);
   }
   return value ?? "";
 }
@@ -114,6 +126,18 @@ export interface FillFormProps {
   readOnly: boolean;
   /** What the server refused on the last save, in words, by the cell it is about (`rowId:columnId`). */
   problems: ReadonlyMap<string, readonly string[]>;
+  /** The server's answers of the formulas by cell key: shown as plain text, never typed (SH5). */
+  answers?: FillAnswers | null;
+  /**
+   * What an attachment cell needs from the page (SH5, ADR-0254): the header record whose files they are, and the two
+   * moments around taking a file off, when the stored cells change on the server.
+   */
+  attach?: {
+    object: string;
+    recordId: string;
+    beforeRemove(): Promise<boolean>;
+    afterRemove(): Promise<void>;
+  };
 }
 
 /**
@@ -122,7 +146,7 @@ export interface FillFormProps {
  * fixes is shown as text, never as a box. It uses the editor of the grid view, so the two views are one fill-in, and it
  * decides nothing: the types, the choices and the required marks are the sheet's, and the server checks again on a save.
  */
-export function FillForm({ editor, readOnly, problems }: FillFormProps) {
+export function FillForm({ editor, readOnly, problems, answers, attach }: FillFormProps) {
   const { grid, fill } = editor;
   const rows = fillDisplayRows(grid, fill);
   const missing = missingRequired(grid, fill);
@@ -151,11 +175,52 @@ export function FillForm({ editor, readOnly, problems }: FillFormProps) {
               const value = stored?.cells[column.id];
               const fixed = grid.cells[`${row.id}:${column.id}`]?.value;
               const serverProblems = problems.get(`${row.id}:${column.id}`) ?? [];
-              if (!readOnly && isInputCell(grid, row.id, column.id)) {
+              const answer = answers?.text[`${row.id}:${column.id}`];
+              const spec = editor.spec(row.id, column.id);
+              if (answer !== undefined) {
+                return (
+                  <p key={column.id} data-testid="fill-answer">
+                    <strong>{column.label || "Untitled column"}</strong> {answer === "" ? "—" : answer}
+                  </p>
+                );
+              }
+              if (!readOnly && editor.canEditCell(row.id, column.id) && spec.type === "attachment" && attach) {
+                return (
+                  <div key={column.id} className="field">
+                    <span>
+                      {column.label || "Untitled column"}
+                      {spec.required ? <span aria-hidden="true"> *</span> : null}
+                      {spec.required ? <span className="visually-hidden"> (required)</span> : null}
+                    </span>
+                    <FillAttachments
+                      object={attach.object}
+                      recordId={attach.recordId}
+                      value={Array.isArray(value) ? value : []}
+                      maxFiles={spec.maxFiles}
+                      disabled={false}
+                      onChange={(files) => editor.setFiles(row.id, column.id, files)}
+                      beforeRemove={attach.beforeRemove}
+                      afterRemove={attach.afterRemove}
+                    />
+                    {serverProblems.map((word) => (
+                      <p key={word} className="field-error" role="alert">
+                        {word}
+                      </p>
+                    ))}
+                  </div>
+                );
+              }
+              if (!readOnly && editor.canEditCell(row.id, column.id) && spec.type !== "attachment") {
+                const effective: GridColumn = {
+                  ...column,
+                  type: spec.type,
+                  required: spec.required,
+                  picklist: spec.picklist ? { values: spec.picklist } : column.picklist,
+                };
                 return (
                   <FillField
                     key={`${column.id}-${shown(value)}`}
-                    column={column}
+                    column={effective}
                     value={value}
                     name={`${row.id}:${column.id}`}
                     commit={(text) => editor.setText(row.id, column.id, text)}

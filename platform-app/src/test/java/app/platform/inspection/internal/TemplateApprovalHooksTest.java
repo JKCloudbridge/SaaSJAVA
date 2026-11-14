@@ -241,10 +241,21 @@ class TemplateApprovalHooksTest {
     }
 
     private static TemplateApprovalHooks hooks(Fakes fakes) {
+        return hooks(fakes, true, null);
+    }
+
+    /**
+     * The hook over the fakes: {@code fixed} says whether the number is already fixed (the first approval has passed),
+     * {@code routedTo} what the routing rules of the organization give the template (null: no rule fits).
+     */
+    private static TemplateApprovalHooks hooks(Fakes fakes, boolean fixed, String routedTo) {
         var assignments = org.mockito.Mockito.mock(app.platform.data.NumberAssignments.class);
         org.mockito.Mockito.when(assignments.fixed(org.mockito.ArgumentMatchers.anyString(),
-                org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.anyString())).thenReturn(true);
-        return new TemplateApprovalHooks(fakes, fakes, fakes, assignments, null, RecordSetsFixture.both());
+                org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.anyString())).thenReturn(fixed);
+        var routing = org.mockito.Mockito.mock(DocumentRouting.class);
+        org.mockito.Mockito.when(routing.applicationFor(org.mockito.ArgumentMatchers.anyString(),
+                org.mockito.ArgumentMatchers.anyMap())).thenReturn(routedTo);
+        return new TemplateApprovalHooks(fakes, fakes, fakes, assignments, null, RecordSetsFixture.both(), routing);
     }
 
     private static Fakes withTemplate() {
@@ -283,7 +294,7 @@ class TemplateApprovalHooksTest {
         ApprovalHooks hooks = hooks(new Fakes());
 
         assertThat(hooks.object()).isEqualTo("InspectionTemplate");
-        assertThat(hooks.writes()).containsExactly("number");
+        assertThat(hooks.writes()).containsExactly("number", "application");
     }
 
     @Test
@@ -505,6 +516,63 @@ class TemplateApprovalHooksTest {
 
         assertThat(fakes.calls).containsExactly("next", "write:[number]");
         assertThat(fakes.fields).containsEntry("number", "WI/PRD/01");
+    }
+
+    @Test
+    void theFirstApprovalWritesTheApplicationTheRoutingRulesGiveInTheSameWriteAsTheNumber() {
+        Fakes fakes = withTemplate();
+
+        hooks(fakes, false, "management-core").beforeApprove(decision(), fakes);
+
+        assertThat(fakes.calls).hasSize(2).first().isEqualTo("next");
+        assertThat(fakes.calls.get(1)).startsWith("write:").contains("number").contains("application");
+        assertThat(fakes.fields).containsEntry("number", "WI/PRD/01").containsEntry("application", "management-core");
+    }
+
+    @Test
+    void aTemplateNumberedBeforeARuleExistedGetsItsApplicationAtTheFirstApprovalWhenTheNumberIsFixed() {
+        Fakes fakes = withTemplate();
+        fakes.fields.put("number", "WI/PRD/01");
+
+        hooks(fakes, false, "management-core").beforeApprove(decision(), fakes);
+
+        assertThat(fakes.calls.get(fakes.calls.size() - 1)).isEqualTo("write:[application]");
+        assertThat(fakes.fields).containsEntry("application", "management-core");
+    }
+
+    @Test
+    void aRuleThatNoLongerFitsLeavesWhatTheLastSaveGaveAtTheFirstApproval() {
+        Fakes fakes = withTemplate();
+        fakes.fields.put("number", "WI/PRD/01");
+        fakes.fields.put("application", "management-core");
+
+        hooks(fakes, false, null).beforeApprove(decision(), fakes);
+
+        assertThat(fakes.calls).noneMatch(call -> call.startsWith("write:"));
+        assertThat(fakes.fields).containsEntry("application", "management-core");
+    }
+
+    @Test
+    void anApplicationThatIsAlreadyRightIsNotWrittenAgain() {
+        Fakes fakes = withTemplate();
+        fakes.fields.put("number", "WI/PRD/01");
+        fakes.fields.put("application", "management-core");
+
+        hooks(fakes, false, "management-core").beforeApprove(decision(), fakes);
+
+        assertThat(fakes.calls).noneMatch(call -> call.startsWith("write:"));
+    }
+
+    @Test
+    void aTemplateWhoseNumberIsFixedAlreadyNeverHasItsApplicationMovedByALaterRule() {
+        Fakes fakes = withTemplate();
+        fakes.fields.put("number", "WI/PRD/01");
+        fakes.fields.put("application", "management-core");
+
+        hooks(fakes, true, "another-application").beforeApprove(decision(), fakes);
+
+        assertThat(fakes.calls).noneMatch(call -> call.startsWith("write:"));
+        assertThat(fakes.fields).containsEntry("application", "management-core");
     }
 
     @Test

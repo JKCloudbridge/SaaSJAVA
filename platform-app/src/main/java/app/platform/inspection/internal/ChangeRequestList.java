@@ -156,6 +156,10 @@ class ChangeRequestList {
                     return new Seen(false, false, null, null);
                 }
                 DataRecord found = records.find(set.template(), id).orElse(null);
+                // An application narrowed to its own documents never shows a request on another one's (ADR-0259).
+                if (found != null && !set.admits(found.fields())) {
+                    return new Seen(false, false, null, null);
+                }
                 return new Seen(true, access.canReview(set, caller.membershipId(), id), found == null ? null
                         : text(found, Templates.NAME), found == null ? null : text(found, Templates.NUMBER));
             });

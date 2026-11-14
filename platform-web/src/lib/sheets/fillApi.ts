@@ -3,7 +3,7 @@ import { api } from "@/lib/api/client";
 import type { ApiFailure } from "@/lib/api/errors";
 import type { components } from "@/lib/api/generated/schema";
 import { call, type Outcome } from "@/lib/records/call";
-import { toApiFill } from "./fillModel";
+import { toWire } from "./fillModel";
 import type { FillDoc } from "./fillTypes";
 import type { GridDoc } from "./types";
 
@@ -16,6 +16,7 @@ import type { GridDoc } from "./types";
 
 export type FillView = components["schemas"]["SheetFillView"];
 export type FillSummary = components["schemas"]["SheetFillSummaryView"];
+export type FillCalculation = components["schemas"]["SheetCalculationView"];
 
 /** The record a fill-in belongs to. */
 export interface FillOwner {
@@ -48,6 +49,20 @@ export function getFill(owner: FillOwner): Promise<Outcome<FillView>> {
   );
 }
 
+/**
+ * The answers of the formulas of a fill-in, calculated by the server from the sheet version it is pinned to and its cells
+ * (SH5, ADR-0252). Nothing calculated is stored, so asking again after a save gives the answers of what was saved.
+ */
+export function getFillCalculation(owner: FillOwner): Promise<Outcome<FillCalculation>> {
+  return unwrap(
+    call(() =>
+      api.GET("/api/v1/sheet-fills/{fillObject}/{fillId}/calculation", {
+        params: { path: { fillObject: owner.object, fillId: owner.id } },
+      }),
+    ),
+  );
+}
+
 /** Saves the cells of a fill-in. `version` is the row version that was read; a fill-in changed since is a conflict. */
 export function saveFillCells(
   owner: FillOwner,
@@ -59,10 +74,34 @@ export function saveFillCells(
     call(() =>
       api.PUT("/api/v1/sheet-fills/{fillObject}/{fillId}/cells", {
         params: { path: { fillObject: owner.object, fillId: owner.id }, query: { version } },
-        body: toApiFill(grid, fill) as never,
+        body: toWire(grid, fill) as never,
       }),
     ),
   );
+}
+
+/**
+ * The server's answers of a fill-in's formulas, asked for again whenever the saved fill-in changes (`stamp`). Nothing is
+ * asked for a sheet with no formula (`wanted` false); a failure shows nothing, and the page never claims more than it has.
+ */
+export function useFillCalculation(owner: FillOwner, stamp: number, wanted: boolean): FillCalculation | null {
+  const [loaded, setLoaded] = useState<{ key: string; answer: FillCalculation | null } | null>(null);
+  const key = `${owner.object}|${owner.id}|${stamp}`;
+  useEffect(() => {
+    if (!wanted) {
+      return;
+    }
+    let live = true;
+    void getFillCalculation(owner).then((outcome) => {
+      if (live) {
+        setLoaded({ key, answer: outcome.ok ? outcome.data : null });
+      }
+    });
+    return () => {
+      live = false;
+    };
+  }, [key, owner, wanted]);
+  return wanted && loaded?.key === key ? loaded.answer : null;
 }
 
 /** What a fill-in came to, with a way to ask again. */

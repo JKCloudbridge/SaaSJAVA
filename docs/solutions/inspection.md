@@ -18,7 +18,7 @@ its own. This table lists every application that exists.
 | CAPA | `capa` | `solutions/capa/` | `capa` | Tile only (Home). [Page](capa.md) |
 | Audit Management | `audit-management` | `solutions/audit-management/` | `audit-management` | Tile only (Home). [Page](audit-management.md) |
 | Supplier Management | `supplier-management` | `solutions/supplier-management/` | `supplier-management` | Announced tabs. [Page](supplier-management.md) |
-| Management Core | `management-core` | `solutions/management-core/` (files only; code and pages are those of `inspection`) | `management-core` | Real since MC1: forms, numbering over the Document counter, publishing to plants, the footer day. [Page](management-core.md) |
+| Management Core | `management-core` | `solutions/management-core/` (one file; code and pages are those of `inspection`) | `management-core` | A view of Document Management's records narrowed to the documents routed to it by their number (MC1.1, ADR-0259); no objects of its own, no New document; the footer day follows its documents. [Page](management-core.md) |
 | Quality Management System | `inspection` | `solutions/inspection/`, `platform-app/.../app/platform/inspection/`, `platform-web/src/solutions/inspection/` | `inspection` | Real: the whole of this page. It brings the four objects and the seven access policies |
 | Environment Management | `environment-management` | `solutions/environment-management/` (bundle, three objects, numbering; no code) | `environment-management` | Real: the same functions over records of its own. [Page](environment-management.md) |
 | the fifteen process applications | `marketing`, `qa`, ... | `solutions/processes/` | `process-applications` | Announced tabs. [Page](processes.md) |
@@ -597,3 +597,50 @@ A sheet in format version 2 is drawn from its stored look; a sheet in format ver
 - **Freeze** (`freeze.ts`, `SheetGrid.tsx`): fixed rows are sticky rows, fixed columns ride in a `sheet-pane-left` layer of no size inside each row; the line moves up or left past a merged area and the fixed part takes at most three fifths of the view.
 - **Answers carry their kind.** `answerSet` (browser) and the server's calculation both say number, text, boolean or error; `lib/sheets/look/sheetLook.ts` lays them out by cell key for the grid and the print view.
 - **Tests.** No database: `look.test.ts`, `numberFormat.test.ts`, `conditions.test.ts`, `ink.test.ts`, `borders.test.ts`, `freeze.test.ts`, `cellStyle.test.ts`, `display.test.ts`, `SheetGridLook.test.tsx`, `SheetPrintViewLook.test.tsx`, a fill-in fixture in `FillWorkspace.test.tsx`; server `LookCasesTest`. Real browser: `platform-web/browser-checks/sheet-look.mjs` (thresholds T1 to T12; `--workbooks` for the owner's two files and the pictures).
+
+## Filling a form on the new sheet format (SH5)
+
+The decisions are in [ADR-0258](../adr/0258-fill-format-three-the-reviewers-window-and-the-calculation-of-a-fill-in.md) and
+[ADR-0254](../adr/0254-attachment-cells-a-list-of-file-identifiers-of-this-fill-in.md).
+
+- **What changed for a person.** A published template in format version 2 (the Management Core forms) can be filled: start a
+  fill-in, fill the cells, add files, see the calculated columns, send it. A template in the first format works exactly as before.
+- **Fill format 3** is `{"formatVersion":3,"sheets":[{"key","rows":[...]}]}`; the validator is `FillValidator` with the effective type
+  of a cell from `FillStructure.effective`. The corpus of hostile documents is `src/test/resources/sheets/hostile-fills.txt`, read by
+  `FillFormatThreeCorpusTest`; a new refusal code needs a line there.
+- **Two classes of cells.** `FillClassRules` is the one place that says who may change which cell. The filler's own cells and the
+  reviewer's are typed by different people; a person who may correct a sent fill-in may change any input cell.
+- **The reviewer's edit** needs an open task of the pending request, changes only reviewer cells, is counted (`review_edits`) and
+  audited by size and fingerprint, and does not return the fill-in. The window at the database is V091.
+- **Calculation.** `FillCalculations` calls `SheetCalculator`; the answers are never stored. The browser shows the server's answers.
+- **Attachments.** `RecordFileDirectory` (shared kernel, implemented by the data module) answers which files a header holds;
+  `RecordFileRules.removed` lets the cluster take an identifier out of the cells; `FillLifecycle.forgetFile` and
+  `emptiesRequiredAttachment` are the two calls behind it.
+- **Tests.** No database: `FillFormatThreeTest`, `FillFormatThreeCorpusTest`; real PostgreSQL: `SheetFillGuardIT` (the reviewer's
+  window); frontend `fillModelThree.test.ts`. The tests of the whole flow against the real database and object store are listed in
+  `Sprint SH5.md` with what was and was not run.
+
+## Application routing, the narrowed application and the notice on publish (MC1.1)
+
+Short form; the decision is [ADR-0259](../adr/0259-documents-are-made-in-document-management-and-routed-to-applications-by-their-number.md). The
+Functional track is not a numbered sprint.
+
+- **What the cluster knows.** A `RecordSet` has an optional `application`: when it is set the set is the same objects narrowed to the records
+  that carry that name in their field `application` (`narrow` adds the condition to a record store question, `admits` checks a record already
+  read). The solution file says `options: routedByNumber: "true"`. Every source of records has exactly one set that shows all its records
+  (Document Management and the Quality Management System are the same set) and any other set of the same objects is narrowed.
+- **Where the field is written.** `TemplateIdentityWrites` (a permitted Save, with the number, through the write rule of ADR-0198) and
+  `TemplateApprovalHooks.beforeApprove` (the first approval, which writes a rule that fits and clears nothing, through the narrow writer of the hook, in the same write as the number).
+  `DocumentRouting.applicationFor` is the only reader of the rules (`DocumentRoutingStore`, the table `inspection_document_routing`, V092). The
+  fill-in and change-request headers copy it when they are made (`FillHeaders`, `ChangeRequestHeaders`).
+- **Where the narrowing is applied.** The master list (`TemplateList`), the list of fill-ins (`FillIns`), the report (`FillReport`), the list
+  of change requests (`ChangeRequestList`), the dashboard (`QualityHome`: the templates scan and the judge of fill-ins) and the one gate of a call
+  about one document (`TemplateAccess.visible`). A new place that reads these records must narrow too.
+- **The footer day** is `RecordSets.footerDate(document application)`, read in `TemplateDownloads` and the lifecycle view.
+- **The notice on publish** is `DocumentPublishedNotices` (module `inspection`); `NoticeKind.DOCUMENT_PUBLISHED` carries its mail template, and
+  `DefaultNotices` queues the mail with the notice, so the module needs no address and no new edge.
+- **The Observer policy** (`solutions/inspection/solution.yml`): read and view all on the three objects, nothing else.
+- **Every shipped policy lists `application` in its read lists**, or a narrowed list fails for a holder of it.
+- **Tests:** `RecordSetsTest`, `TemplateApprovalHooksTest`, `SolutionLoaderTest`, `SolutionOrderAndSharingTest`, `StandardMetadataLoaderTest`;
+  `DocumentRoutingRulesIT`, `DocumentRoutingIT`, `ShippedPoliciesIT`, `RetainedObjectsIT`; the isolation harness lists
+  `inspection_document_routing`; frontend `RoutingPanel.test.tsx`.

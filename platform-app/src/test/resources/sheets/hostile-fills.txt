@@ -1,0 +1,32 @@
+# Hostile fill-ins of format 3 (SH5, ADR-0251, ADR-0254): one per line as  code | the reason | the document.
+# Each must be refused with the first code named, in words that never repeat what was typed. A new refusal code of the
+# fill validator gets a line here (FillFormatThreeCorpusTest fails when a code of the list has none).
+not_json | text that is not a document | this is not json
+not_json | a repeated key | {"formatVersion":3,"formatVersion":3,"sheets":[]}
+shape | an array at the top | []
+shape | a key the document does not have | {"formatVersion":3,"sheets":[{"key":"main","rows":[]}],"extra":1}
+shape | the sheets are missing | {"formatVersion":3}
+shape | a row with no identifier | {"formatVersion":3,"sheets":[{"key":"main","rows":[{"cells":{}}]}]}
+shape | a cell that is a number | {"formatVersion":3,"sheets":[{"key":"main","rows":[{"id":"r1","cells":{"c2":5}}]}]}
+shape | a list of files with a number in it | {"formatVersion":3,"sheets":[{"key":"main","rows":[{"id":"r1","cells":{"c1":[1]}}]}]}
+format | a format that does not exist | {"formatVersion":4,"sheets":[]}
+format | a format given as text | {"formatVersion":"3","sheets":[]}
+format_mismatch | the old format on a sheet of the new one | {"formatVersion":1,"rows":[]}
+format_mismatch | the second old format on a sheet of the new one | {"formatVersion":2,"rows":[]}
+sheet_count | no sheet at all | {"formatVersion":3,"sheets":[]}
+sheet_count | two sheets | {"formatVersion":3,"sheets":[{"key":"main","rows":[]},{"key":"main2","rows":[]}]}
+sheet_unknown | a sheet the version does not have | {"formatVersion":3,"sheets":[{"key":"elsewhere","rows":[]}]}
+unsafe_text | markup in a cell | {"formatVersion":3,"sheets":[{"key":"main","rows":[{"id":"r3","cells":{"c2":"<script>"}}]}]}
+duplicate_row | a row twice | {"formatVersion":3,"sheets":[{"key":"main","rows":[{"id":"r3","cells":{}},{"id":"r3","cells":{}}]}]}
+row_id_reserved | a row that has the identifier of a column | {"formatVersion":3,"sheets":[{"key":"main","rows":[{"id":"c1","cells":{}}]}]}
+rows_fixed | a row the sheet does not have, where the rows are fixed | {"formatVersion":3,"sheets":[{"key":"main","rows":[{"id":"extra","cells":{"c1":"1"}}]}]}
+cell_unknown | a column the sheet does not have | {"formatVersion":3,"sheets":[{"key":"main","rows":[{"id":"r3","cells":{"nothere":"x"}}]}]}
+cell_not_input | a cell that holds a formula | {"formatVersion":3,"sheets":[{"key":"main","rows":[{"id":"r3","cells":{"c1":"x"}}]}]}
+value_type | text where an attachment is | {"formatVersion":3,"sheets":[{"key":"main","rows":[{"id":"r1","cells":{"c1":"11111111-1111-4111-8111-111111111111"}}]}]}
+value_type | a file that is not an identifier | {"formatVersion":3,"sheets":[{"key":"main","rows":[{"id":"r1","cells":{"c1":["not-an-identifier"]}}]}]}
+value_type | the same file twice | {"formatVersion":3,"sheets":[{"key":"main","rows":[{"id":"r1","cells":{"c1":["11111111-1111-4111-8111-111111111111","11111111-1111-4111-8111-111111111111"]}}]}]}
+value_type | more files than the cell holds | {"formatVersion":3,"sheets":[{"key":"main","rows":[{"id":"r1","cells":{"c1":["11111111-1111-4111-8111-111111111111","22222222-2222-4222-8222-222222222222","33333333-3333-4333-8333-333333333333"]}}]}]}
+value_type | a list of files in a number cell | {"formatVersion":3,"sheets":[{"key":"main","rows":[{"id":"r2","cells":{"c2":["11111111-1111-4111-8111-111111111111"]}}]}]}
+value_type | text in a number cell | {"formatVersion":3,"sheets":[{"key":"main","rows":[{"id":"r2","cells":{"c2":"abc"}}]}]}
+value_type | yes or no where the cell holds text | {"formatVersion":3,"sheets":[{"key":"main","rows":[{"id":"r3","cells":{"c2":true}}]}]}
+too_deep | lists inside lists inside a cell | {"formatVersion":3,"sheets":[{"key":"main","rows":[{"id":"r1","cells":{"c1":[[[[]]]]}}]}]}

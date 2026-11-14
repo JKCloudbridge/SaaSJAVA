@@ -66,10 +66,12 @@ class TemplateDownloads {
     private final MeterRegistry meters;
     private final TemplateRevisions revisions;
     private final FooterProperties footer;
+    private final RecordSets sets;
 
     TemplateDownloads(TemplateAccess access, TemplateOptionStore options, SheetLifecycle lifecycle,
             SheetExports exports, BackgroundRecords records, AuditRecorder audit, TenantContexts contexts,
-            MeterRegistry meters, TemplateRevisions revisions, FooterProperties footer) {
+            MeterRegistry meters, TemplateRevisions revisions, FooterProperties footer, RecordSets sets) {
+        this.sets = sets;
         this.footer = footer;
         this.revisions = revisions;
         this.access = access;
@@ -115,7 +117,8 @@ class TemplateDownloads {
         int shown = revisions.of(set, templateId, summary.active() > 0 ? summary.active() : wanted);
         // The day of the publish is only known for the Revision in use (the template carries one day, MC1, ADR-0257).
         java.time.Instant revised = Templates.lastRevisedAt(header.fields());
-        java.time.LocalDate day = set.footerDate() && revised != null && wanted == summary.active()
+        java.time.LocalDate day = sets.footerDate(header.fields().get(Templates.APPLICATION)) && revised != null
+                && wanted == summary.active()
                 ? revised.atZone(footer.zoneId()).toLocalDate() : null;
         byte[] bytes = exports.xlsx(set.template(), templateId, wanted,
                 TemplateSheetTexts.footer(numberText, shown, day));

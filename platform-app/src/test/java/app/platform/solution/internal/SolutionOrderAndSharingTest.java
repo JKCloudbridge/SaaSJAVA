@@ -122,7 +122,14 @@ class SolutionOrderAndSharingTest {
         assertThat(core.application().entries().stream().filter(SolutionBundle.Entry::placeholder))
                 .extracting(SolutionBundle.Entry::label)
                 .containsExactly("KPI management", "Management Review", "Plantwise Review");
-        assertThat(core.objects()).containsExactly("ManagementTemplate", "ManagementFill", "ManagementChangeRequest");
+        // Its documents are Document Management's, chosen by their number (MC1.1, ADR-0259): it brings no object of
+        // its own, uses the shared ones, and says so in the one option the generic code reads.
+        assertThat(core.objects()).isEmpty();
+        assertThat(core.policies()).isEmpty();
+        assertThat(core.uses()).containsExactly("InspectionTemplate", "InspectionFill", "InspectionChangeRequest",
+                "DepartmentGroup");
+        assertThat(core.roles()).isEqualTo(real("document-management").roles());
+        assertThat(core.options()).containsEntry("routedByNumber", "true");
         for (SolutionBundle bundle : List.of(capa, supplier, real("audit-management"))) {
             assertThat(bundle.objects()).isEmpty();
             assertThat(bundle.policies()).isEmpty();

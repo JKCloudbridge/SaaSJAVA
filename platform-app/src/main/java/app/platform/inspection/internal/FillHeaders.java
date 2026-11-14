@@ -6,6 +6,7 @@ import app.platform.data.BackgroundWrites.Source;
 import app.platform.data.BackgroundWrites.Value;
 import app.platform.data.DataRecord;
 import app.platform.sheets.FillStatus;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 import org.springframework.stereotype.Component;
@@ -37,12 +38,19 @@ class FillHeaders {
      * @param owner the user who starts the fill-in
      * @param templateId the template it is started on
      * @param name the name shown for it: that of the template at the time
+     * @param application the application the template belongs to (MC1.1, ADR-0259), copied once so that lists,
+     *        reports and an approval's entry criteria can tell which application the fill-in belongs to; null or
+     *        empty for a template of Document Management alone, which leaves the field empty
      */
-    DataRecord create(RecordSet set, UUID owner, UUID templateId, String name) {
-        return writes.create(Source.solution("fill.start", templateId), set.fill(), owner, List.of(
+    DataRecord create(RecordSet set, UUID owner, UUID templateId, String name, String application) {
+        List<Assignment> values = new ArrayList<>(List.of(
                 new Assignment(Fills.NAME, new Value.Literal(name)),
                 new Assignment(Fills.TEMPLATE_ID, new Value.Literal(templateId.toString())),
                 new Assignment(Fills.STATUS, new Value.Literal(FillStatus.DRAFT.name()))));
+        if (application != null && !application.isBlank()) {
+            values.add(new Assignment(RecordSets.APPLICATION_FIELD, new Value.Literal(application)));
+        }
+        return writes.create(Source.solution("fill.start", templateId), set.fill(), owner, values);
     }
 
     /** Follows a move of the fill-in on its header. */

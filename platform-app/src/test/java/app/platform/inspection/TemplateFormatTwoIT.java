@@ -199,18 +199,15 @@ class TemplateFormatTwoIT extends FillSupport {
     // ---- a fill-in ----
 
     @Test
-    void aFillInCannotBeStartedOnATemplateInFormatVersionTwoUntilFillFormatThreeExists() {
+    void aFillInCanBeStartedOnATemplateInFormatVersionTwoAndIsStoredInFormatThree() {
         Run run = draft();
         String request = submitted(run.author().browser(), run.template(), run.process());
         assertThat(approve(run.approver().browser(), request).status()).isEqualTo(200);
         assertThat(publish(run.approver().browser(), run.template(), null, "PLANT1/PRD").status()).isEqualTo(200);
 
-        Response refused = startFill(run.filler().browser(), run.template());
+        Response started = startFill(run.filler().browser(), run.template());
 
-        assertThat(refused.status()).as(refused.body()).isEqualTo(409);
-        assertThat(JsonPath.<String>read(refused.body(), "$.error.message"))
-                .isEqualTo("This template uses the new sheet format, which cannot be filled in yet.");
-        List<String> theirs = listedFills(run.filler().browser(), "");
-        assertThat(theirs).as("the header made for it was undone with the refusal").isEmpty();
+        assertThat(started.status()).as(started.body()).isBetween(200, 299);
+        assertThat(listedFills(run.filler().browser(), "")).as("the fill-in was made").hasSize(1);
     }
 }

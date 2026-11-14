@@ -55,21 +55,56 @@ final class FillValues {
 
     /** The values of the reportable columns of these cells; empty when the version flags none. */
     static List<Value> of(SheetGrid grid, FillDoc doc) {
+        return of(grid, doc, java.util.Map.of());
+    }
+
+    /**
+     * The same, with the answers of the calculated columns (SH5): a calculated column that is flagged reportable
+     * contributes the answer of each row, as the kind the answer has. An error answer is not a value and is left out,
+     * so a report never compares an error code as if it were data. Attachment cells are never reportable.
+     *
+     * @param columnAnswers the answers of each calculated column, one for each row of the document, by column id
+     */
+    static List<Value> of(SheetGrid grid, FillDoc doc,
+            java.util.Map<String, List<SheetCalculator.Answer>> columnAnswers) {
         List<Column> columns = reportableColumns(grid);
         if (columns.isEmpty()) {
             return List.of();
         }
         List<Value> values = new ArrayList<>();
-        for (FillDoc.Row row : doc.rows()) {
+        for (int i = 0; i < doc.rows().size(); i++) {
+            FillDoc.Row row = doc.rows().get(i);
             for (Column column : columns) {
-                Object cell = row.cells().get(column.id());
-                Value value = cell == null ? null : value(row.id(), column, cell);
+                List<SheetCalculator.Answer> answers = columnAnswers.get(column.id());
+                Value value;
+                if (answers != null) {
+                    value = i < answers.size() ? answered(row.id(), column.id(), answers.get(i)) : null;
+                } else {
+                    Object cell = row.cells().get(column.id());
+                    value = cell == null || cell instanceof List<?> ? null : value(row.id(), column, cell);
+                }
                 if (value != null) {
                     values.add(value);
                 }
             }
         }
         return values;
+    }
+
+    private static Value answered(String rowId, String columnId, SheetCalculator.Answer answer) {
+        try {
+            return switch (answer.kind()) {
+                case NUMBER -> new Value(rowId, columnId, Kind.NUMBER, null, new BigDecimal(answer.value()), null,
+                        null);
+                case TEXT -> answer.value().isEmpty() ? null
+                        : new Value(rowId, columnId, Kind.TEXT, answer.value(), null, null, null);
+                case BOOLEAN -> new Value(rowId, columnId, Kind.BOOLEAN, null, null, null,
+                        "TRUE".equals(answer.value()));
+                case ERROR -> null;
+            };
+        } catch (NumberFormatException e) {
+            return null;
+        }
     }
 
     private static Value value(String rowId, Column column, Object cell) {

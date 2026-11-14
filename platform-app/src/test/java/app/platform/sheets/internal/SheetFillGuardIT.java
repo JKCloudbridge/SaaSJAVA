@@ -316,13 +316,86 @@ class SheetFillGuardIT {
 
     /** One statement run in a transaction that opens the window of the correction first. */
     private static Throwable inWindow(Role role, TenantId tenant, UUID fill, String cells, String corrections) {
+        return inWindows(role, tenant, fill, cells, corrections, "platform.fill_correction");
+    }
+
+    @ParameterizedTest
+    @EnumSource(Role.class)
+    void theReviewersEditNeedsItsOwnWindowAndRaisesItsOwnCountByExactlyOne(Role role) throws SQLException {
+        TenantId tenant = newTenant();
+        UUID owner = sheetInUse(role, tenant);
+        UUID fill = UUID.randomUUID();
+        start(role, tenant, fill, owner);
+        setStatus(role, tenant, fill, "SUBMITTED");
+        String edit = "review_edits = review_edits + 1";
+
+        assertRefused(inWindows(role, tenant, fill, OTHER, edit), CHECK_VIOLATION, "an edit with no window");
+        assertRefused(inWindows(role, tenant, fill, OTHER, "review_edits = review_edits + 2",
+                "platform.fill_review_edit"), CHECK_VIOLATION, "an edit that counts two");
+        assertRefused(inWindows(role, tenant, fill, OTHER, "review_edits = review_edits", "platform.fill_review_edit"),
+                CHECK_VIOLATION, "an edit that does not count");
+        assertRefused(inWindows(role, tenant, fill, OTHER, "corrections = corrections + 1",
+                "platform.fill_review_edit"), CHECK_VIOLATION, "a correction in the reviewer's window");
+        assertRefused(inWindows(role, tenant, fill, OTHER, edit, "platform.fill_correction"), CHECK_VIOLATION,
+                "a reviewer's edit in the window of the correction");
+        assertRefused(inWindows(role, tenant, fill, OTHER, edit, "platform.fill_review_edit",
+                "platform.fill_correction"), CHECK_VIOLATION, "both windows open at once");
+        assertThat(stateOf(tenant, fill, "review_edits")).isEqualTo("0");
+
+        assertThat(inWindows(role, tenant, fill, OTHER, edit, "platform.fill_review_edit"))
+                .as("a pending review edited once in its window").isNull();
+        assertThat(stateOf(tenant, fill, "review_edits")).isEqualTo("1");
+        assertThat(stateOf(tenant, fill, "corrections")).isEqualTo("0");
+        assertThat(stateOf(tenant, fill, "cells")).contains("\"y\"");
+    }
+
+    @ParameterizedTest
+    @EnumSource(Role.class)
+    void theReviewersWindowOpensOnlyWhileTheReviewIsPending(Role role) throws SQLException {
+        TenantId tenant = newTenant();
+        UUID owner = sheetInUse(role, tenant);
+        UUID fill = UUID.randomUUID();
+        start(role, tenant, fill, owner);
+        String edit = "review_edits = review_edits + 1";
+
+        assertRefused(inWindows(role, tenant, fill, OTHER, edit, "platform.fill_review_edit"), CHECK_VIOLATION,
+                "a draft is the filler's");
+        setStatus(role, tenant, fill, "SUBMITTED");
+        setStatus(role, tenant, fill, "APPROVED");
+        assertRefused(inWindows(role, tenant, fill, OTHER, edit, "platform.fill_review_edit"), CHECK_VIOLATION,
+                "a decided fill-in is not edited by a reviewer");
+        assertThat(stateOf(tenant, fill, "review_edits")).isEqualTo("0");
+    }
+
+    @ParameterizedTest
+    @EnumSource(Role.class)
+    void theReviewEditCountMovesOnlyWithTheCells(Role role) throws SQLException {
+        TenantId tenant = newTenant();
+        UUID owner = sheetInUse(role, tenant);
+        UUID fill = UUID.randomUUID();
+        start(role, tenant, fill, owner);
+        setStatus(role, tenant, fill, "SUBMITTED");
+
+        assertRefused(attempt(role, tenant, "update sheet_fill set review_edits = review_edits + 1, "
+                + "version = version + 1 where fill_id = ?", fill), CHECK_VIOLATION, "a count that changes no cells");
+        assertRefused(attempt(role, tenant, "update sheet_fill set status = 'APPROVED', "
+                + "review_edits = review_edits + 1, version = version + 1 where fill_id = ?", fill), CHECK_VIOLATION,
+                "a count moved by a change of status");
+        assertThat(stateOf(tenant, fill, "review_edits")).isEqualTo("0");
+    }
+
+    /** One statement run in a transaction that opens the named windows first. */
+    private static Throwable inWindows(Role role, TenantId tenant, UUID fill, String cells, String corrections,
+            String... windows) {
         String sql = "update sheet_fill set cells = cast(? as jsonb), cells_hash = ?, cells_bytes = ?, row_count = 1, "
                 + corrections + ", version = version + 1, updated_by = ? where fill_id = ?";
         byte[] hash = hashOf(cells);
         try {
             if (role == Role.APP) {
                 TenantFixtures.asTenant(tenant, connection -> {
-                    TenantFixtures.setting(connection, "platform.fill_correction", "on");
+                    for (String window : windows) {
+                        TenantFixtures.setting(connection, window, "on");
+                    }
                     return TenantFixtures.update(connection, sql, cells, hash, cells.length(), ACTOR, fill);
                 });
             } else {
@@ -330,7 +403,9 @@ class SheetFillGuardIT {
                     connection.setAutoCommit(false);
                     try {
                         TenantFixtures.setTenant(connection, tenant);
-                        TenantFixtures.setting(connection, "platform.fill_correction", "on");
+                        for (String window : windows) {
+                            TenantFixtures.setting(connection, window, "on");
+                        }
                         TenantFixtures.update(connection, sql, cells, hash, cells.length(), ACTOR, fill);
                         connection.commit();
                     } catch (SQLException | RuntimeException e) {

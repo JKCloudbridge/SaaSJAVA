@@ -78,21 +78,21 @@ accessPolicies:
   - key: author
     name: Author
     description: Writes templates and sends them for approval. Comes with the Quality Management System application and cannot be changed.
-    alsoAvailableWith: [document-management]
+    alsoAvailableWith: [document-management, management-core]
     objects:
       InspectionTemplate: [create, read, update]
       InspectionChangeRequest: [read]
     fields:
       InspectionTemplate:
         edit: [name, level, documentType]
-        read: [id, category, partA, partB, number, retired, revision, lastRevisedAt, createdAt, updatedAt, ownerId,
+        read: [id, category, partA, partB, number, retired, revision, lastRevisedAt, application, createdAt, updatedAt, ownerId,
                 createdById, updatedById]
       InspectionChangeRequest:
-        read: [id, name, templateId, status, createdAt, updatedAt, ownerId, createdById, updatedById]
+        read: [id, name, templateId, status, application, createdAt, updatedAt, ownerId, createdById, updatedById]
   - key: approver
     name: Approver
     description: Sees every template and change request, and changes a template that is in review. Does not publish or retire; that is the Publisher policy. Comes with the Quality Management System application and cannot be changed.
-    alsoAvailableWith: [document-management]
+    alsoAvailableWith: [document-management, management-core]
     objects:
       InspectionTemplate: [read, update, view-all, modify-all]
       InspectionFill: [read, update, view-all, modify-all]
@@ -103,15 +103,15 @@ accessPolicies:
     fields:
       InspectionTemplate:
         edit: [name, level, documentType, category, partA, partB, serial]
-        read: [id, number, retired, revision, lastRevisedAt, createdAt, updatedAt, ownerId, createdById, updatedById]
+        read: [id, number, retired, revision, lastRevisedAt, application, createdAt, updatedAt, ownerId, createdById, updatedById]
       InspectionFill:
-        read: [id, name, templateId, status, createdAt, updatedAt, ownerId, createdById, updatedById]
+        read: [id, name, templateId, status, application, createdAt, updatedAt, ownerId, createdById, updatedById]
       InspectionChangeRequest:
-        read: [id, name, templateId, status, createdAt, updatedAt, ownerId, createdById, updatedById]
+        read: [id, name, templateId, status, application, createdAt, updatedAt, ownerId, createdById, updatedById]
   - key: publisher
     name: Publisher
     description: Publishes an approved template to departments, takes it back and retires it. Give it to the group that has the last word, for example Corporate QMS, or to Plant QMS in a flow with no Corporate step. Comes with the Quality Management System application and cannot be changed.
-    alsoAvailableWith: [document-management]
+    alsoAvailableWith: [document-management, management-core]
     objects:
       InspectionTemplate: [read, view-all]
     abilities:
@@ -119,25 +119,25 @@ accessPolicies:
       - sheets.retire
     fields:
       InspectionTemplate:
-        read: [id, name, number, level, documentType, category, partA, partB, retired, revision, lastRevisedAt, createdAt, updatedAt, ownerId,
+        read: [id, name, number, level, documentType, category, partA, partB, retired, revision, lastRevisedAt, application, createdAt, updatedAt, ownerId,
                 createdById, updatedById]
   - key: reader
     name: Reader
     description: Reads the templates published to them. Comes with the Quality Management System application and cannot be changed.
-    alsoAvailableWith: [document-management]
+    alsoAvailableWith: [document-management, management-core]
     objects:
       InspectionTemplate: [read]
       InspectionChangeRequest: [read]
     fields:
       InspectionTemplate:
-        read: [id, name, number, level, documentType, category, partA, partB, retired, revision, lastRevisedAt, createdAt, updatedAt, ownerId,
+        read: [id, name, number, level, documentType, category, partA, partB, retired, revision, lastRevisedAt, application, createdAt, updatedAt, ownerId,
                 createdById, updatedById]
       InspectionChangeRequest:
-        read: [id, name, templateId, status, createdAt, updatedAt, ownerId, createdById, updatedById]
+        read: [id, name, templateId, status, application, createdAt, updatedAt, ownerId, createdById, updatedById]
   - key: filler
     name: Filler
     description: Fills in published templates. Comes with the Quality Management System application and cannot be changed.
-    alsoAvailableWith: [document-management]
+    alsoAvailableWith: [document-management, management-core]
     objects:
       InspectionTemplate: [read]
       InspectionFill: [read, update]
@@ -146,21 +146,21 @@ accessPolicies:
       - sheets.fill
     fields:
       InspectionTemplate:
-        read: [id, name, number, level, documentType, category, partA, partB, retired, revision, lastRevisedAt, createdAt, updatedAt, ownerId,
+        read: [id, name, number, level, documentType, category, partA, partB, retired, revision, lastRevisedAt, application, createdAt, updatedAt, ownerId,
                 createdById, updatedById]
       InspectionFill:
-        read: [id, name, templateId, status, createdAt, updatedAt, ownerId, createdById, updatedById]
+        read: [id, name, templateId, status, application, createdAt, updatedAt, ownerId, createdById, updatedById]
       InspectionChangeRequest:
-        read: [id, name, templateId, status, createdAt, updatedAt, ownerId, createdById, updatedById]
+        read: [id, name, templateId, status, application, createdAt, updatedAt, ownerId, createdById, updatedById]
   - key: reviewer
     name: Reviewer
     description: Sees every fill-in. Whether a person reviews one is decided by the approval process. Comes with the Quality Management System application and cannot be changed.
-    alsoAvailableWith: [document-management]
+    alsoAvailableWith: [document-management, management-core]
     objects:
       InspectionFill: [read, view-all]
     fields:
       InspectionFill:
-        read: [id, name, templateId, status, createdAt, updatedAt, ownerId, createdById, updatedById]
+        read: [id, name, templateId, status, application, createdAt, updatedAt, ownerId, createdById, updatedById]
   - key: departments
     name: Department setup
     description: Says which group of people belongs to which department of which location. Comes with the Quality Management System application and cannot be changed.
@@ -171,3 +171,22 @@ accessPolicies:
       DepartmentGroup:
         edit: [name, location, department, groupId]
         read: [createdAt, updatedAt, ownerId, createdById, updatedById]
+  # MC1.1, ADR-0259: for top management. It sees every document, fill-in and change request of every application and
+  # changes nothing: no right to create or update, no field to edit, no ability. Documents are fixed private, so the
+  # role hierarchy gives no sight of them; this policy, given to a group, does.
+  - key: observer
+    name: Observer
+    description: Sees every template, fill-in and change request and changes nothing. Meant for top management. Comes with the Quality Management System application and cannot be changed.
+    alsoAvailableWith: [document-management, management-core]
+    objects:
+      InspectionTemplate: [read, view-all]
+      InspectionFill: [read, view-all]
+      InspectionChangeRequest: [read, view-all]
+    fields:
+      InspectionTemplate:
+        read: [id, name, number, level, documentType, category, partA, partB, retired, revision, lastRevisedAt, application, createdAt, updatedAt, ownerId,
+                createdById, updatedById]
+      InspectionFill:
+        read: [id, name, templateId, status, application, createdAt, updatedAt, ownerId, createdById, updatedById]
+      InspectionChangeRequest:
+        read: [id, name, templateId, status, application, createdAt, updatedAt, ownerId, createdById, updatedById]

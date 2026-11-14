@@ -55,5 +55,14 @@ public enum MailTemplate {
      * the stage ({@code ending_7d}, {@code ending_1d} or {@code suspended}); it goes to the people who administer the
      * organization and cannot be switched off.
      */
-    TRIAL_NOTICE
+    TRIAL_NOTICE,
+
+    /**
+     * A document the recipient made was published (MC1.1, ADR-0259). The request names the organization, the object,
+     * the record and the address parts of the page that opens it (facts, no title, no number, no value); at send time
+     * the relay builds the link on the organization's own host. A decision is never made from a link: it only opens
+     * the document. It is queued together with the in-app notice of the same kind and follows the same category
+     * switch.
+     */
+    DOCUMENT_PUBLISHED
 }

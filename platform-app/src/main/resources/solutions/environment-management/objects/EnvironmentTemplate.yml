@@ -138,3 +138,13 @@ fields:
     type: TEXT
     platformWritten: true
     settings: { maxLength: 40 }
+
+  # MC1.1, ADR-0259: the shared template functions write this field on every template object they serve. No rule routes a
+  # document of this application anywhere, so it stays empty.
+  - apiName: application
+    label: Application
+    description: Not used by this application; the shared functions of the templates require the field. Always empty.
+    type: TEXT
+    platformWritten: true
+    indexed: true
+    settings: { maxLength: 60 }

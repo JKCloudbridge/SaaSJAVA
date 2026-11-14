@@ -154,8 +154,8 @@ class FillReport {
                     new QueryFilter(QueryFilter.Op.EQ, null, Fills.STATUS, List.of(status))), null, null);
         }
         // One page is enough: it asks for at most as many as it was given, and the engine's page size bounds it.
-        RecordQuery query = new RecordQuery(filter, List.of(new QuerySort("createdAt", true)), FIELDS, List.of(),
-                candidates.size(), null);
+        RecordQuery query = new RecordQuery(set.narrow(filter), List.of(new QuerySort("createdAt", true)), FIELDS,
+                List.of(), candidates.size(), null);
         List<QueriedRecord> seen = records.query(set.fill(), query).records();
         Map<UUID, FillInRow> byHeader = new HashMap<>();
         for (FillInRow row : fillIns.rowsOf(set, seen)) {

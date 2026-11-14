@@ -10,27 +10,37 @@ import java.util.Map;
  * cells keyed by the identifier of the column. It is the only form of a cells document the rest of the module sees.
  * Immutable. Everything in it is text of the organization, so every type prints as a redacted marker.
  *
+ * @param sheetKey the key of the sheet the cells belong to (format 3 only, else null)
  * @param rows the rows in order: the rows the sheet names (in its order) and then the rows the filler added (in the
  *        order the filler gave)
  */
-record FillDoc(int formatVersion, List<Row> rows) {
+record FillDoc(int formatVersion, String sheetKey, List<Row> rows) {
 
     /** The original value-only format, retained byte-for-byte; formatted documents explicitly use version 2. */
     static final int FORMAT_VERSION = 1;
+
+    /** The format of a fill-in on a sheet in format version 2 (SH5): the sheet's key, rows, and files by identifier. */
+    static final int FORMAT_THREE = 3;
 
     FillDoc {
         rows = List.copyOf(rows);
     }
 
+    FillDoc(int formatVersion, List<Row> rows) {
+        this(formatVersion, null, rows);
+    }
+
     FillDoc(List<Row> rows) {
-        this(FORMAT_VERSION, rows);
+        this(FORMAT_VERSION, null, rows);
     }
 
     /**
      * One row.
      *
      * @param id the identifier: that of a row the sheet names, or one the browser generated for a row the filler added
-     * @param cells the values by column identifier: a string or a boolean, never null or an empty text
+     * @param cells the values by column identifier: a string, a boolean or, in an attachment cell of format 3, a list
+     *        of
+     *        file identifiers; never null or an empty text
      */
     record Row(String id, Map<String, Object> cells, Map<String, Map<String, Object>> styles) {
 

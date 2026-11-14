@@ -180,7 +180,8 @@ class NoticeTexts {
             if (kind == NoticeKind.APPROVAL_TASK || kind == NoticeKind.APPROVAL_REMINDER) {
                 return "/approvals";
             }
-            if (kind == NoticeKind.CHANGE_REQUEST && row.recordId() != null) {
+            if ((kind == NoticeKind.CHANGE_REQUEST || kind == NoticeKind.DOCUMENT_PUBLISHED)
+                    && row.recordId() != null) {
                 // The page of the application that shows the record with its requests; both parts are facts of the
                 // notice, checked at creation to be only letters, digits and a few marks. Without them: the record.
                 String application = row.facts().get("application");

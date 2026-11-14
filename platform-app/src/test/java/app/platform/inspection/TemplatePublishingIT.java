@@ -248,9 +248,9 @@ class TemplatePublishingIT extends TemplateSupport {
         assertThat(JsonPath.<List<String>>read(options.body(), "$.data.locations[*].value"))
                 .containsExactly("PLANT1", "PLANT2", "HEAD");
         assertThat(JsonPath.<List<String>>read(options.body(), "$.data.locations[0].departments[*].value"))
-                .containsExactly("PRD", "QLT", "MNT", "STR");
+                .containsExactly("PRD", "QLT", "MNT", "STR", "PLANTHEAD");
         assertThat(JsonPath.<List<Boolean>>read(options.body(), "$.data.locations[0].departments[*].configured"))
-                .containsExactly(true, false, false, false);
+                .containsExactly(true, false, false, false, false);
         assertThat(JsonPath.<List<String>>read(options.body(), "$.data.locations[2].departments[*].value"))
                 .containsExactly("HR", "FIN");
         assertThat(run.author().browser().get(TEMPLATES + "/audience-options").status()).as("needs the ability")

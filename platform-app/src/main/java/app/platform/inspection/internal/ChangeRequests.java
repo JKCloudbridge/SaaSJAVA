@@ -181,7 +181,9 @@ class ChangeRequests {
     @Transactional(readOnly = true)
     Optional<String> pathOfReview(UUID reviewId) {
         return store.findByHeader(reviewId).flatMap(row -> sets.ofTemplate(row.templateObject())
-                .map(set -> RequestRecords.pathOf(sets.applicationFor(set), row.templateId(), row.id())));
+                .map(set -> RequestRecords.pathOf(sets.applicationFor(set, records.find(set.template(),
+                        row.templateId()).map(found -> found.fields().get(Templates.APPLICATION)).orElse(null)),
+                        row.templateId(), row.id())));
     }
 
     // ---- asking ----
@@ -275,7 +277,8 @@ class ChangeRequests {
         Object name = template.fields().get(Templates.NAME);
         String shown = name instanceof String text && !text.isBlank() ? text.strip() : "Template";
         DataRecord review = headers.create(set, reach.userId(), template.ownerId(), templateId,
-                shown.length() > NAME_LIMIT ? shown.substring(0, NAME_LIMIT) : shown);
+                shown.length() > NAME_LIMIT ? shown.substring(0, NAME_LIMIT) : shown,
+                text(template, Templates.APPLICATION));
         try {
             starter.startForPerson(set.request(), review.id(), reach.userId());
         } catch (ApprovalStartRefusal refused) {

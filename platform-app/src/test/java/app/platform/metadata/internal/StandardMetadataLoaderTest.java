@@ -39,9 +39,8 @@ class StandardMetadataLoaderTest {
         assertThat(standard.objects()).extracting(ObjectDefinition::apiName).containsExactlyInAnyOrder(
                 "Account", "AccessPolicy", "AccessPolicyAssignment", "Case", "Contact", "DepartmentGroup",
                 "EnvironmentChangeRequest", "EnvironmentFill", "EnvironmentTemplate", "Group",
-                "InspectionChangeRequest", "InspectionFill", "InspectionTemplate", "LicenceType",
-                "ManagementChangeRequest", "ManagementFill", "ManagementTemplate", "Opportunity", "Profile",
-                "RecordType", "Role", "User")
+                "InspectionChangeRequest", "InspectionFill", "InspectionTemplate", "LicenceType", "Opportunity",
+                "Profile", "RecordType", "Role", "User")
                 .doesNotHaveDuplicates();
         assertThat(standard.objects()).allSatisfy(object -> {
             assertThat(object.kind()).isEqualTo(DefinitionKind.STANDARD);
@@ -267,7 +266,7 @@ class StandardMetadataLoaderTest {
         assertThat(shipped.field("retired").orElseThrow().platformWritten()).isTrue();
         assertThat(shipped.fields().stream().skip(standard.systemFields().size()).map(FieldDefinition::apiName))
                 .containsExactly("name", "level", "documentType", "retired", "category", "partA",
-                        "partB", "serial", "number", "revision", "lastRevisedAt");
+                        "partB", "serial", "number", "revision", "lastRevisedAt", "application");
         // A fill-in (FF1, ADR-0192): private, kept, and every field one only the platform writes.
         ObjectDefinition fill = standard.object("InspectionFill").orElseThrow();
         assertThat(fill.requiresFeature()).isEqualTo("inspection");
@@ -276,7 +275,7 @@ class StandardMetadataLoaderTest {
         assertThat(fill.fields().stream().skip(standard.systemFields().size())).allSatisfy(
                 field -> assertThat(field.platformWritten()).as(field.apiName()).isTrue());
         assertThat(fill.fields().stream().skip(standard.systemFields().size()).map(FieldDefinition::apiName))
-                .containsExactly("name", "templateId", "status");
+                .containsExactly("name", "templateId", "status", "application");
         // A change request's review record (FA6E, ADR-0199): private, kept, and every field one only the platform
         // writes.
         ObjectDefinition request = standard.object("InspectionChangeRequest").orElseThrow();
@@ -286,11 +285,12 @@ class StandardMetadataLoaderTest {
         assertThat(request.fields().stream().skip(standard.systemFields().size())).allSatisfy(
                 field -> assertThat(field.platformWritten()).as(field.apiName()).isTrue());
         assertThat(request.fields().stream().skip(standard.systemFields().size()).map(FieldDefinition::apiName))
-                .containsExactly("name", "templateId", "status");
+                .containsExactly("name", "templateId", "status", "application");
         // Document Management shows the same records (FA13A, ADR-0225): each object is also available with its feature.
         for (String name : List.of("InspectionTemplate", "InspectionFill", "InspectionChangeRequest")) {
             ObjectDefinition shared = standard.object(name).orElseThrow();
-            assertThat(shared.alsoAvailableWith()).as(name).containsExactly("document-management");
+            assertThat(shared.alsoAvailableWith()).as(name).containsExactly("document-management",
+                    "management-core");
             assertThat(shared.availableWith("document-management"::equals)).as(name).isTrue();
             assertThat(shared.availableWith("inspection"::equals)).as(name).isTrue();
             assertThat(shared.availableWith(feature -> false)).as(name).isFalse();
@@ -310,16 +310,9 @@ class StandardMetadataLoaderTest {
             assertThat(own.sharingDefault()).as(name).isEqualTo("PRIVATE");
             assertThat(own.availableWith("inspection"::equals)).as(name).isFalse();
         }
-        // Management Core has records of its own too (MC1, ADR-0257).
-        for (String name : List.of("ManagementTemplate", "ManagementFill", "ManagementChangeRequest")) {
-            ObjectDefinition own = standard.object(name).orElseThrow();
-            assertThat(own.requiresFeature()).as(name).isEqualTo("management-core");
-            assertThat(own.alsoAvailableWith()).as(name).isEmpty();
-            assertThat(own.retainRecords()).as(name).isTrue();
-            assertThat(own.sharingDefault()).as(name).isEqualTo("PRIVATE");
-            assertThat(own.availableWith("inspection"::equals)).as(name).isFalse();
-            assertThat(own.availableWith("environment-management"::equals)).as(name).isFalse();
-        }
+        // Management Core has no records of its own: its documents are Document Management's, chosen by their
+        // number (MC1.1, ADR-0259), so the three objects of MC1 are gone and the shared ones come with its feature.
+        assertThat(standard.object("ManagementTemplate")).isEmpty();
         ObjectDefinition departments = standard.object("DepartmentGroup").orElseThrow();
         assertThat(departments.requiresFeature()).isEqualTo("inspection");
         assertThat(departments.retainRecords()).isFalse();
@@ -331,8 +324,7 @@ class StandardMetadataLoaderTest {
         StandardMetadata standard = StandardMetadataLoader.load();
 
         Set<String> shipped = Set.of("InspectionTemplate", "InspectionFill", "InspectionChangeRequest",
-                "EnvironmentTemplate", "EnvironmentFill", "EnvironmentChangeRequest", "ManagementTemplate",
-                "ManagementFill", "ManagementChangeRequest", "DepartmentGroup");
+                "EnvironmentTemplate", "EnvironmentFill", "EnvironmentChangeRequest", "DepartmentGroup");
         assertThat(standard.objects().stream().filter(object -> !shipped
                 .contains(object.apiName()))).allSatisfy(object -> {
                     assertThat(object.requiresFeature()).isNull();

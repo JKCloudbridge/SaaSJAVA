@@ -52,7 +52,7 @@ class NumberingLoaderTest {
         List<NumberingLoader.Loaded> loaded = NumberingLoader.load();
 
         assertThat(loaded).extracting(NumberingLoader.Loaded::solution)
-                .containsExactlyInAnyOrder("inspection", "environment-management", "management-core");
+                .containsExactlyInAnyOrder("inspection", "environment-management");
         NumberSeriesDeclaration series = loaded.stream().filter(one -> one.solution().equals("inspection"))
                 .findFirst().orElseThrow().declaration();
         assertThat(series.key()).isEqualTo("document");
@@ -136,19 +136,5 @@ class NumberingLoaderTest {
                 Arguments.of("a format that is not text", "series:\n  - key: a\n    object: W\n    field: f\n"
                         + "    selector: s\n    formats: {A: 12}\n", "is text"),
                 Arguments.of("a file that is not YAML", "series: [unclosed\n", "not valid YAML"));
-    }
-
-    @Test
-    void theSeriesOfManagementCoreDrawsItsCountersFromTheDocumentSeries() {
-        List<NumberingLoader.Loaded> loaded = NumberingLoader.load();
-
-        NumberSeriesDeclaration management = loaded.stream().filter(one -> one.solution().equals("management-core"))
-                .findFirst().orElseThrow().declaration();
-        assertThat(management.key()).isEqualTo("management-document");
-        assertThat(management.object()).isEqualTo("ManagementTemplate");
-        assertThat(management.counterSeries()).isEqualTo("document");
-        assertThat(loaded.stream().filter(one -> one.solution().equals("inspection")).findFirst().orElseThrow()
-                .declaration().counterSeries()).isEmpty();
-        assertThat(management.formats()).isNotEmpty();
     }
 }

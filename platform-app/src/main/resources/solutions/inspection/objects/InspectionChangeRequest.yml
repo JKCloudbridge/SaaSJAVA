@@ -23,7 +23,7 @@ extensible: false
 requiresFeature: inspection
 # The Document Management application shows the same records (FA13A, ADR-0225): the object exists when either
 # application's plan feature is on, and nothing is stored twice.
-alsoAvailableWith: [document-management]
+alsoAvailableWith: [document-management, management-core]
 retainRecords: true
 sharingDefault: PRIVATE
 fields:
@@ -49,3 +49,12 @@ fields:
     platformWritten: true
     indexed: true
     settings: { maxLength: 20 }
+
+  # MC1.1, ADR-0259: copied from the document when the request is raised (see InspectionFill). It never changes.
+  - apiName: application
+    label: Application
+    description: The application the template belongs to, copied when the request was raised. Empty means Document Management only.
+    type: TEXT
+    platformWritten: true
+    indexed: true
+    settings: { maxLength: 60 }

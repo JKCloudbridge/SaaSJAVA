@@ -88,12 +88,17 @@ class TemplatePublishing {
     private final TemplateRevisions revisions;
     private final RecordLocks locks;
     private final QualityHomeStore home;
+    private final RecordSets sets;
+    private final DocumentPublishedNotices publishedNotices;
 
     TemplatePublishing(TemplateAccess access, PublicationStore store, SheetLifecycle sheets, RecordShares shares,
             DepartmentAudiences audiences, BackgroundRecords records, BackgroundWrites writes, GroupMembers groups,
             AuditRecorder audit, TenantContexts contexts, MeterRegistry meters, NumberSeries numbers,
             ChangeRequestCounts requestCounts, AudienceSuggestions suggestions, TemplateOptionStore optionStore,
-            TemplateRevisions revisions, RecordLocks locks, QualityHomeStore home) {
+            TemplateRevisions revisions, RecordLocks locks, QualityHomeStore home, RecordSets sets,
+            DocumentPublishedNotices publishedNotices) {
+        this.sets = sets;
+        this.publishedNotices = publishedNotices;
         this.home = home;
         this.revisions = revisions;
         this.locks = locks;
@@ -125,7 +130,7 @@ class TemplatePublishing {
     @Transactional(readOnly = true)
     AudienceOptionsView audienceOptions(RecordSet set) {
         access.require(Ability.SHEETS_PUBLISH);
-        return forSet(set, audiences.options());
+        return forSet(set.withoutPublishOptions(), audiences.options());
     }
 
     /**
@@ -150,7 +155,8 @@ class TemplatePublishing {
     }
 
     /** The group of each pick; for a set that publishes to places alone only the fixed department is accepted. */
-    private List<Resolved> resolvePicks(RecordSet set, List<AudiencePick> picks) {
+    private List<Resolved> resolvePicks(RecordSet application, List<AudiencePick> picks) {
+        RecordSet set = application.withoutPublishOptions();
         if (set.placesOnly()) {
             for (int index = 0; index < picks.size(); index++) {
                 if (!set.placeDepartment().equals(picks.get(index).department())) {
@@ -169,7 +175,7 @@ class TemplatePublishing {
     @Transactional(readOnly = true)
     AudienceOptionsView suggestionOptions(RecordSet set, UUID templateId) {
         access.visible(set, templateId);
-        return forSet(set, audiences.options());
+        return forSet(set.withoutPublishOptions(), audiences.options());
     }
 
     /**
@@ -207,6 +213,7 @@ class TemplatePublishing {
             int revision = stampRevision(set, templateId, wanted);
             home.recordEvent(set.template(), templateId, revision > 0 ? "REVISED" : "PUBLISHED", wanted, revision,
                     caller.userId());
+            publishedNotices.tell(set, header, caller.userId(), wanted);
         }
         Counts counts = shareWith(set, caller.userId(), templateId, wanted, resolved);
         Options options = changedOptions(templateId, request.viewOnly(), request.allowDownload(), caller);
@@ -253,6 +260,7 @@ class TemplatePublishing {
         int revision = stampRevision(set, templateId, versionNo);
         home.recordEvent(set.template(), templateId, revision > 0 ? "REVISED" : "PUBLISHED", versionNo, revision,
                 actor);
+        publishedNotices.tell(set, header(set, templateId), actor, versionNo);
         audit.record(base(set, "inspection.template.published", actor, templateId)
                 .with("version_no", Integer.toString(versionNo)).with("replaced", Integer.toString(replaced))
                 .with("audiences", Integer.toString(resolved.size()))
@@ -466,7 +474,8 @@ class TemplatePublishing {
                 Templates.isBlank(number) ? null : number.toString(), options.viewOnly(), options.allowDownload(),
                 options.allowDownload() || mayPublish, mayPublish,
                 Templates.revisionShown(header.fields(), summary.active()), Templates.lastRevisedAt(header.fields()),
-                send.isEmpty(), send.map(TemplateSendRule.Block::words).orElse(null), set.footerDate());
+                send.isEmpty(), send.map(TemplateSendRule.Block::words).orElse(null),
+                sets.footerDate(header.fields().get(Templates.APPLICATION)));
     }
 
     private List<SuggestedAudience> suggestedViews(List<AudienceChoices.Place> places) {

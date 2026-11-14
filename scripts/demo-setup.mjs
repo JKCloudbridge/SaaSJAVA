@@ -1,7 +1,9 @@
 #!/usr/bin/env node
 // Demo setup for a developer machine (the `local` profile): makes the people, groups, access policies, department
-// groups and the two approval processes (templates, and change requests) that the Quality Management System demo needs, in `tenant-a`, through the public API only,
-// so everything it makes is ordinary data that can be looked at, changed and removed in Setup.
+// groups and the approval processes (templates, change requests and fill-ins) that the Document Management demo needs, in
+// `tenant-a`, through the public API only, so everything it makes is ordinary data that can be looked at, changed and
+// removed in Setup. For an organization that has Management Core it also makes the roles of the tree, the five levels and
+// the rule that sends documents numbered F with Part A MC to Management Core (MC1.1, ADR-0259).
 //
 //   usage:  node scripts/demo-setup.mjs            (from the repository root; the local services and the app must be up)
 //           node scripts/demo-setup.mjs --check    (reads only: says what is there and what is missing)
@@ -165,30 +167,52 @@ const DEPARTMENT_GROUPS = [
 ];
 const LICENCES_WANTED = 40;
 
-// ---- Management Core (MC1, ADR-0257): the same kind of setup, only when the organization has the application ----
-// Plant heads receive the forms; they are one group for each plant, named by the Department group record of the plant
-// ("Plant head" department). Top management approves; the Publisher group has the last word and publishes to the plants.
+// ---- Management Core (MC1.1, ADR-0259): only when the organization has the application ----
+// Every document is made in Document Management; the number Plant QMS gives it decides which application it also belongs
+// to (the rule below). People hold roles (the tree is drawn here); groups are filled with people, never by role; the five
+// levels are groups. Roles alone give no sight of a document: the groups' access policies do.
+const ROLES = [
+  { name: "CEO", parent: null },
+  { name: "Corporate QMS", parent: "CEO" },
+  { name: "Reviewers", parent: "CEO" },
+  { name: "Plant QMS", parent: "Corporate QMS" },
+  { name: "Department users", parent: "Plant QMS" },
+  { name: "Management users", parent: "Plant QMS" },
+  { name: "Plant head", parent: "Management users" },
+];
 const MANAGEMENT_PEOPLE = [
-  { email: "management-user-1@example.test", name: "Management user 1", groups: ["Management users"] },
-  { email: "management-user-2@example.test", name: "Management user 2", groups: ["Management users"] },
-  { email: "top-management-1@example.test", name: "Top management 1", groups: ["Top management"] },
-  { email: "management-publisher-1@example.test", name: "Management publisher 1", groups: ["Management publishers"] },
-  { email: "plant-head-1@example.test", name: "Plant head 1", groups: ["Plant 1 heads"] },
-  { email: "plant-head-2@example.test", name: "Plant head 2", groups: ["Plant 2 heads"] },
-  { email: "reviewer-1@example.test", name: "Reviewer 1", groups: ["Management reviewers"] },
+  { email: "ceo-1@example.test", name: "CEO 1", groups: ["Level 5"], role: "CEO" },
+  { email: "top-management-1@example.test", name: "Top management 1", groups: ["Level 5"], role: "CEO" },
+  { email: "department-qms-1@example.test", name: "Department QMS 1", groups: ["Level 2"], role: "Department users" },
+  { email: "management-user-1@example.test", name: "Management user 1", groups: ["Level 2"], role: "Management users" },
+  { email: "plant-head-1@example.test", name: "Plant head 1", groups: ["Level 1"], role: "Plant head" },
+  { email: "plant-head-2@example.test", name: "Plant head 2", groups: ["Level 1"], role: "Plant head" },
+  { email: "reviewer-1@example.test", name: "Reviewer 1", groups: [], role: "Reviewers" },
 ];
-const MANAGEMENT_GROUP_POLICIES = {
-  "Management users": ["Management Author", "Management Reader", "List editor"],
-  "Top management": ["Management Approver", "Management Reader"],
-  "Management publishers": ["Management Publisher", "Management Reader"],
-  "Plant 1 heads": ["Management Reader", "Management Filler"],
-  "Plant 2 heads": ["Management Reader", "Management Filler"],
-  "Management reviewers": ["Management Reader", "Management Reviewer"],
+// the people of the Document Management demo who also stand at a level, and the role they hold
+const LEVEL_OF = {
+  "corp-qms-1@example.test": { group: "Level 4", role: "Corporate QMS" },
+  "corp-qms-2@example.test": { group: "Level 4", role: "Corporate QMS" },
+  "plant-qms-1@example.test": { group: "Level 3", role: "Plant QMS" },
+  "plant-qms-2@example.test": { group: "Level 3", role: "Plant QMS" },
 };
-const MANAGEMENT_DEPARTMENT_GROUPS = [
-  { name: "Plant 1 heads", location: "PLANT1", department: "PLANTHEAD" },
-  { name: "Plant 2 heads", location: "PLANT2", department: "PLANTHEAD" },
+const LEVEL_GROUP_POLICIES = {
+  "Level 1": ["Filler", "Reader"],
+  "Level 2": ["Author", "Filler", "Reader"],
+  "Level 3": ["Approver", "Publisher", "Reader"],
+  "Level 4": ["Approver", "Publisher", "Reader"],
+  "Level 5": ["Observer"],
+};
+// Plant QMS publishes a document to Level 2 (and Level 1) of a plant: a department of that name and a Department group
+// record for each plant that points at the level's group
+const LEVEL_DEPARTMENTS = [
+  { value: "LEVEL1", label: "LEVEL1 - Level 1", group: "Level 1" },
+  { value: "LEVEL2", label: "LEVEL2 - Level 2", group: "Level 2" },
 ];
+const MANAGEMENT_DEPARTMENT_GROUPS = LEVEL_DEPARTMENTS.flatMap((level) => ["PLANT1", "PLANT2"]
+  .map((location) => ({ name: level.group, location, department: level.value })));
+// "Identification F with Part A MC belongs to Management Core"
+const ROUTING_RULE = { identification: "F", partA: "MC", application: "management-core" };
 
 async function ensureLicences(platform, orgId) {
   const org = must(await platform.get(`/api/v1/platform/organizations/${orgId}`), "reading the organization");
@@ -228,6 +252,11 @@ async function ensurePeople(admin, password) {
       const invited = await admin.post("/api/v1/invitations", { email: person.email, displayName: person.name, profileId: memberProfile.id, active: true });
       // a run that stopped half way left an invitation and its mail: the newest mail is used
       if (invited.status >= 300 && invited.status !== 409) must(invited, `inviting ${person.email}`);
+      if (invited.status === 409) {
+        // An open invitation exists whose mail may be gone (the mail catcher keeps nothing across a restart): send it again.
+        const open = must(await admin.get("/api/v1/invitations"), "reading invitations").find((i) => i.email === person.email && i.status === "OPEN");
+        if (open) must(await admin.post(`/api/v1/invitations/${open.id}/resend`), `resending the invitation of ${person.email}`);
+      }
       const token = await mailToken(person.email);
       must(await anonymousPost(PLATFORM_HOST, "/api/v1/auth/invitations/accept-new", { token, displayName: person.name, password }), `accepting the invitation of ${person.email}`);
       members = must(await admin.get("/api/v1/members"), "reading members");
@@ -398,50 +427,96 @@ async function ensureRequestProcess(admin, groupIds) {
   say("made", "approval process Change request review (step 1 Plant QMS, step 2 Corporate QMS asks for a location, step 3 Plant QMS publishes)");
 }
 
-/** The department "Plant head" must be part of the Department list under both plants (Management Core publishes to it). */
-async function ensurePlantHeadList(admin) {
+/** A value of the Department list (a department the organization publishes to), under both plants. */
+async function ensureDepartmentValue(admin, wanted) {
   const object = must(await admin.get("/api/v1/metadata/objects/DepartmentGroup"), "reading the Department group object");
   const department = object.fields.find((f) => f.apiName === "department");
   const allowed = department.settings.dependency.allowed;
-  const hasValue = department.settings.values.some((v) => v.value === "PLANTHEAD");
-  const missingPair = (plant) => !(allowed[plant] ?? []).includes("PLANTHEAD");
-  if (hasValue && !missingPair("PLANT1") && !missingPair("PLANT2")) return say("ok", "the Department list has Plant head under Plant 1 and Plant 2");
-  if (checkOnly) return say("missing", "the Department list needs Plant head (PLANTHEAD) under Plant 1 and Plant 2");
-  const values = hasValue ? department.settings.values : [...department.settings.values, { value: "PLANTHEAD", label: "PLANTHEAD - Plant head", active: true }];
-  const withHead = (list = []) => [...new Set([...list, "PLANTHEAD"])];
+  const hasValue = department.settings.values.some((v) => v.value === wanted.value);
+  const missingPair = (plant) => !(allowed[plant] ?? []).includes(wanted.value);
+  if (hasValue && !missingPair("PLANT1") && !missingPair("PLANT2")) return say("ok", `the Department list has ${wanted.label} under Plant 1 and Plant 2`);
+  if (checkOnly) return say("missing", `the Department list needs ${wanted.label} under Plant 1 and Plant 2`);
+  const values = hasValue ? department.settings.values : [...department.settings.values, { value: wanted.value, label: wanted.label, active: true }];
+  const withValue = (list = []) => [...new Set([...list, wanted.value])];
   must(
     await admin.put("/api/v1/metadata/objects/DepartmentGroup/fields/department", {
       label: department.label,
       description: department.description,
       required: department.required,
       version: department.version,
-      settings: { values, dependency: { controllingField: "location", allowed: { ...allowed, PLANT1: withHead(allowed.PLANT1), PLANT2: withHead(allowed.PLANT2) } } },
+      settings: { values, dependency: { controllingField: "location", allowed: { ...allowed, PLANT1: withValue(allowed.PLANT1), PLANT2: withValue(allowed.PLANT2) } } },
     }),
     "saving the Department list",
   );
-  say("made", "the Department list: Plant head (PLANTHEAD) under Plant 1 and Plant 2");
+  say("made", `the Department list: ${wanted.label} under Plant 1 and Plant 2`);
 }
 
-/** A process for one Management Core object: the approvers of Top management, then the Publisher group publishes. */
-async function ensureManagementProcess(admin, groupIds, object, name, label, description) {
-  const existing = must(await admin.get(`/api/v1/metadata/approvals?object=${object}`), "reading approval processes");
-  if (existing.length > 0) return say("ok", `approval process for ${object}: ${existing.map((p) => p.label).join(", ")} (left as it is)`);
-  if (checkOnly || !groupIds["Top management"] || !groupIds["Management publishers"]) return say("missing", `the approval process for ${object}`);
+/** The roles of the tree, and the role of each person who has one. Roles decide nothing about who sees a document. */
+async function ensureRoles(admin, people) {
+  let roles = must(await admin.get("/api/v1/roles"), "reading roles");
+  for (const role of ROLES) {
+    if (roles.some((r) => r.name === role.name)) {
+      say("ok", `role ${role.name}`);
+    } else if (checkOnly) {
+      say("missing", `role ${role.name}`);
+    } else {
+      const parent = role.parent ? roles.find((r) => r.name === role.parent) : null;
+      must(await admin.post("/api/v1/roles", { name: role.name, description: "Demo role", parentId: parent?.id }), `making role ${role.name}`);
+      roles = must(await admin.get("/api/v1/roles"), "reading roles");
+      say("made", `role ${role.name}${role.parent ? ` (under ${role.parent})` : ""}`);
+    }
+  }
+  const current = must(await admin.get("/api/v1/members"), "reading members");
+  for (const person of people.filter((p) => p.role)) {
+    const member = current.find((m) => m.email === person.email);
+    const role = roles.find((r) => r.name === person.role);
+    if (!member || !role) continue;
+    if (member.roleName === person.role) {
+      say("ok", `${person.email} holds the role ${person.role}`);
+    } else if (checkOnly) {
+      say("missing", `${person.email} holds the role ${person.role}`);
+    } else {
+      must(await admin.put(`/api/v1/members/${member.id}/role`, { roleId: role.id }), `the role of ${person.email}`);
+      say("made", `${person.email} holds the role ${person.role}`);
+    }
+  }
+}
+
+/** The rule that sends a document numbered F with Part A MC to Management Core (Setup, Numbering, Application routing). */
+async function ensureRouting(admin) {
+  const view = await admin.get("/api/v1/document-routing");
+  if (view.status >= 300) return say("missing", "the routing rule (the application routing endpoint did not answer; make the rule in Setup, Numbering, Application routing)");
+  const found = view.json.data.rules.some((r) => r.identification === ROUTING_RULE.identification && r.partA === ROUTING_RULE.partA);
+  if (found) return say("ok", "routing rule: F with Part A MC belongs to Management Core");
+  if (checkOnly) return say("missing", "routing rule: F with Part A MC belongs to Management Core");
+  must(await admin.put("/api/v1/document-routing", { ...ROUTING_RULE }), "making the routing rule");
+  say("made", "routing rule: F with Part A MC belongs to Management Core");
+}
+
+/**
+ * The approval processes of fill-ins. The engine takes the one active process whose entry criteria the fill-in meets and
+ * refuses when two fit, so the two below never fit together: one for documents that belong to Document Management alone
+ * (application empty), one as an example for documents routed to Management Core. The Management Core one is only an
+ * example: its real steps (reviewers per plant, top management last) come with MC2A and MC2B.
+ */
+async function ensureFillProcess(admin, wanted, steps) {
+  const existing = must(await admin.get("/api/v1/metadata/approvals?object=InspectionFill"), "reading approval processes");
+  if (existing.some((p) => p.apiName === wanted.name)) return say("ok", `approval process for fill-ins: ${wanted.label} (left as it is)`);
+  const missingGroup = steps.some((step) => !step.approvers[0].value);
+  if (checkOnly || missingGroup) return say("missing", `the approval process for fill-ins: ${wanted.label}`);
   must(
-    await admin.post(`/api/v1/metadata/approvals/${object}`, {
-      name,
-      label,
-      description,
+    await admin.post("/api/v1/metadata/approvals/InspectionFill", {
+      name: wanted.name,
+      label: wanted.label,
+      description: wanted.description,
+      entryCriteria: wanted.criteria,
       active: true,
       allowSelfApproval: false,
-      steps: [
-        { name: "TopManagement", label: "Top management", completion: "ANY", skipWhenNobody: false, asksForChoice: false, approvers: [{ kind: "GROUP", value: groupIds["Top management"] }] },
-        { name: "Publish", label: "Publish", completion: "ANY", skipWhenNobody: false, asksForChoice: false, approvers: [{ kind: "GROUP", value: groupIds["Management publishers"] }] },
-      ],
+      steps,
     }),
-    `making the approval process for ${object}`,
+    `making the approval process ${wanted.label}`,
   );
-  say("made", `approval process ${label} (step 1 Top management, step 2 the Publisher group, who then publish to the plants)`);
+  say("made", `approval process ${wanted.label} (applies when ${wanted.criteria})`);
 }
 
 async function main() {
@@ -459,8 +534,15 @@ async function main() {
   // Management Core is set up only for an organization that has it (give the plan feature in the console first).
   const hasManagementCore = applications.some((a) => a.apiName === "management-core");
   if (hasManagementCore) {
+    for (const person of PEOPLE) {
+      const level = LEVEL_OF[person.email];
+      if (level) {
+        person.groups.push(level.group);
+        person.role = level.role;
+      }
+    }
     PEOPLE.push(...MANAGEMENT_PEOPLE);
-    Object.assign(GROUP_POLICIES, MANAGEMENT_GROUP_POLICIES);
+    Object.assign(GROUP_POLICIES, LEVEL_GROUP_POLICIES);
     DEPARTMENT_GROUPS.push(...MANAGEMENT_DEPARTMENT_GROUPS);
   } else {
     say("skipped", "Management Core: the organization does not have the feature (give it in the console, then run again)");
@@ -469,15 +551,25 @@ async function main() {
   const members = await ensurePeople(admin, password);
   const groupIds = await ensureGroups(admin, members);
   await ensureLists(admin);
-  if (hasManagementCore) await ensurePlantHeadList(admin);
+  if (hasManagementCore) for (const level of LEVEL_DEPARTMENTS) await ensureDepartmentValue(admin, level);
   await ensureDepartmentGroups(admin, groupIds);
   await ensureProcess(admin, groupIds);
   await ensureRequestProcess(admin, groupIds);
+  // The approval of a fill-in is chosen by the application of the fill-in (the field is copied from the document).
+  const plantQms = { kind: "GROUP", value: groupIds["Plant QMS"] };
+  await ensureFillProcess(admin, { name: "FillInReview", label: "Fill-in review",
+    description: "Fill-ins of documents that belong to Document Management alone: Plant QMS reviews them.", criteria: "ISBLANK(application)" },
+  [{ name: "PlantQms", label: "Plant QMS", completion: "ANY", skipWhenNobody: false, asksForChoice: false, approvers: [plantQms] }]);
   if (hasManagementCore) {
-    await ensureManagementProcess(admin, groupIds, "ManagementTemplate", "FormReview", "Form review",
-      "Top management approves the form (and numbers it at the first approval); the Publisher group publishes it to the plants.");
-    await ensureManagementProcess(admin, groupIds, "ManagementChangeRequest", "FormChangeReview", "Form change review",
-      "Top management reviews the change request; the Publisher group confirms the last step, which publishes the revised form.");
+    await ensureRoles(admin, PEOPLE);
+    await ensureRouting(admin);
+    await ensureFillProcess(admin, { name: "ManagementCoreFillInReview", label: "Management Core fill-in review",
+      description: "An example for fill-ins of documents routed to Management Core: Level 3 reviews, then Level 5. The real steps come with MC2A and MC2B.",
+      criteria: "application = 'management-core'" },
+    [
+      { name: "Level3", label: "Level 3", completion: "ANY", skipWhenNobody: false, asksForChoice: false, approvers: [{ kind: "GROUP", value: groupIds["Level 3"] }] },
+      { name: "Level5", label: "Level 5", completion: "ANY", skipWhenNobody: false, asksForChoice: false, approvers: [{ kind: "GROUP", value: groupIds["Level 5"] }] },
+    ]);
   }
   const counts = {};
   for (const kind of log) counts[kind] = (counts[kind] ?? 0) + 1;

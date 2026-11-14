@@ -1,5 +1,6 @@
 package app.platform.sharedkernel.notice;
 
+import app.platform.sharedkernel.mail.MailTemplate;
 import java.util.Optional;
 import java.util.Set;
 
@@ -35,7 +36,17 @@ public enum NoticeKind {
      * itself, and {@code tab}, the part of that page that lists requests, which a page that lists requests
      * opens. The text is the platform's own.
      */
-    CHANGE_REQUEST(Category.REQUESTS, false, false, Set.of("event", "application", "entry", "tab", "request"));
+    CHANGE_REQUEST(Category.REQUESTS, false, false, Set.of("event", "application", "entry", "tab", "request")),
+
+    /**
+     * A document its recipient made was published (MC1.1, ADR-0259). Facts: {@code event} (a stable key), and
+     * {@code application} and {@code entry}, the address parts of the page that opens the document: the application it
+     * was routed to when the organization has it, else Document Management's. No title and no number: the words are the
+     * platform's own and name the object. The person also gets a mail of the same facts, which the same category
+     * switches on or off for each channel.
+     */
+    DOCUMENT_PUBLISHED(Category.DOCUMENTS, false, false, Set.of("event", "application", "entry"),
+            MailTemplate.DOCUMENT_PUBLISHED);
 
     /** What a person switches on or off (ADR-0156). */
     public enum Category {
@@ -46,19 +57,36 @@ public enum NoticeKind {
         /** Things about the account and the organization's standing; cannot be switched off. */
         ACCOUNT,
         /** Change requests on records a person asked for or owns. */
-        REQUESTS
+        REQUESTS,
+        /** Documents a person made that were published. */
+        DOCUMENTS
     }
 
     private final Category category;
     private final boolean floor;
     private final boolean writable;
     private final Set<String> facts;
+    private final MailTemplate mail;
 
     NoticeKind(Category category, boolean floor, boolean writable, Set<String> facts) {
+        this(category, floor, writable, facts, null);
+    }
+
+    NoticeKind(Category category, boolean floor, boolean writable, Set<String> facts, MailTemplate mail) {
         this.category = category;
         this.floor = floor;
         this.writable = writable;
         this.facts = Set.copyOf(facts);
+        this.mail = mail;
+    }
+
+    /**
+     * The mail that goes with a notice of this kind, built from the same facts (the notification module queues it when
+     * the notice is made; whether it is sent is the person's own choice for the category). Empty for a kind that is
+     * not mailed.
+     */
+    public Optional<MailTemplate> mail() {
+        return Optional.ofNullable(mail);
     }
 
     /** The category a preference switches. */

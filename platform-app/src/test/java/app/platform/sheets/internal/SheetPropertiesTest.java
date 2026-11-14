@@ -58,13 +58,13 @@ class SheetPropertiesTest {
     void theOwnersListLetsOneApplicationMakeTheNewFormatWhileTheOthersKeepTheEarlierOne() {
         SheetProperties.FormatTwo everyOwner = new SheetProperties.FormatTwo(true);
         SheetProperties.FormatTwo oneOwner = new SheetProperties.FormatTwo(true,
-                java.util.List.of("ManagementTemplate"));
+                java.util.List.of("EnvironmentTemplate"));
         SheetProperties.FormatTwo off = new SheetProperties.FormatTwo(false,
-                java.util.List.of("ManagementTemplate"));
+                java.util.List.of("EnvironmentTemplate"));
 
         assertThat(everyOwner.makesFor("InspectionTemplate")).isTrue();
-        assertThat(oneOwner.makesFor("ManagementTemplate")).isTrue();
+        assertThat(oneOwner.makesFor("EnvironmentTemplate")).isTrue();
         assertThat(oneOwner.makesFor("InspectionTemplate")).isFalse();
-        assertThat(off.makesFor("ManagementTemplate")).as("the switch is the master").isFalse();
+        assertThat(off.makesFor("EnvironmentTemplate")).as("the switch is the master").isFalse();
     }
 }

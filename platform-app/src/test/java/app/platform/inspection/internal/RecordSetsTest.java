@@ -3,6 +3,7 @@ package app.platform.inspection.internal;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import app.platform.data.QueryFilter;
 import app.platform.sharedkernel.TenantId;
 import app.platform.sharedkernel.solution.NumberSeriesDeclaration;
 import app.platform.sharedkernel.solution.NumberSeriesDeclarations;
@@ -118,6 +119,126 @@ class RecordSetsTest {
         // With none available the first declared is named: the link then leads to the plain "not available" page.
         assertThat(asMember(() -> sets(List.of()).applicationFor(RecordSetsFixture.ENVIRONMENT)))
                 .isEqualTo("environment-management");
+    }
+
+    // ---- an application that is the documents of Document Management chosen by their number (MC1.1, ADR-0259) ----
+
+    private RecordSets withRouted(List<String> available) {
+        return RecordSetsFixture.sets(List.of(
+                RecordSetsFixture.roles("document-management", "document-management", RecordSetsFixture.QMS),
+                RecordSetsFixture.routed("management-core", "management-core", RecordSetsFixture.QMS,
+                        Map.of(RecordSets.FOOTER_DATE, "true")),
+                RecordSetsFixture.roles("environment-management", "environment-management",
+                        RecordSetsFixture.ENVIRONMENT)), available, contexts);
+    }
+
+    @Test
+    void aRoutedApplicationIsTheSameObjectsNarrowedToItsOwnNameAndTheOthersStayWhole() {
+        RecordSets sets = withRouted(List.of("document-management", "management-core"));
+
+        RecordSet routed = asMember(() -> sets.require("management-core"));
+        RecordSet whole = asMember(() -> sets.require("document-management"));
+        assertThat(routed.narrowed()).isTrue();
+        assertThat(routed.application()).isEqualTo("management-core");
+        assertThat(routed.template()).isEqualTo(whole.template()).isEqualTo("InspectionTemplate");
+        assertThat(routed.fill()).isEqualTo(whole.fill());
+        assertThat(routed.request()).isEqualTo(whole.request());
+        assertThat(whole.narrowed()).isFalse();
+        // A call about a record by its object is about the set that shows every record, never a view of it.
+        assertThat(sets.ofTemplate("InspectionTemplate")).contains(whole);
+        assertThat(sets.ofFill("InspectionFill")).contains(whole);
+        assertThat(sets.ofRequest("InspectionChangeRequest")).contains(whole);
+        assertThat(sets.templates()).containsExactly("InspectionTemplate", "EnvironmentTemplate");
+        assertThat(sets.routedApplications()).containsExactly("management-core");
+    }
+
+    @Test
+    void theNarrowingAddsOneConditionToAnyQuestionAndLeavesAWholeSetAlone() {
+        RecordSet routed = withRouted(List.of("management-core")).routedSet("management-core").orElseThrow();
+        QueryFilter name = QueryFilter.on("name", QueryFilter.Op.CONTAINS, "form");
+
+        assertThat(RecordSetsFixture.QMS.narrow(null)).isNull();
+        assertThat(RecordSetsFixture.QMS.narrow(name)).isSameAs(name);
+        QueryFilter only = routed.narrow(null);
+        assertThat(only.op()).isEqualTo(QueryFilter.Op.EQ);
+        assertThat(only.field()).isEqualTo("application");
+        assertThat(only.values()).containsExactly("management-core");
+        QueryFilter both = routed.narrow(name);
+        assertThat(both.op()).isEqualTo(QueryFilter.Op.AND);
+        assertThat(both.items()).containsExactly(name, only);
+    }
+
+    @Test
+    void aRecordBelongsToTheNarrowedApplicationOnlyWhenItCarriesItsName() {
+        RecordSet routed = withRouted(List.of("management-core")).routedSet("management-core").orElseThrow();
+
+        assertThat(routed.admits(Map.of("application", "management-core"))).isTrue();
+        assertThat(routed.admits(Map.of("application", "another"))).isFalse();
+        assertThat(routed.admits(Map.of("name", "no application"))).isFalse();
+        assertThat(RecordSetsFixture.QMS.admits(Map.of("application", "another"))).as("a whole set shows all")
+                .isTrue();
+        assertThat(RecordSetsFixture.QMS.admits(Map.of())).isTrue();
+    }
+
+    @Test
+    void aFooterDateBelongsToTheDocumentsApplicationWhereverTheDocumentIsShown() {
+        RecordSets sets = withRouted(List.of("document-management"));
+
+        assertThat(sets.footerDate("management-core")).isTrue();
+        assertThat(sets.footerDate("another")).isFalse();
+        assertThat(sets.footerDate("")).as("a document of Document Management alone").isFalse();
+        assertThat(sets.footerDate(null)).isFalse();
+        // The set of Document Management itself asks for none: the option is the application's, not the screen's.
+        assertThat(RecordSetsFixture.QMS.footerDate()).isFalse();
+    }
+
+    @Test
+    void aNumberRoutesOnlyToAnApplicationTheOrganizationHas() {
+        RecordSets sets = withRouted(List.of("document-management"));
+        RecordSets has = withRouted(List.of("document-management", "management-core"));
+
+        assertThat(sets.routable("management-core")).as("the feature is off").isFalse();
+        assertThat(has.routable("management-core")).isTrue();
+        assertThat(has.routable("document-management")).as("it shows every document, a rule never names it")
+                .isFalse();
+        assertThat(has.routable("no-such-application")).isFalse();
+        assertThat(has.routable(null)).isFalse();
+        assertThat(has.routedSet("management-core").map(RecordSet::template)).contains("InspectionTemplate");
+    }
+
+    @Test
+    void aLinkToADocumentNamesTheApplicationItWasRoutedToWhenTheOrganizationHasIt() {
+        RecordSets has = withRouted(List.of("document-management", "management-core"));
+        RecordSets without = withRouted(List.of("document-management"));
+
+        assertThat(asMember(() -> has.applicationFor(RecordSetsFixture.QMS, "management-core")))
+                .isEqualTo("management-core");
+        assertThat(asMember(() -> without.applicationFor(RecordSetsFixture.QMS, "management-core")))
+                .isEqualTo("document-management");
+        assertThat(asMember(() -> has.applicationFor(RecordSetsFixture.QMS, null))).isEqualTo("document-management");
+        assertThat(asMember(() -> has.applicationFor(RecordSetsFixture.QMS, "another")))
+                .isEqualTo("document-management");
+    }
+
+    @Test
+    void aNarrowedApplicationWithNoApplicationThatShowsAllItsRecordsStopsTheStart() {
+        ObjectRoles lonely = RecordSetsFixture.routed("lonely", "lonely", RecordSetsFixture.QMS, Map.of());
+
+        assertThatThrownBy(() -> RecordSetsFixture.sets(List.of(lonely), List.of("lonely")))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("exactly one application that shows all of them");
+    }
+
+    @Test
+    void twoApplicationsThatShowAllTheSameRecordsWithDifferentOptionsStopTheStart() {
+        ObjectRoles plain = RecordSetsFixture.roles("one", "one", RecordSetsFixture.QMS);
+        ObjectRoles other = new ObjectRoles("two", "two", Map.of(RecordSets.TEMPLATE, "InspectionTemplate",
+                RecordSets.FILL, "InspectionFill", RecordSets.REQUEST, "InspectionChangeRequest"),
+                Map.of(RecordSets.FOOTER_DATE, "true"));
+
+        assertThatThrownBy(() -> RecordSetsFixture.sets(List.of(plain, other), List.of("one", "two")))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("exactly one application that shows all of them");
     }
 
     // ---- the start is stopped by a declaration that is not sound ----

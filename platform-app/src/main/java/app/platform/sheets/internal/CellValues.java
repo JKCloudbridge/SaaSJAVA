@@ -25,6 +25,10 @@ final class CellValues {
             "[\\u0000-\\u0008\\u000b\\u000c\\u000e-\\u001f\\u007f-\\u009f\\u2028\\u2029"
                     + "\\u202a-\\u202e\\u2066-\\u2069]");
 
+    /** A file is named by the identifier the file service gave it: a UUID. */
+    private static final Pattern FILE_ID = Pattern.compile(
+            "[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}");
+
     static final String TEXT_UNSAFE = "A text contains markup or a control character.";
 
     private CellValues() {
@@ -50,6 +54,45 @@ final class CellValues {
                     && column.picklist().contains(text) ? null : "A list column holds one of its listed values.";
             default -> "Unknown column type.";
         };
+    }
+
+    /**
+     * Why the value does not fit the cell, or null when it does (format 3, SH5). The kinds are the column's plus the
+     * attachment: a list of at most {@code maxFiles} identifiers, none repeated. Nothing is checked about the bytes of
+     * a
+     * file; that the identifiers belong to this fill-in's header is the file service's fact, asked at save.
+     */
+    static String problem(FillStructure.Effective cell, Object value) {
+        return switch (cell.type()) {
+            case TEXT -> value instanceof String ? null : "A text cell holds text.";
+            case NUMBER -> value instanceof String text && NUMBER.matcher(text).matches() ? null
+                    : "A number cell holds digits, with an optional sign and decimals.";
+            case DATE -> value instanceof String text && isDate(text) ? null
+                    : "A date cell holds a date written year-month-day.";
+            case BOOLEAN -> value instanceof Boolean ? null : "A yes or no cell holds yes or no.";
+            case PICKLIST -> value instanceof String text && cell.picklist() != null
+                    && cell.picklist().contains(text) ? null : "A list cell holds one of its listed values.";
+            case ATTACHMENT -> attachmentProblem(cell, value);
+        };
+    }
+
+    private static String attachmentProblem(FillStructure.Effective cell, Object value) {
+        if (!(value instanceof java.util.List<?> files)) {
+            return "An attachment cell holds a list of files.";
+        }
+        if (files.size() > cell.maxFiles()) {
+            return "An attachment cell holds at most " + cell.maxFiles() + " files.";
+        }
+        java.util.Set<Object> seen = new java.util.HashSet<>();
+        for (Object file : files) {
+            if (!(file instanceof String id) || !FILE_ID.matcher(id).matches()) {
+                return "An attachment cell names a file in a way that is not allowed.";
+            }
+            if (!seen.add(id)) {
+                return "An attachment cell names a file more than once.";
+            }
+        }
+        return null;
     }
 
     private static boolean isDate(String text) {
