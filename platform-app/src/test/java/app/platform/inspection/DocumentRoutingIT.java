@@ -24,7 +24,7 @@ import org.springframework.test.context.TestPropertySource;
  */
 @PlatformIntegrationTest
 @TestPropertySource(properties = {"platform.outbox.enabled=true", "platform.workflow.enabled=false"})
-class DocumentRoutingIT extends FillSupport {
+class DocumentRoutingIT extends PlantsSupport {
 
     private static final String ROUTING = "/api/v1/document-routing";
     private static final String CORE = "management-core";
@@ -245,7 +245,7 @@ class DocumentRoutingIT extends FillSupport {
     void aFillInCopiesTheApplicationOfItsDocumentAndTheNarrowedListsShowOnlyTheirOwn() {
         World world = world(2, "FIXED_AND_REPEATABLE", false);
         String other = publishedOther(world);
-        String routedFill = started(world.filler().browser(), world.template());
+        String routedFill = startedByAPlantHead(world).fill();
         String otherFill = started(world.filler().browser(), other);
 
         assertThat(JsonPath.<String>read(world.approver().browser().get(FILL_RECORDS + "/" + routedFill).body(),
@@ -268,12 +268,13 @@ class DocumentRoutingIT extends FillSupport {
         criteriaProcess(world.setting().admin(), "OnlyDm", "ISBLANK(application)", step("DmStep", user),
                 step("DmStepTwo", user));
         criteriaProcess(world.setting().admin(), "OnlyCore", "application = '" + CORE + "'", step("CoreStep", user));
-        String routedFill = started(world.filler().browser(), world.template());
+        Started routed = startedByAPlantHead(world);
+        String routedFill = routed.fill();
         String otherFill = started(world.filler().browser(), other);
-        saved(world.filler().browser(), routedFill, complete());
+        saved(routed.head().browser(), routedFill, complete());
         saved(world.filler().browser(), otherFill, complete());
 
-        Response routedSent = world.filler().browser().postJson(FILL_RECORDS + "/" + routedFill + "/approval",
+        Response routedSent = routed.head().browser().postJson(FILL_RECORDS + "/" + routedFill + "/approval",
                 "{\"process\":null,\"comment\":null}");
         Response otherSent = world.filler().browser().postJson(FILL_RECORDS + "/" + otherFill + "/approval",
                 "{\"process\":null,\"comment\":null}");
@@ -284,6 +285,19 @@ class DocumentRoutingIT extends FillSupport {
         assertThat(JsonPath.<Integer>read(routedSent.body(), "$.data.summary.stepCount")).isEqualTo(1);
         assertThat(otherSent.status()).as(otherSent.body()).isEqualTo(201);
         assertThat(JsonPath.<Integer>read(otherSent.body(), "$.data.summary.stepCount")).isEqualTo(2);
+    }
+
+    /** A plant head and the fill-in they started: a routed document is filled in per plant and month (MC2A). */
+    private record Started(Person head, String fill) {
+    }
+
+    private Started startedByAPlantHead(World world) {
+        Setting setting = world.setting();
+        Person head = holding(setting, "Filler");
+        department(setting.admin(), "PLANT1", PLANT_HEADS, group(setting.admin(), "heads-" + System.nanoTime(), head));
+        assertThat(publishToPlants(world.author().browser(), world.template(),
+                plant("PLANT1", reviewerUser(licensed(setting)))).status()).isEqualTo(200);
+        return new Started(head, startedMonth(head.browser(), world.template(), "PLANT1", "2026-01"));
     }
 
     private static String criteriaProcess(TestBrowser admin, String name, String criteria, String... steps) {

@@ -1455,3 +1455,47 @@ required attachment cell; when the form is sent, a required attachment cell must
 
 **Reports.** A calculated column marked reportable is copied to the report with its answer when the form is saved; a calculation that
 ends in an error is not copied. An attachment cell is never in a report.
+
+## 51. Publishing a document to the plants, choosing the reviewers and the monthly fill-in (MC2A)
+
+This is the administrator's view of what the creator of a Management Core document does after Document Management has published it, and of what an
+administrator sets up for it. The decision is ADR-0260.
+
+**What an administrator sets up once.** (1) For each plant, a group of the plant heads of that plant, with its members; (2) Setup, Department groups: a
+record for each plant with the department **PLANTHEAD** that points at that group (a plant with no record, or whose group has no members, cannot be
+published to); (3) the Filler and Reader policies for the plant heads' groups; (4) Setup, Approvals, on the fill-in object, a process with the entry
+criteria `application = 'management-core'` whose first step uses the rule **Publication reviewers** (it takes no value) and whose last step names the
+top management group; (5) the licence of every person who may be chosen as a reviewer (a person without one is left out of a review).
+
+**What the creator does.** Open the document in Management Core (it must have a Revision in use), choose **Publish to plants**, tick the plants and
+choose the reviewers of each plant (people or groups, at least one). **Change plants** changes the plants and the reviewers; unticking a plant takes
+the document back from it. The act is the creator's own; a member who holds the ability **Publish documents to plants** may do it for a document they
+did not make (give it with an access policy; the Organization administrator holds every ability).
+
+**What happens.** The plant heads of each added plant can read the document and are told (a notice and an e-mail, switchable under Documents). They
+start a fill-in each month: the plant (asked only of a person who is plant head of several) and the month (this month, or an earlier one to catch up).
+One fill-in exists for a document, a plant and a month; a rejected one is returned to its filler. The other plant heads of the plant can read it and
+cannot change it. When the fill-in is sent, step 1 is asked of the reviewers chosen for its plant, groups expanded at that moment; a change of
+reviewers afterwards never reaches a review that is running.
+
+**What it does not do.** Unpublishing or retiring the document in Document Management leaves the plants; taking them back is the creator's act. A
+reviewer should hold no policy that views every fill-in (Reviewer, Approver, Observer): such a policy shows every fill-in whatever the plant. A plant
+with no reviewer cannot be saved, and a draft at a plant that was taken back cannot be sent until the plant is given the document again.
+
+## 52. The score, the limit in Application settings and the Action plan (MC2B)
+
+**What a bundle writer needs to know.** A `solution.yml` may declare `settings:` for its applications: each has a `key` (lower camel case), a `label`,
+a `description`, a `kind` (only `PERCENT` today: a whole number from 1 to 100) and the `default` the application starts with. The default must be a
+value the kind accepts and a key may not be used twice, or the application does not start. An organization changes it in Setup, Application settings
+(ability `application-settings.manage`); the module that owns the application's functions asks it through the shared-kernel contract
+`ApplicationSettings.value(application, key)`. Management Core declares `scoreLimit` (default 85).
+
+**What an author needs to know.** A sheet in format version 2 carries one property, `score`: the key of a cell that holds a formula. In the grid of a
+draft, select a formula cell and tick **Use as the score** beside the formula bar. The mark is kept only while the cell holds a formula; a new
+Revision made by uploading a file again must be marked again, or fill-ins on it have no score. The platform reads the percent from that cell at every
+approval: a cell shown as a percent (0.9) counts as 90 points; a number outside 0 to 100 or an error is "cannot be calculated" and stops the approval.
+
+**What an administrator needs to know.** The result is `ACTION_PLAN` only strictly below the limit. The fill-in object has three platform-written fields,
+`score`, `result` and `parentFill`; give a policy that reads fill-ins the three in its `read` list, or they do not exist for it. The two processes of
+Management Core fill-ins must not both fit one fill-in: the Plant activity one carries `ISBLANK(parentFill)` and the Action plan one
+`NOT(ISBLANK(parentFill))`. The Action plan's reviewers are those of the fill-in it answers.

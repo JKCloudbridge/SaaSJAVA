@@ -87,6 +87,8 @@ export interface SheetExtras {
   cells: Record<string, CellExtras>;
   /** The one formula of each calculated column, by column identifier, in its stored form (SH2). */
   columnFormulas?: Record<string, string>;
+  /** The key of the one formula cell marked as the score of a fill-in (MC2B), absent when the sheet has none. */
+  score?: string;
   /** The sheets after the first, untouched: a template holds one for now. */
   otherSheets?: unknown[];
 }

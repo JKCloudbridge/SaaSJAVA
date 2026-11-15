@@ -69,6 +69,8 @@ class ChangeRequests {
     private static final String IN_PROGRESS_WORDS = "A change is already in progress on this template. You can ask for "
             + "another when it has been published or declined.";
     private static final int NAME_LIMIT = 160;
+    private static final String PLANT_HEAD_WORDS = "A change to this document is asked for by the management "
+            + "users, not by the plant heads of its plants.";
 
     private final ChangeRequestAccess access;
     private final ChangeRequestStore store;
@@ -197,6 +199,10 @@ class ChangeRequests {
         Reach reach = access.reach(set, templateId);
         store.lock(templateId);
         DataRecord header = header(set, templateId);
+        if (onlyAPlantHead(reach, header)) {
+            refuse("create", "plant_head");
+            throw new ApiException(ErrorCode.FORBIDDEN, PLANT_HEAD_WORDS);
+        }
         if (retired(header)) {
             refuse("create", "retired");
             throw new ApiException(ErrorCode.CONFLICT, RETIRED_WORDS);
@@ -257,6 +263,23 @@ class ChangeRequests {
         tell(set, header.ownerId(), reach.userId(), templateId, made.id(), "requested",
                 "chg:" + made.id() + ":requested");
         return view(frame(reach, List.of(made)), made);
+    }
+
+    /**
+     * Whether the caller reads this document only as a plant head (MC2B, ADR-0261). A document of an application that
+     * publishes to plants is read by the plant heads of those plants once it is published to them, so the rule "whoever
+     * reads it may ask" would let them ask for a change; the people who ask for a change to such a document are the
+     * management users. A plant head who may also change the document (its owner, the approvers) is not held back.
+     * Nothing is stored and no ability is added: it is the same department data the plants are made of.
+     */
+    private boolean onlyAPlantHead(Reach reach, DataRecord header) {
+        if (reach.canReview()) {
+            return false;
+        }
+        return sets.plantSetOf(header.fields().get(Templates.APPLICATION))
+                .map(plantSet -> departments.placesOf(reach.membershipId()).stream()
+                        .anyMatch(place -> place.department().equals(plantSet.placeDepartment())))
+                .orElse(false);
     }
 
     /**

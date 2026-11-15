@@ -2,6 +2,7 @@ package app.platform.sheets.internal;
 
 import app.platform.sharedkernel.approval.RecordLocks;
 import app.platform.sharedkernel.files.RecordFileDirectory;
+import app.platform.sharedkernel.solution.FillCorrections;
 import app.platform.sheets.FillStatus;
 import app.platformapi.ApiException;
 import app.platformapi.ErrorCode;
@@ -57,12 +58,14 @@ class SheetFills {
     private final FillArchive archive;
     private final FillCalculations calculations;
     private final RecordFileDirectory directory;
+    private final List<FillCorrections> corrections;
     private final JsonMapper json = JsonMapper.builder().build();
 
     SheetFills(FillOwners owners, SheetFillStore store, SheetVersionStore versions, FillValidator validator,
             FillChanges changes, FillProperties properties, SheetProperties sheetProperties, RecordLocks locks,
             FillValueStore valueStore, FillArchive archive, FillCalculations calculations,
-            RecordFileDirectory directory) {
+            RecordFileDirectory directory, List<FillCorrections> corrections) {
+        this.corrections = List.copyOf(corrections);
         this.owners = owners;
         this.store = store;
         this.versions = versions;
@@ -262,6 +265,12 @@ class SheetFills {
                 locks.overridden(fillObject, fillId, actor);
             }
             changes.corrected(actor, fillObject, fillId, saved.version(), saved.corrections(), checked);
+            if (status != FillStatus.SUBMITTED) {
+                // The header is not locked by a review: what it says about the cells (the score) is brought up to date
+                // here, in the same transaction. While a review is open the next approval calculates again.
+                corrections.stream().filter(one -> one.serves(fillObject))
+                        .forEach(one -> one.corrected(fillObject, fillId));
+            }
         } else {
             changes.saved(actor, fillObject, fillId, saved.version(), checked);
         }

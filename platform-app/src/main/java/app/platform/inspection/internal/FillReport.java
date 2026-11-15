@@ -60,7 +60,6 @@ class FillReport {
     /** Batches looked through for one page, so a caller who sees few of many matches cannot make one request long. */
     private static final int MOST_BATCHES = 20;
     private static final Set<String> STATUSES = Set.of("DRAFT", "SUBMITTED", "RETURNED", "APPROVED");
-    private static final List<String> FIELDS = List.of(Fills.NAME, Fills.TEMPLATE_ID, Fills.STATUS);
 
     private final TemplateAccess access;
     private final FillReports reports;
@@ -154,8 +153,8 @@ class FillReport {
                     new QueryFilter(QueryFilter.Op.EQ, null, Fills.STATUS, List.of(status))), null, null);
         }
         // One page is enough: it asks for at most as many as it was given, and the engine's page size bounds it.
-        RecordQuery query = new RecordQuery(set.narrow(filter), List.of(new QuerySort("createdAt", true)), FIELDS,
-                List.of(), candidates.size(), null);
+        RecordQuery query = new RecordQuery(set.narrow(filter), List.of(new QuerySort("createdAt", true)),
+                fillIns.projection(set), List.of(), candidates.size(), null);
         List<QueriedRecord> seen = records.query(set.fill(), query).records();
         Map<UUID, FillInRow> byHeader = new HashMap<>();
         for (FillInRow row : fillIns.rowsOf(set, seen)) {

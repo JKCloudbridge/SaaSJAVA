@@ -7,6 +7,7 @@ import app.platform.metadata.ApprovalProcessDefinition;
 import app.platform.metadata.ApprovalProcessDefinition.Approver;
 import app.platform.security.ApproverDirectory;
 import app.platform.security.GroupMembers;
+import app.platform.sharedkernel.approval.PublicationReviewers;
 import app.platform.sharedkernel.directory.ReferenceLabels;
 import java.time.Clock;
 import java.time.DateTimeException;
@@ -61,9 +62,11 @@ final class ApproverResolver {
     private final ReferenceLabels users;
     private final ApprovalStore store;
     private final Clock clock;
+    private final List<PublicationReviewers> publicationReviewers;
 
     ApproverResolver(ApproverDirectory directory, GroupMembers groups, List<ReferenceLabels> labels,
-            ApprovalStore store, Clock clock) {
+            ApprovalStore store, Clock clock, List<PublicationReviewers> publicationReviewers) {
+        this.publicationReviewers = List.copyOf(publicationReviewers);
         this.directory = directory;
         this.groups = groups;
         this.users = labels.stream().filter(found -> USER_OBJECT.equals(found.object())).findFirst().orElseThrow(
@@ -76,10 +79,9 @@ final class ApproverResolver {
     ApproverResolution.Resolved resolve(ApprovalProcessDefinition.Step step, Context context) {
         List<List<UUID>> named = new ArrayList<>();
         for (Approver rule : step.approvers()) {
-            named.add(named(rule, context.record()));
+            named.add(named(rule, context));
         }
-        List<UUID> fallbackNamed = context.fallback() == null ? List.of() : named(context.fallback(),
-                context.record());
+        List<UUID> fallbackNamed = context.fallback() == null ? List.of() : named(context.fallback(), context);
         Set<UUID> everybody = new LinkedHashSet<>();
         named.forEach(everybody::addAll);
         everybody.addAll(fallbackNamed);
@@ -130,7 +132,8 @@ final class ApproverResolver {
 
     // ---- what each rule names ----
 
-    private List<UUID> named(Approver rule, DataRecord record) {
+    private List<UUID> named(Approver rule, Context context) {
+        DataRecord record = context.record();
         String value = rule.value();
         return switch (rule.kind()) {
             case USER -> uuid(value) == null ? List.of() : List.of(uuid(value));
@@ -148,7 +151,33 @@ final class ApproverResolver {
             }
             case OWNER_ROLE_MANAGER -> record == null || record.ownerId() == null ? List.of()
                     : userIds(directory.parentRoleHolders(record.ownerId()));
+            case PUBLICATION_REVIEWERS -> chosenReviewers(context);
         };
+    }
+
+    /**
+     * The reviewers chosen when the record's document was published (MC2A, ADR-0260), asked of the module that keeps
+     * the choice. The people come as they are; each group is expanded to its members now, when the step becomes
+     * active, so a person who joins the group later is not added to a step already active (ADR-0146 decision 3). A
+     * person named twice (as a person and through a group) is asked once: the resolution removes repeats.
+     */
+    private List<UUID> chosenReviewers(Context context) {
+        DataRecord record = context.record();
+        if (record == null || context.processObject() == null) {
+            return List.of();
+        }
+        List<UUID> people = new ArrayList<>();
+        for (PublicationReviewers one : publicationReviewers) {
+            if (!one.serves(context.processObject())) {
+                continue;
+            }
+            PublicationReviewers.Reviewers chosen = one.reviewersOf(context.processObject(), record.id());
+            people.addAll(chosen.userIds());
+            for (UUID group : chosen.groupIds()) {
+                people.addAll(userIds(directory.ofMemberships(groups.membersOf(group))));
+            }
+        }
+        return people;
     }
 
     private static List<UUID> userIds(List<ApproverDirectory.Candidate> candidates) {

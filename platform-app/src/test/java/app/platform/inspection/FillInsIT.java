@@ -57,6 +57,21 @@ class FillInsIT extends FillSupport {
     }
 
     @Test
+    void aDocumentThatAsksForNoMonthlyFillInsTakesNeitherAPlantNorAMonthAndLeavesBothEmpty() {
+        // MC2A, ADR-0260: the plain fill-ins of every other application are untouched by the plant and the month.
+        World world = world();
+        String plain = started(world.filler().browser(), world.template());
+        started(world.filler().browser(), world.template());
+
+        assertThat(headerField(world.filler().browser(), plain, "plant")).isNull();
+        assertThat(headerField(world.filler().browser(), plain, "period")).isNull();
+        Response asked = world.filler().browser().postJson(TEMPLATES + "/" + world.template() + "/fill-ins",
+                "{\"plant\":\"PLANT1\",\"period\":\"2026-01\"}");
+        assertThat(asked.status()).as(asked.body()).isEqualTo(400);
+        assertThat(scalar(world.setting().organization(), "select count(*) from inspection_fill_period")).isZero();
+    }
+
+    @Test
     void aFillInOnTheOlderRevisionStillOpensIsSavedSentApprovedAndListedAfterTheNextRevisionIsPublished() {
         World world = world();
         String fill = started(world.filler().browser(), world.template());

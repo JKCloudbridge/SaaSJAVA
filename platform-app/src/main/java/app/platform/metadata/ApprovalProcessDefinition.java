@@ -80,7 +80,13 @@ public record ApprovalProcessDefinition(UUID id, UUID versionId, String objectAp
         /** The person a user field of the record names. */
         RECORD_USER(Names.USER_FIELD, "The person a user field of the record names, for example a manager field."),
         /** The members placed in the parent role of the role of the owner of the record. */
-        OWNER_ROLE_MANAGER(Names.NOTHING, "The people placed in the role above the role of the record's owner.");
+        OWNER_ROLE_MANAGER(Names.NOTHING, "The people placed in the role above the role of the record's owner."),
+        /**
+         * The people and groups chosen as reviewers when the record's document was published to the plant the record
+         * belongs to (MC2A, ADR-0260).
+         */
+        PUBLICATION_REVIEWERS(Names.NOTHING,
+                "The reviewers chosen for the plant of the record when its document was published to the plants.");
 
         private final Names names;
         private final String summary;

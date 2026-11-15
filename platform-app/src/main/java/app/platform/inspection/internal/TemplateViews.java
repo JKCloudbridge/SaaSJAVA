@@ -228,6 +228,12 @@ public final class TemplateViews {
     public record AudiencePick(
             @NotNull @Pattern(regexp = "[A-Za-z0-9_-]{1,10}") String location,
             @NotNull @Pattern(regexp = "[A-Za-z0-9_-]{1,10}") String department) {
+
+        /** Prints nothing: the codes are the organization's text and requests are logged at debug level. */
+        @Override
+        public String toString() {
+            return "AudiencePick[redacted]";
+        }
     }
 
     /**

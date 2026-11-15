@@ -267,8 +267,24 @@ final class SheetDocumentValidator {
             freezeProblems(tab, place(i), out);
             inputProblems(tab, place(i), out);
             conditionProblems(tab, place(i), out);
+            scoreProblems(tab, place(i), out);
         }
         return out;
+    }
+
+    /**
+     * The score marker (MC2B, ADR-0261): it names a cell that holds a formula, so the platform can read a percent that
+     * the sheet itself calculated. A cell that holds no formula, one that does not exist and a calculated column are
+     * refused, with words that name no value.
+     */
+    private static void scoreProblems(Tab tab, String place, List<Problem> out) {
+        if (tab.score() == null) {
+            return;
+        }
+        if (!tab.formulas().containsKey(tab.score())) {
+            out.add(new Problem("score_cell", place + ".score",
+                    "The cell marked as the score must hold a formula."));
+        }
     }
 
     private static void freezeProblems(Tab tab, String place, List<Problem> out) {

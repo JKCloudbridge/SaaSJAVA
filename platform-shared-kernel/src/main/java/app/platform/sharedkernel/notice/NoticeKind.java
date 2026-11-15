@@ -46,7 +46,26 @@ public enum NoticeKind {
      * switches on or off for each channel.
      */
     DOCUMENT_PUBLISHED(Category.DOCUMENTS, false, false, Set.of("event", "application", "entry"),
-            MailTemplate.DOCUMENT_PUBLISHED);
+            MailTemplate.DOCUMENT_PUBLISHED),
+
+    /**
+     * A document was made available to the recipient's plant (MC2A, ADR-0260): its creator published it to the plants
+     * and the recipient belongs to the group of one of them. Facts: {@code event} (a stable key), and
+     * {@code application} and {@code entry}, the address parts of the page that opens the document. No title, no
+     * number, no plant name: the words are the platform's own. The person also gets a mail of the same facts, which the
+     * same category switches on or off for each channel.
+     */
+    DOCUMENT_AT_PLANT(Category.DOCUMENTS, false, false, Set.of("event", "application", "entry"),
+            MailTemplate.DOCUMENT_AT_PLANT),
+
+    /**
+     * A fill-in the recipient filled scored below the limit of its application (MC2B, ADR-0261): an Action plan is
+     * needed. Facts: {@code event} (a stable key), and {@code application} and {@code entry}, the address parts of the
+     * page that opens the fill-in. No score, no limit, no plant, no title: the words are the platform's own. The person
+     * also gets a mail of the same facts, which the same category switches on or off for each channel.
+     */
+    ACTION_PLAN_NEEDED(Category.DOCUMENTS, false, false, Set.of("event", "application", "entry"),
+            MailTemplate.ACTION_PLAN_NEEDED);
 
     /** What a person switches on or off (ADR-0156). */
     public enum Category {

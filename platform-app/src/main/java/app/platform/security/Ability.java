@@ -183,10 +183,30 @@ public enum Ability {
             "Start a fill-in of a sheet that is published to you and work on it: type into the cells the sheet marks "
                     + "as input, add rows where the sheet allows it, and send the fill-in for review."),
 
+    /**
+     * Publish a document of an application that publishes to plants to those plants and choose its reviewers for each
+     * (MC2A, ADR-0260), whoever made the document. The person who made a document may do it without this ability; it
+     * is what lets the Organization administrator act for a document they did not make. It is not the ability to
+     * publish in Document Management ({@link #SHEETS_PUBLISH}).
+     */
+    SHEETS_PUBLISH_PLANTS("sheets.publish-plants", "Publish documents to plants",
+            "Make a document available to the plants of an application that publishes to plants, choose the "
+                    + "reviewers of each plant, and withdraw a plant. The person who made the document can do it "
+                    + "without this."),
+
     /** Change organization-specific numbering formats and raise counters (FA6B, ADR-0197). */
     NUMBERING_MANAGE("numbering.manage", "Manage numbering",
             "Set the organization's document number formats, preview a number, and raise a pair's next count. "
                     + "Numbers already given never change."),
+
+    /**
+     * Change what an application lets an organization choose, such as the limit of the score (MC2B, ADR-0261). Apart
+     * from {@link #NUMBERING_MANAGE}: that one is about document numbers, and the choices of an application will grow
+     * beyond numbering.
+     */
+    APPLICATION_SETTINGS_MANAGE("application-settings.manage", "Manage application settings",
+            "See and change the settings an application offers the organization, such as the limit of the score "
+                    + "below which a fill-in needs an Action plan. A change applies to reviews that end afterwards."),
 
     /** See the connections to external systems and the connector types (Sprint 26, ADR-0209). */
     INTEGRATIONS_VIEW("integrations.view", "View integrations",

@@ -105,7 +105,7 @@ accessPolicies:
         edit: [name, level, documentType, category, partA, partB, serial]
         read: [id, number, retired, revision, lastRevisedAt, application, createdAt, updatedAt, ownerId, createdById, updatedById]
       InspectionFill:
-        read: [id, name, templateId, status, application, createdAt, updatedAt, ownerId, createdById, updatedById]
+        read: [id, name, templateId, status, application, plant, period, score, result, parentFill, createdAt, updatedAt, ownerId, createdById, updatedById]
       InspectionChangeRequest:
         read: [id, name, templateId, status, application, createdAt, updatedAt, ownerId, createdById, updatedById]
   - key: publisher
@@ -149,7 +149,7 @@ accessPolicies:
         read: [id, name, number, level, documentType, category, partA, partB, retired, revision, lastRevisedAt, application, createdAt, updatedAt, ownerId,
                 createdById, updatedById]
       InspectionFill:
-        read: [id, name, templateId, status, application, createdAt, updatedAt, ownerId, createdById, updatedById]
+        read: [id, name, templateId, status, application, plant, period, score, result, parentFill, createdAt, updatedAt, ownerId, createdById, updatedById]
       InspectionChangeRequest:
         read: [id, name, templateId, status, application, createdAt, updatedAt, ownerId, createdById, updatedById]
   - key: reviewer
@@ -160,7 +160,7 @@ accessPolicies:
       InspectionFill: [read, view-all]
     fields:
       InspectionFill:
-        read: [id, name, templateId, status, application, createdAt, updatedAt, ownerId, createdById, updatedById]
+        read: [id, name, templateId, status, application, plant, period, score, result, parentFill, createdAt, updatedAt, ownerId, createdById, updatedById]
   - key: departments
     name: Department setup
     description: Says which group of people belongs to which department of which location. Comes with the Quality Management System application and cannot be changed.
@@ -187,6 +187,6 @@ accessPolicies:
         read: [id, name, number, level, documentType, category, partA, partB, retired, revision, lastRevisedAt, application, createdAt, updatedAt, ownerId,
                 createdById, updatedById]
       InspectionFill:
-        read: [id, name, templateId, status, application, createdAt, updatedAt, ownerId, createdById, updatedById]
+        read: [id, name, templateId, status, application, plant, period, score, result, parentFill, createdAt, updatedAt, ownerId, createdById, updatedById]
       InspectionChangeRequest:
         read: [id, name, templateId, status, application, createdAt, updatedAt, ownerId, createdById, updatedById]

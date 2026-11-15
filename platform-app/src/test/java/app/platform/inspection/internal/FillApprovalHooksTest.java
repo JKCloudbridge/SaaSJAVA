@@ -14,6 +14,13 @@ import app.platform.data.BackgroundRecords;
 import app.platform.data.BackgroundWriteException;
 import app.platform.data.DataRecord;
 import app.platform.sharedkernel.approval.ApprovalHookRefusal;
+import app.platform.sharedkernel.approval.ApprovalHookWriter;
+import app.platform.sharedkernel.approval.ApprovalHooks.DecisionContext;
+import app.platform.sharedkernel.solution.ApplicationSettings;
+import java.math.BigDecimal;
+import java.util.List;
+import java.util.OptionalInt;
+import org.mockito.ArgumentCaptor;
 import app.platform.sharedkernel.approval.ApprovalHooks.EndContext;
 import app.platform.sharedkernel.approval.ApprovalHooks.SubmitContext;
 import app.platform.sharedkernel.approval.ApprovalOutcome;
@@ -48,7 +55,11 @@ class FillApprovalHooksTest {
     private final BackgroundRecords records = mock(BackgroundRecords.class);
     private final FillLifecycle fills = mock(FillLifecycle.class);
     private final FillHeaders headers = mock(FillHeaders.class);
-    private final FillApprovalHooks hook = new FillApprovalHooks(records, fills, headers, RecordSetsFixture.both());
+    private final ApplicationSettings settings = mock(ApplicationSettings.class);
+    private final ActionPlanNotices notices = mock(ActionPlanNotices.class);
+    private final ApprovalHookWriter writer = mock(ApprovalHookWriter.class);
+    private final FillApprovalHooks hook = new FillApprovalHooks(records, fills, headers, RecordSetsFixture.both(),
+            new FillScores(RecordSetsFixture.both(), records, fills, settings, headers), notices);
 
     private static DataRecord record(String object, UUID id, Map<String, Object> fields) {
         Instant now = Instant.now();
@@ -76,9 +87,9 @@ class FillApprovalHooksTest {
     // ---- on submit ----
 
     @Test
-    void itServesTheFillInObjectAndWritesNothingThroughTheEnginesWriter() {
+    void itServesTheFillInObjectAndMayWriteOnlyTheScoreAndItsResultThroughTheEnginesWriter() {
         assertThat(hook.object()).isEqualTo("InspectionFill");
-        assertThat(hook.writes()).isEmpty();
+        assertThat(hook.writes()).containsExactlyInAnyOrder("score", "result");
     }
 
     @Test
@@ -210,5 +221,135 @@ class FillApprovalHooksTest {
         assertThatThrownBy(() -> hook.onEnded(ended(ApprovalOutcome.REJECTED)))
                 .isInstanceOf(IllegalStateException.class).hasMessageContaining("record_locked")
                 .isNotInstanceOf(ApprovalHookRefusal.class);
+    }
+
+    // ---- the score at every approval (MC2B, ADR-0261) ----
+
+    private static final UUID PLAN = UUID.randomUUID();
+
+    private static DecisionContext deciding(boolean last) {
+        return new DecisionContext(REQUEST, FILL_OBJECT, FILL, "FillReview", 1, 3, 1, "Step", PERSON, false,
+                List.of(), last);
+    }
+
+    private void headerWithApplication(String application) {
+        when(records.find(FILL_OBJECT, FILL)).thenReturn(Optional.of(record(FILL_OBJECT, FILL,
+                application == null ? Map.of() : Map.of(RecordSets.APPLICATION_FIELD, application))));
+    }
+
+    private void scoreIs(FillLifecycle.Score score, Integer limit) {
+        when(fills.scoreOf(FILL_OBJECT, FILL)).thenReturn(score);
+        when(settings.value("management-core", FillScores.LIMIT)).thenReturn(
+                limit == null ? OptionalInt.empty() : OptionalInt.of(limit));
+    }
+
+    private static FillLifecycle.Score calculated(String percent) {
+        return new FillLifecycle.Score(FillLifecycle.Score.State.CALCULATED, new BigDecimal(percent));
+    }
+
+    @SuppressWarnings("unchecked") // the writer takes a map of text to text; the captor is the only place that needs it
+    private Map<String, String> written() {
+        ArgumentCaptor<Map<String, String>> captured = ArgumentCaptor.forClass(Map.class);
+        verify(writer).set(captured.capture());
+        return captured.getValue();
+    }
+
+    @Test
+    void aSheetThatMarksNoScoreIsLeftAloneAtEveryApproval() {
+        headerWithApplication("management-core");
+        when(fills.scoreOf(FILL_OBJECT, FILL)).thenReturn(FillLifecycle.Score.notMarked());
+
+        hook.beforeApprove(deciding(true), writer);
+
+        verify(writer, never()).set(any());
+        verify(notices, never()).tell(any(), any());
+    }
+
+    @Test
+    void aScoreThatCannotBeCalculatedRefusesTheApprovalInFixedWordsAndWritesNothing() {
+        headerWithApplication("management-core");
+        scoreIs(FillLifecycle.Score.notCalculated(), 85);
+
+        assertThatThrownBy(() -> hook.beforeApprove(deciding(false), writer)).isInstanceOfSatisfying(
+                ApprovalHookRefusal.class, refusal -> {
+                    assertThat(refusal.reason()).isEqualTo("score_not_calculated");
+                    assertThat(refusal.words()).contains("score");
+                });
+        verify(writer, never()).set(any());
+    }
+
+    @Test
+    void aScoreEqualToTheLimitPassesAndTellsNobody() {
+        headerWithApplication("management-core");
+        scoreIs(calculated("85.00"), 85);
+
+        hook.beforeApprove(deciding(true), writer);
+
+        assertThat(written()).containsEntry("score", "85.00").containsEntry("result", "PASS");
+        verify(notices, never()).tell(any(), any());
+    }
+
+    @Test
+    void aScoreBelowTheLimitNeedsAnActionPlanAndTellsTheFillerButDoesNotBlockAnEarlierStep() {
+        headerWithApplication("management-core");
+        scoreIs(calculated("84.99"), 85);
+
+        hook.beforeApprove(deciding(false), writer);
+
+        assertThat(written()).containsEntry("score", "84.99").containsEntry("result", "ACTION_PLAN");
+        verify(notices).tell(any(), any());
+    }
+
+    @Test
+    void theLastStepOfAFillInBelowTheLimitIsRefusedUntilItsActionPlanIsSent() {
+        headerWithApplication("management-core");
+        scoreIs(calculated("40.00"), 85);
+        when(records.scan(eq(FILL_OBJECT), any(), any(), org.mockito.ArgumentMatchers.anyInt()))
+                .thenReturn(List.of());
+
+        assertThatThrownBy(() -> hook.beforeApprove(deciding(true), writer)).isInstanceOfSatisfying(
+                ApprovalHookRefusal.class, refusal -> {
+                    assertThat(refusal.reason()).isEqualTo("action_plan_missing");
+                    assertThat(refusal.words()).contains("Action plan");
+                });
+    }
+
+    @ParameterizedTest
+    @CsvSource({"DRAFT,false", "RETURNED,false", "SUBMITTED,true", "APPROVED,true"})
+    void onlyAnActionPlanThatWasSentLetsTheLastStepThrough(FillStatus status, boolean passes) {
+        headerWithApplication("management-core");
+        scoreIs(calculated("40.00"), 85);
+        when(records.scan(eq(FILL_OBJECT), any(), any(), org.mockito.ArgumentMatchers.anyInt()))
+                .thenReturn(List.of(record(FILL_OBJECT, PLAN, Map.of())));
+        when(fills.summaries(eq(FILL_OBJECT), any())).thenReturn(Map.of(PLAN, new FillLifecycle.Summary(1, status, 0,
+                28, 0, Instant.now(), Instant.now(), null, null, PERSON, null)));
+
+        if (passes) {
+            hook.beforeApprove(deciding(true), writer);
+        } else {
+            assertThatThrownBy(() -> hook.beforeApprove(deciding(true), writer))
+                    .isInstanceOf(ApprovalHookRefusal.class);
+        }
+    }
+
+    @Test
+    void anApplicationThatDeclaresNoLimitGetsTheScoreAndNoResultAndNoNotice() {
+        headerWithApplication("management-core");
+        scoreIs(calculated("10.00"), null);
+
+        hook.beforeApprove(deciding(true), writer);
+
+        assertThat(written()).containsOnlyKeys("score");
+        verify(notices, never()).tell(any(), any());
+    }
+
+    @Test
+    void aWriterThatRefusesTheValuesRefusesTheApprovalWithoutTheirWords() {
+        headerWithApplication("management-core");
+        scoreIs(calculated("90.00"), 85);
+        doThrow(new app.platform.sharedkernel.approval.ApprovalHookWriteException("x")).when(writer).set(any());
+
+        assertThatThrownBy(() -> hook.beforeApprove(deciding(false), writer)).isInstanceOfSatisfying(
+                ApprovalHookRefusal.class, refusal -> assertThat(refusal.words()).doesNotContain("90"));
     }
 }

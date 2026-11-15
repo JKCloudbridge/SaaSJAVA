@@ -41,6 +41,7 @@ import {
   type SelectionState,
 } from "@/lib/sheets/gridModel";
 import * as hist from "@/lib/sheets/history";
+import { canMarkScore, isScore, setScore } from "@/lib/sheets/score";
 import type { Alignment, TextColour } from "@/lib/sheets/types";
 import type { CellKind, DisplayRow, FontSize, GridDoc, GridLine, OpResult, Rect, RowsMode, Selection, SheetLimits } from "@/lib/sheets/types";
 
@@ -141,6 +142,12 @@ export interface SheetEditor {
   columnFormulaText(columnId: string): string;
   /** The reason, in the server's words, that a formula typed at a row would be refused, or null when it passes the gate. */
   checkFormula(rowId: string, text: string): string | null;
+  /** Whether the cell is the one the template marks as its score (MC2B). */
+  isScore(rowId: string, columnId: string): boolean;
+  /** Whether the cell may be marked as the score: it holds a formula in the new format. */
+  canMarkScore(rowId: string, columnId: string): boolean;
+  /** Marks the cell as the score of a fill-in, or takes the mark off; a sheet has one mark. */
+  markScore(rowId: string, columnId: string, on: boolean): void;
   /** Gives a column of a sheet where the filler adds the rows its formula; an empty text takes it off. */
   setColumnFormula(columnId: string, text: string): string | null;
   /** What the browser works out for every formula while a person types (the server's answer is the one that counts). */
@@ -281,6 +288,9 @@ export function useSheetEditor(initial: GridDoc, limits: SheetLimits): SheetEdit
       dispatch({ type: "run", op });
       return result.ok ? null : result.error;
     },
+    isScore: (rowId, columnId) => isScore(doc, rowId, columnId),
+    canMarkScore: (rowId, columnId) => canMarkScore(doc, rowId, columnId),
+    markScore: (rowId, columnId, on) => run((d) => setScore(d, rowId, columnId, on)),
     previews,
     clear: (target) =>
       run((d) => {

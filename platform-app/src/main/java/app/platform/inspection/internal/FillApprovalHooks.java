@@ -4,11 +4,15 @@ import app.platform.data.BackgroundRecords;
 import app.platform.data.BackgroundWriteException;
 import app.platform.data.DataRecord;
 import app.platform.sharedkernel.approval.ApprovalHookRefusal;
+import app.platform.sharedkernel.approval.ApprovalHookWriteException;
+import app.platform.sharedkernel.approval.ApprovalHookWriter;
 import app.platform.sharedkernel.approval.ApprovalHooks;
 import app.platform.sheets.FillLifecycle;
 import app.platform.sheets.FillRefusal;
 import app.platform.sheets.FillStatus;
+import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.UUID;
 import org.springframework.stereotype.Component;
 
@@ -38,8 +42,13 @@ class FillApprovalHooks implements ApprovalHooks {
     private final FillLifecycle fills;
     private final FillHeaders headers;
     private final RecordSets sets;
+    private final FillScores scores;
+    private final ActionPlanNotices actionPlanNotices;
 
-    FillApprovalHooks(BackgroundRecords records, FillLifecycle fills, FillHeaders headers, RecordSets sets) {
+    FillApprovalHooks(BackgroundRecords records, FillLifecycle fills, FillHeaders headers, RecordSets sets,
+            FillScores scores, ActionPlanNotices actionPlanNotices) {
+        this.scores = scores;
+        this.actionPlanNotices = actionPlanNotices;
         this.records = records;
         this.fills = fills;
         this.headers = headers;
@@ -80,6 +89,50 @@ class FillApprovalHooks implements ApprovalHooks {
                     Templates.fit(refusal.getMessage()));
         }
         follow(set, context.recordId(), FillStatus.SUBMITTED);
+    }
+
+    /** The fields the hook may set on a header: what the sheet's score means (MC2B, ADR-0261). */
+    @Override
+    public List<String> writes() {
+        return List.of(Fills.SCORE, Fills.RESULT);
+    }
+
+    /**
+     * At every approval (MC2B, ADR-0261): the score is calculated from the cells as they are now and written on the
+     * header with its result, so a reviewer's edit is always seen and the number a person reads is the one the
+     * decision was taken on. A sheet that marks no score is not touched. A score that cannot be calculated is never a
+     * pass: the approval is refused in fixed words and nothing is written. A fill-in below the limit tells its filler
+     * once that an Action plan is needed, and its last approval is refused until that Action plan has been sent, so a
+     * low score never reaches final approval without one.
+     */
+    @Override
+    public void beforeApprove(DecisionContext context, ApprovalHookWriter writer) {
+        RecordSet set = setOf(context.object());
+        DataRecord header = records.find(set.fill(), context.recordId()).orElseThrow(
+                () -> new ApprovalHookRefusal("fill_missing", "This fill-in cannot be found."));
+        FillScores.Judgement judgement = scores.judge(set.fill(), header);
+        if (judgement.state() == FillScores.State.NO_SCORE) {
+            return;
+        }
+        if (judgement.state() == FillScores.State.UNREADABLE) {
+            throw new ApprovalHookRefusal("score_not_calculated", "The score of this fill-in cannot be calculated, "
+                    + "so it cannot be approved yet.");
+        }
+        Map<String, String> changes = scores.changes(header, judgement);
+        if (!changes.isEmpty()) {
+            try {
+                writer.set(changes);
+            } catch (ApprovalHookWriteException refused) {
+                throw new ApprovalHookRefusal("score_not_written", "The score of this fill-in could not be saved.");
+            }
+        }
+        if (Fills.ACTION_PLAN.equals(judgement.result())) {
+            actionPlanNotices.tell(set, header);
+            if (context.endsRequest() && !scores.actionPlanSent(set.fill(), context.recordId())) {
+                throw new ApprovalHookRefusal("action_plan_missing", "This fill-in is below the limit. Its Action "
+                        + "plan must be sent before it can be approved.");
+            }
+        }
     }
 
     @Override

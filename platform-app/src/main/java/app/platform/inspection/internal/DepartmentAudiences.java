@@ -73,35 +73,43 @@ class DepartmentAudiences {
      * @throws ApiException {@code VALIDATION_ERROR} whose fields name the first pair that cannot be published to
      */
     List<Resolved> resolve(List<AudiencePick> picks) {
+        return resolve(picks, "audiences");
+    }
+
+    /**
+     * The group of each pair, in the order asked, all or nothing, with the place of a refusal named after the field of
+     * the request the picks came from (the publish to plants of MC2A names {@code plants}).
+     */
+    List<Resolved> resolve(List<AudiencePick> picks, String field) {
         List<Resolved> resolved = new ArrayList<>();
         Set<String> seen = new HashSet<>();
         for (int index = 0; index < picks.size(); index++) {
             AudiencePick pick = picks.get(index);
             if (!seen.add(pick.location() + "/" + pick.department())) {
-                throw refused(index, "This department is listed twice.");
+                throw refused(field, index, "This department is listed twice.");
             }
-            resolved.add(new Resolved(pick, groupOf(index, pick)));
+            resolved.add(new Resolved(pick, groupOf(field, index, pick)));
         }
         return resolved;
     }
 
-    private UUID groupOf(int index, AudiencePick pick) {
+    private UUID groupOf(String field, int index, AudiencePick pick) {
         QueryFilterNode filter = new QueryFilterNode("AND", List.of(
                 new QueryFilterNode("EQ", null, Templates.LOCATION, List.of(pick.location())),
                 new QueryFilterNode("EQ", null, Templates.DEPARTMENT, List.of(pick.department()))), null, null);
         List<DataRecord> found = records.scan(Templates.DEPARTMENT_OBJECT, filter, null, LOOK_AT);
         if (found.isEmpty()) {
-            throw refused(index, NO_GROUP);
+            throw refused(field, index, NO_GROUP);
         }
         if (found.size() > 1) {
-            throw refused(index, MANY_GROUPS);
+            throw refused(field, index, MANY_GROUPS);
         }
         UUID group = groupId(found.get(0));
         if (group == null || !groups.exists(group)) {
-            throw refused(index, group == null ? NO_GROUP : GROUP_GONE);
+            throw refused(field, index, group == null ? NO_GROUP : GROUP_GONE);
         }
         if (groups.membersOf(group).isEmpty()) {
-            throw refused(index, GROUP_EMPTY);
+            throw refused(field, index, GROUP_EMPTY);
         }
         return group;
     }
@@ -286,7 +294,7 @@ class DepartmentAudiences {
         }
     }
 
-    private static ApiException refused(int index, String words) {
-        return ApiException.validation("audiences[" + index + "]", words);
+    private static ApiException refused(String field, int index, String words) {
+        return ApiException.validation(field + "[" + index + "]", words);
     }
 }

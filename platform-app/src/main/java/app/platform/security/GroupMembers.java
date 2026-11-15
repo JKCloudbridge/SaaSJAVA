@@ -17,6 +17,13 @@ public interface GroupMembers {
     /** Every person in the group, directly or through nested groups, by membership. Empty for an unknown group. */
     Set<UUID> membersOf(UUID groupId);
 
+    /**
+     * The users behind {@link #membersOf}: every person in the group, directly or through nested groups, by user.
+     * Whether a person is an active member is the identity module's fact, which the caller asks of the directory of
+     * users (MC2A, ADR-0260: a notice goes only to people who can read it). Empty for an unknown group.
+     */
+    Set<UUID> usersOf(UUID groupId);
+
     /** Whether a live group of the organization has the identifier (sharing a record with a group asks it). */
     boolean exists(UUID groupId);
 }

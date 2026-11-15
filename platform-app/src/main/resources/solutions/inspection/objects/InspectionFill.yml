@@ -60,3 +60,55 @@ fields:
     platformWritten: true
     indexed: true
     settings: { maxLength: 60 }
+
+  # MC2A, ADR-0260: the plant and the month of a monthly fill-in (an application whose file says `monthlyFillIn`). Both
+  # are written once, when the plant head starts the fill-in, and never change; empty means the fill-in belongs to no
+  # plant (every other application). One fill-in exists for a document, a plant and a month: the database holds that
+  # (inspection_fill_period, V093), not these fields.
+  - apiName: plant
+    label: Plant
+    description: The plant (a location) the fill-in is for. Empty for a fill-in that belongs to no plant.
+    type: TEXT
+    platformWritten: true
+    indexed: true
+    settings: { maxLength: 10 }
+
+  - apiName: period
+    label: Month
+    description: The month the fill-in is for, as year and month (2026-05). Empty for a fill-in that has no month.
+    type: TEXT
+    platformWritten: true
+    indexed: true
+    settings: { maxLength: 7 }
+
+  # MC2B, ADR-0261: the score of a fill-in whose sheet marks a score cell, and what it means. Both are written by the
+  # platform each time a reviewer approves (from the cells, with the sheet's own formulas) and are never typed. The score
+  # is in percent points with two decimals (90.00). The result is PASS, or ACTION_PLAN when the score is strictly below
+  # the limit of the application (Setup, Application settings). Both are empty for a fill-in whose sheet marks no score.
+  - apiName: score
+    label: Score
+    description: The percent the sheet calculated, in percent points. Empty for a fill-in that has no score.
+    type: DECIMAL
+    platformWritten: true
+    indexed: true
+    settings: { precision: 5, scale: 2 }
+
+  - apiName: result
+    label: Result
+    description: Pass, or action plan needed when the score is below the limit. Empty for a fill-in that has no score.
+    type: TEXT
+    platformWritten: true
+    indexed: true
+    settings: { maxLength: 20 }
+
+  # MC2B, ADR-0261: an Action plan is a fill-in of the Action plan document that answers one low-scoring fill-in. This
+  # is the link, written once by the platform when the plant head starts it, as the text of the identifier of the
+  # low-scoring fill-in. Unique: one Action plan for each low-scoring fill-in. Empty for every other fill-in.
+  - apiName: parentFill
+    label: Action plan for
+    description: The fill-in this Action plan answers, as the text of its identifier. Empty for every other fill-in.
+    type: TEXT
+    unique: true
+    platformWritten: true
+    indexed: true
+    settings: { maxLength: 36 }

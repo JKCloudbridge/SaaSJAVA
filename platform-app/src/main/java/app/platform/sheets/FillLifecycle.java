@@ -83,6 +83,53 @@ public interface FillLifecycle {
     Optional<Pin> pinOf(String fillObject, UUID fillId);
 
     /**
+     * The score of a fill-in (MC2B, ADR-0261): the percent the sheet calculated in the one cell its pinned version
+     * marks as the score, from the cells as they are now. Computed on every call and never stored by the sheets
+     * module; the module that owns the header writes the answer on its own record. A sheet with no marker, an answer
+     * that is not a number between 0 and 100, and a fill-in that cannot be found never give a value.
+     *
+     * @param fillObject the object of the header record
+     * @param fillId the header record
+     */
+    Score scoreOf(String fillObject, UUID fillId);
+
+    /**
+     * What {@link #scoreOf} found.
+     *
+     * @param state whether the sheet marks a score, and whether it could be calculated
+     * @param percent the score in percent points with two decimals (90.00 is ninety percent), or null unless
+     *        {@code state} is {@link State#CALCULATED}
+     */
+    record Score(State state, java.math.BigDecimal percent) {
+
+        /** What the sheet says about a score. */
+        public enum State {
+            /** The pinned version marks no score cell: the fill-in has no score and is judged as before. */
+            NOT_MARKED,
+            /** The sheet marks one, and its answer is not a number a person can rely on. */
+            NOT_CALCULATED,
+            /** The score was calculated. */
+            CALCULATED
+        }
+
+        /** The sheet marks no score. */
+        public static Score notMarked() {
+            return new Score(State.NOT_MARKED, null);
+        }
+
+        /** The sheet marks a score and it could not be calculated. */
+        public static Score notCalculated() {
+            return new Score(State.NOT_CALCULATED, null);
+        }
+
+        /** Prints the state only: a score is the organization's. */
+        @Override
+        public String toString() {
+            return "Score[" + state + "]";
+        }
+    }
+
+    /**
      * What a fill-in is pinned to.
      *
      * @param ownerObject the object of the sheet's owner

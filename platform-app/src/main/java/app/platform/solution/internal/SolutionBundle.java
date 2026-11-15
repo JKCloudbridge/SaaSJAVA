@@ -34,10 +34,54 @@ import java.util.Set;
  */
 record SolutionBundle(String key, String feature, String label, String removalNote, List<Application> applications,
         List<String> objects, List<String> sheetOwners, List<Policy> policies, List<String> uses, int order,
-        Map<String, String> roles, Map<String, String> options) {
+        Map<String, String> roles, Map<String, String> options, List<Setting> settings) {
 
     /** The largest place a solution may ask for. */
     static final int MOST_ORDER = 999;
+
+    /**
+     * One setting an organization may change for each application of the solution (MC2B, ADR-0261). The solution
+     * file declares it with its default, so the application works with no setup; the organization's own value is kept
+     * in {@code application_setting}. The words are the file's own and this module only carries them: the meaning of
+     * a key belongs to the module that asks for it.
+     *
+     * @param key its permanent name, a lower camel case word
+     * @param label what people read
+     * @param description what it is for, in plain words
+     * @param kind how a value is typed and checked
+     * @param defaultValue the value an organization has until it chooses one
+     */
+    record Setting(String key, String label, String description, Kind kind, int defaultValue) {
+
+        /** How a value is typed and checked. */
+        enum Kind {
+            /** A whole percent from 1 to 100. */
+            PERCENT(1, 100);
+
+            private final int least;
+            private final int most;
+
+            Kind(int least, int most) {
+                this.least = least;
+                this.most = most;
+            }
+
+            /** The smallest value. */
+            int least() {
+                return least;
+            }
+
+            /** The largest value. */
+            int most() {
+                return most;
+            }
+
+            /** Whether the value is one this kind takes. */
+            boolean accepts(int value) {
+                return value >= least && value <= most;
+            }
+        }
+    }
 
     /** The prefix of the identity of a shipped policy: {@code <solution key>.<policy key>}. */
     static final String OWNER = "solution";
@@ -50,6 +94,15 @@ record SolutionBundle(String key, String feature, String label, String removalNo
         uses = List.copyOf(uses);
         roles = Map.copyOf(roles);
         options = Map.copyOf(options);
+        settings = List.copyOf(settings);
+    }
+
+    /** A solution that declares parts and options and no settings (the shape before MC2B). */
+    SolutionBundle(String key, String feature, String label, String removalNote, List<Application> applications,
+            List<String> objects, List<String> sheetOwners, List<Policy> policies, List<String> uses, int order,
+            Map<String, String> roles, Map<String, String> options) {
+        this(key, feature, label, removalNote, applications, objects, sheetOwners, policies, uses, order, roles,
+                options, List.of());
     }
 
     /** A solution that declares parts and no options. */

@@ -206,6 +206,42 @@ class RecordSetsTest {
         assertThat(has.routedSet("management-core").map(RecordSet::template)).contains("InspectionTemplate");
     }
 
+    private RecordSets withPlants(List<String> available) {
+        return RecordSetsFixture.sets(List.of(
+                RecordSetsFixture.roles("document-management", "document-management", RecordSetsFixture.QMS),
+                RecordSetsFixture.routed("management-core", "management-core", RecordSetsFixture.QMS,
+                        Map.of(RecordSets.PUBLISH_TO, RecordSets.PLACES, RecordSets.PUBLISH_DEPARTMENT, "PLANTHEAD",
+                                RecordSets.MONTHLY_FILL_IN, "true")),
+                RecordSetsFixture.routed("another", "another", RecordSetsFixture.QMS, Map.of())), available,
+                contexts);
+    }
+
+    @Test
+    void aDocumentIsPublishedToPlantsOnlyWhenItsApplicationPublishesToPlacesAndTheOrganizationHasIt() {
+        RecordSets has = withPlants(List.of("document-management", "management-core", "another"));
+        RecordSets without = withPlants(List.of("document-management", "another"));
+
+        assertThat(has.plantSetOf("management-core").map(RecordSet::placeDepartment)).contains("PLANTHEAD");
+        assertThat(has.plantSetOf("another")).as("it does not publish to places").isEmpty();
+        assertThat(has.plantSetOf("document-management")).as("it shows every document and routes none").isEmpty();
+        assertThat(has.plantSetOf("")).isEmpty();
+        assertThat(has.plantSetOf(null)).isEmpty();
+        assertThat(has.plantSetOf(42)).as("a value that is no text").isEmpty();
+        assertThat(without.plantSetOf("management-core")).as("the feature is off").isEmpty();
+    }
+
+    @Test
+    void aFillInIsMonthlyOnlyWhenTheApplicationOfItsDocumentAsksForIt() {
+        RecordSets sets = withPlants(List.of("document-management", "management-core", "another"));
+
+        assertThat(sets.monthlyFillIn("management-core")).isTrue();
+        assertThat(sets.monthlyFillIn("another")).isFalse();
+        assertThat(sets.monthlyFillIn("document-management")).as("a plain fill-in").isFalse();
+        assertThat(sets.monthlyFillIn("")).isFalse();
+        assertThat(sets.monthlyFillIn(null)).isFalse();
+        assertThat(RecordSetsFixture.QMS.monthlyFillIn()).isFalse();
+    }
+
     @Test
     void aLinkToADocumentNamesTheApplicationItWasRoutedToWhenTheOrganizationHasIt() {
         RecordSets has = withRouted(List.of("document-management", "management-core"));

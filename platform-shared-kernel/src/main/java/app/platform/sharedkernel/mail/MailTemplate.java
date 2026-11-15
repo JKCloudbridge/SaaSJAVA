@@ -64,5 +64,21 @@ public enum MailTemplate {
      * the document. It is queued together with the in-app notice of the same kind and follows the same category
      * switch.
      */
-    DOCUMENT_PUBLISHED
+    DOCUMENT_PUBLISHED,
+
+    /**
+     * A document was made available to the recipient's plant (MC2A, ADR-0260). Built like {@link #DOCUMENT_PUBLISHED}:
+     * facts only (the organization, the object, the record and the address parts of the page that opens it), the link
+     * built at send time on the organization's own host, queued with the in-app notice of the same kind and following
+     * the same category switch.
+     */
+    DOCUMENT_AT_PLANT,
+
+    /**
+     * A fill-in scored below the limit, so its plant head must fill the Action plan (MC2B, ADR-0261). Built like
+     * {@link #DOCUMENT_AT_PLANT}: facts only, the link built at send time on the organization's own host, queued with
+     * the in-app notice of the same kind and following the same category switch. No score, no limit and no plant: the
+     * words say only that the fill-in is below the limit.
+     */
+    ACTION_PLAN_NEEDED
 }

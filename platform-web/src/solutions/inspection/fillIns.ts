@@ -18,10 +18,12 @@ export type FillInPage = components["schemas"]["FillInPage"];
 export type FillInRow = components["schemas"]["FillInRow"];
 export type FillInOptions = components["schemas"]["FillInOptionsView"];
 export type FillInStarted = components["schemas"]["FillInStartedView"];
+export type StartFillInBody = components["schemas"]["StartFillInRequest"];
 export type FillInSubmitted = components["schemas"]["FillInSubmittedView"];
 export type ReportColumns = components["schemas"]["ReportColumnsView"];
 export type ReportColumn = components["schemas"]["ReportColumnView"];
 export type ReportRequest = components["schemas"]["FillReportRequest"];
+export type ActionPlanState = components["schemas"]["ActionPlanStateView"];
 
 /** The object that holds the fill-ins of the application (the header record; its cells are kept apart). */
 
@@ -101,9 +103,15 @@ export function getFillInOptions(templateId: string): Promise<Outcome<FillInOpti
   );
 }
 
-export function startFillIn(templateId: string): Promise<Outcome<FillInStarted>> {
+/** Starts a fill-in; a monthly application takes the plant and the month in the body (MC2A, ADR-0260). */
+export function startFillIn(templateId: string, body?: StartFillInBody): Promise<Outcome<FillInStarted>> {
   return unwrap(
-    call(() => api.POST("/api/v1/templates/{templateId}/fill-ins", { params: { path: { templateId }, query: scopeQuery() } })),
+    call(() =>
+      api.POST("/api/v1/templates/{templateId}/fill-ins", {
+        params: { path: { templateId }, query: scopeQuery() },
+        body,
+      }),
+    ),
   );
 }
 
@@ -113,6 +121,19 @@ export function startFillIn(templateId: string): Promise<Outcome<FillInStarted>>
  */
 export function submitFillIn(fillId: string): Promise<Outcome<FillInSubmitted>> {
   return unwrap(call(() => api.POST("/api/v1/fill-ins/{fillId}/submit", { params: { path: { fillId }, query: scopeQuery() } })));
+}
+
+/**
+ * Whether a fill-in needs an Action plan, whether the member may start it and which one answers it (MC2B, ADR-0261). The
+ * server decides every part; the screen only draws the answer.
+ */
+export function getActionPlan(fillId: string): Promise<Outcome<ActionPlanState>> {
+  return unwrap(call(() => api.GET("/api/v1/fill-ins/{fillId}/action-plan", { params: { path: { fillId }, query: scopeQuery() } })));
+}
+
+/** Starts the Action plan of a fill-in that scored below the limit; the answer names the new fill-in. */
+export function startActionPlan(fillId: string): Promise<Outcome<FillInStarted>> {
+  return unwrap(call(() => api.POST("/api/v1/fill-ins/{fillId}/action-plan", { params: { path: { fillId }, query: scopeQuery() } })));
 }
 
 /** The columns the author of a version flagged reportable (the version in use when none is named). */

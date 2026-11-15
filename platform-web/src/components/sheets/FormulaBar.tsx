@@ -84,6 +84,16 @@ function FormulaBarInput({
           Answer: {answer === "" ? "(empty)" : answer}
         </span>
       ) : null}
+      {rowId && columnId && editor.canMarkScore(rowId, columnId) ? (
+        <label className="hint" data-testid="score-mark">
+          <input
+            type="checkbox"
+            checked={editor.isScore(rowId, columnId)}
+            onChange={(event) => editor.markScore(rowId, columnId, event.target.checked)}
+          />{" "}
+          Use as the score
+        </label>
+      ) : null}
       {problem ? (
         <p className="field-error" id={`${id}-problem`} role="alert">
           {problem}

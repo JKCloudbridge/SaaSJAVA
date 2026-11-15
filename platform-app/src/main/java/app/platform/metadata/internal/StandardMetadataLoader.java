@@ -321,9 +321,10 @@ final class StandardMetadataLoader {
                 throw new IllegalStateException(where + ": every value of a picklist with 'codeValues' is a code of "
                         + "1 to 10 letters, digits, hyphens or underscores");
             }
-            if (platformWritten && (type != FieldType.TEXT && type != FieldType.BOOLEAN || checked.required()
+            if (platformWritten && (type != FieldType.TEXT && type != FieldType.BOOLEAN && type != FieldType.DECIMAL
+                    || checked.required()
                     || checked.defaultValue() != null)) {
-                throw new IllegalStateException(where + ": a field only the platform writes is a text field or a "
+                throw new IllegalStateException(where + ": a field only the platform writes is a text, decimal or a "
                         + "yes/no field, is not required and has no default (a member could never fill it in)");
             }
         }

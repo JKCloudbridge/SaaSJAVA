@@ -96,6 +96,34 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/application-settings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The settings each application offers
+         * @description Needs application-settings.manage. Every setting of every application the organization has that offers one: its words, the value in force, the default, the range and the version to send when changing it. The settings are declared by the application's solution file; nothing is listed for an application the organization does not have.
+         */
+        get: operations["listApplicationSettings"];
+        /**
+         * Choose a value for a setting
+         * @description Needs application-settings.manage. Without a version it makes the organization's first choice for the setting (CONFLICT when it already has one); with the version read it changes that choice. The value must be one the setting's kind takes. A change applies from the next question: a review that ends afterwards uses it. Audited by the application and the setting, never the value.
+         */
+        put: operations["saveApplicationSetting"];
+        post?: never;
+        /**
+         * Take a choice back
+         * @description Needs application-settings.manage and the version read. The application's own default applies again.
+         */
+        delete: operations["resetApplicationSetting"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/applications": {
         parameters: {
             query?: never;
@@ -1082,6 +1110,30 @@ export interface paths {
         get: operations["getFillInReportColumns"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/fill-ins/{fillId}/action-plan": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Whether a fill-in needs an Action plan and whether the caller may start it
+         * @description needed: the fill-in scored below the limit. canStart: the caller is a plant head of its plant, may fill in, no Action plan was started and the form its document names is ready; the flag only hides a button. actionPlanId: the Action plan, when the caller can read it. NOT_FOUND for a fill-in the caller cannot see. No score and no limit is ever told.
+         */
+        get: operations["getFillInActionPlan"];
+        put?: never;
+        /**
+         * Start the Action plan of a fill-in that scored below the limit
+         * @description For a plant head of the fill-in's plant who may fill in, whether or not the Action plan form was published to them. Starts a fill-in of the form the fill-in's document names, for the same plant and month, pinned to the Revision in use, linked to this fill-in (one Action plan for each, CONFLICT when one exists) and shared read only with the plant's plant heads. Its reviewers are those of this fill-in's plant. NOT_FOUND for a fill-in the caller cannot see, FORBIDDEN without the right to fill in, CONFLICT with fixed words otherwise. Audited by identifiers.
+         */
+        post: operations["startFillInActionPlan"];
         delete?: never;
         options?: never;
         head?: never;
@@ -5827,7 +5879,7 @@ export interface paths {
         put?: never;
         /**
          * Start a fill-in on the version of a template that is in use
-         * @description Needs the right to create fill-ins (FORBIDDEN otherwise). The fill-in is pinned to the version in use at that moment for ever; the template and every other fill-in are untouched. The caller owns the new fill-in, and by the private default of the object nobody else sees it, apart from the people who may view every fill-in. CONFLICT for a retired template, when no version is in use and when the version moved while the request ran. Audited by the identifiers and the version number. NOT_FOUND for a template the caller cannot see, for one that does not exist and on the platform host (all alike). A template is visible by the rules of every record: the object permission, the private default of a template, and the shares.
+         * @description Needs the right to create fill-ins (FORBIDDEN otherwise). The fill-in is pinned to the version in use at that moment for ever; the template and every other fill-in are untouched. The caller owns the new fill-in, and by the private default of the object nobody else sees it, apart from the people who may view every fill-in. CONFLICT for a retired template, when no version is in use and when the version moved while the request ran. Audited by the identifiers and the version number. For an application that asks for monthly fill-ins (MC2A) the body names the plant and the month (both may be left out: a person of one plant gets their plant, the month is this month); the caller must be plant head of a plant the document is published to, a month that has not begun is refused and one fill-in exists for a document, a plant and a month (CONFLICT otherwise). Any other application takes no body. NOT_FOUND for a template the caller cannot see, for one that does not exist and on the platform host (all alike). A template is visible by the rules of every record: the object permission, the private default of a template, and the shares.
          */
         post: operations["startFillIn"];
         delete?: never;
@@ -5870,6 +5922,94 @@ export interface paths {
          */
         put: operations["setTemplateSheetOptions"];
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/templates/{templateId}/plants": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The plants a document is published to and whether the caller may change them
+         * @description available: the document belongs to an application that publishes to plants. canPublish: the caller made it (or holds the ability), a Revision is in use and it is not retired; the flag only hides a button, each act is decided again. The plants with their reviewers are told only to a caller who may publish. NOT_FOUND for a document the caller cannot see, for one that does not exist and on the platform host (all alike).
+         */
+        get: operations["getTemplatePlants"];
+        /**
+         * Publish a document to its plants and choose the reviewers of each
+         * @description Sets the whole: a plant listed and not published to yet is added (its plant heads can read the document and are told), a plant listed with other reviewers has them changed, and a plant published to and not listed is taken back (an empty list takes the document back from every plant). Every plant must have a group of plant heads with members and at least one reviewer; a reviewer is an active member or a public group. Every plant is checked before anything is shared: VALIDATION_ERROR with plants[i] or plants[i].reviewers[j] naming the place. A change of reviewers never reaches a review that is running. CONFLICT for a retired document and for one with no Revision in use. Audited by counts, never by a name. Allowed to the person who made the document and to a member who holds the ability to publish documents to plants (FORBIDDEN otherwise); CONFLICT for a document that does not belong to an application that publishes to plants. NOT_FOUND for a document the caller cannot see, for one that does not exist and on the platform host (all alike).
+         */
+        put: operations["publishTemplateToPlants"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/templates/{templateId}/plants/action-plan-form": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The Action plan form of a document and the documents it can be chosen from
+         * @description The document a plant head fills when a fill-in of this document scores below the limit. The choices are the documents of the same application the caller can read (the record store decides), told only to a caller who may change it. NOT_FOUND for a document the caller cannot see, for one that does not exist and on the platform host (all alike).
+         */
+        get: operations["getTemplateActionPlanForm"];
+        /**
+         * Name the Action plan form of a document, or take it back
+         * @description Names another document of the same application that the caller can read; with no document it takes the form back. It changes no fill-in that exists. Audited by the identifier of the document. Allowed to the person who made the document and to a member who holds the ability to publish documents to plants (FORBIDDEN otherwise); CONFLICT for a document that does not belong to an application that publishes to plants. NOT_FOUND for a document the caller cannot see, for one that does not exist and on the platform host (all alike).
+         */
+        put: operations["setTemplateActionPlanForm"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/templates/{templateId}/plants/options": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The plants a document can be published to
+         * @description Every location of the organization's list with whether a group of plant heads is set up for it; a location without one cannot be published to. Allowed to the person who made the document and to a member who holds the ability to publish documents to plants (FORBIDDEN otherwise); CONFLICT for a document that does not belong to an application that publishes to plants. NOT_FOUND for a document the caller cannot see, for one that does not exist and on the platform host (all alike).
+         */
+        get: operations["templatePlantOptions"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/templates/{templateId}/plants/reviewer-choices": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * The people and groups a reviewer can be chosen from
+         * @description At most 20 active members and 20 public groups whose name contains the text; a person needs the text to match, so the answer cannot be used to list the directory. The text is typed by a person, so it travels in the body and is never logged. Allowed to the person who made the document and to a member who holds the ability to publish documents to plants (FORBIDDEN otherwise); CONFLICT for a document that does not belong to an application that publishes to plants. NOT_FOUND for a document the caller cannot see, for one that does not exist and on the platform host (all alike).
+         */
+        post: operations["templatePlantReviewerChoices"];
         delete?: never;
         options?: never;
         head?: never;
@@ -6169,6 +6309,28 @@ export interface components {
             name: string;
             requiredLicenceType?: string;
         };
+        ActionPlanChoice: {
+            /** Format: uuid */
+            id: string;
+            name?: string;
+            number?: string;
+        };
+        ActionPlanFormView: {
+            actionName?: string;
+            /** Format: uuid */
+            actionTemplateId?: string;
+            available: boolean;
+            canChange: boolean;
+            choices: components["schemas"]["ActionPlanChoice"][];
+        };
+        ActionPlanStateView: {
+            /** Format: uuid */
+            actionPlanId?: string;
+            canStart: boolean;
+            needed: boolean;
+            reason?: string;
+            started: boolean;
+        };
         Activity: {
             about: string;
             /** Format: date-time */
@@ -6261,8 +6423,17 @@ export interface components {
         ApiResponseAccessPolicyView: {
             data: components["schemas"]["AccessPolicyView"];
         };
+        ApiResponseActionPlanFormView: {
+            data: components["schemas"]["ActionPlanFormView"];
+        };
+        ApiResponseActionPlanStateView: {
+            data: components["schemas"]["ActionPlanStateView"];
+        };
         ApiResponseAddedFieldValueView: {
             data: components["schemas"]["AddedFieldValueView"];
+        };
+        ApiResponseApplicationSettingsView: {
+            data: components["schemas"]["ApplicationSettingsView"];
         };
         ApiResponseApplicationView: {
             data: components["schemas"]["ApplicationView"];
@@ -6648,6 +6819,9 @@ export interface components {
         ApiResponsePlanInfo: {
             data: components["schemas"]["PlanInfo"];
         };
+        ApiResponsePlantPublicationState: {
+            data: components["schemas"]["PlantPublicationState"];
+        };
         ApiResponsePlatformOrganizationDetail: {
             data: components["schemas"]["PlatformOrganizationDetail"];
         };
@@ -6713,6 +6887,9 @@ export interface components {
         };
         ApiResponseRequestAccepted: {
             data: components["schemas"]["RequestAccepted"];
+        };
+        ApiResponseReviewerChoices: {
+            data: components["schemas"]["ReviewerChoices"];
         };
         ApiResponseRoleView: {
             data: components["schemas"]["RoleView"];
@@ -6792,6 +6969,31 @@ export interface components {
             items: components["schemas"]["NavigationItem"][];
             /** @description The profiles whose members see the application. Empty or left out: every member. */
             profiles?: string[];
+        };
+        ApplicationSettingView: {
+            changed: boolean;
+            /** Format: int32 */
+            defaultValue: number;
+            description: string;
+            key: string;
+            kind: string;
+            label: string;
+            /** Format: int32 */
+            least: number;
+            /** Format: int32 */
+            most: number;
+            /** Format: int32 */
+            value: number;
+            /** Format: int64 */
+            version?: number;
+        };
+        ApplicationSettingsGroupView: {
+            application: string;
+            label: string;
+            settings: components["schemas"]["ApplicationSettingView"][];
+        };
+        ApplicationSettingsView: {
+            applications: components["schemas"]["ApplicationSettingsGroupView"][];
         };
         ApplicationView: {
             apiName: string;
@@ -7940,11 +8142,18 @@ export interface components {
             /** Format: int32 */
             activeVersion: number;
             canStart: boolean;
+            currentPeriod?: string;
+            monthly: boolean;
+            plants: components["schemas"]["FillInPlantChoice"][];
             reason?: string;
         };
         FillInPage: {
             nextCursor?: string;
             rows: components["schemas"]["FillInRow"][];
+        };
+        FillInPlantChoice: {
+            label: string;
+            plant: string;
         };
         FillInQuery: {
             cursor?: string;
@@ -7958,6 +8167,8 @@ export interface components {
             templateId?: string;
         };
         FillInRow: {
+            /** Format: uuid */
+            answers?: string;
             /** Format: date-time */
             archivedAt?: string;
             /** Format: date-time */
@@ -7966,8 +8177,13 @@ export interface components {
             fillId: string;
             filledBy?: string;
             name?: string;
+            period?: string;
+            plant?: string;
+            plantLabel?: string;
+            result?: string;
             /** Format: int32 */
             rowCount: number;
+            score?: string;
             status: string;
             /** Format: date-time */
             submittedAt?: string;
@@ -8886,6 +9102,35 @@ export interface components {
             /** Format: int32 */
             trialDays?: number;
         };
+        PlantPick: {
+            plant: string;
+            reviewers: components["schemas"]["PlantReviewerPick"][];
+        };
+        PlantPublicationState: {
+            available: boolean;
+            canPublish: boolean;
+            plants: components["schemas"]["PlantPublicationView"][];
+            reason?: string;
+        };
+        PlantPublicationView: {
+            groupExists: boolean;
+            label: string;
+            plant: string;
+            /** Format: date-time */
+            publishedAt: string;
+            reviewers: components["schemas"]["PlantReviewerView"][];
+        };
+        PlantReviewerPick: {
+            /** Format: uuid */
+            id: string;
+            kind: string;
+        };
+        PlantReviewerView: {
+            /** Format: uuid */
+            id: string;
+            kind: string;
+            name?: string;
+        };
         PlatformOrganizationDetail: {
             displayName: string;
             entitlements: components["schemas"]["EntitlementInfo"][];
@@ -8995,6 +9240,9 @@ export interface components {
             email: string;
             planKey: string;
             slug: string;
+        };
+        PublishPlantsRequest: {
+            plants: components["schemas"]["PlantPick"][];
         };
         PublishPrefill: {
             allowDownload: boolean;
@@ -9331,6 +9579,19 @@ export interface components {
             skipped: boolean;
             usesFallback: boolean;
         };
+        ReviewerChoice: {
+            /** Format: uuid */
+            id: string;
+            kind: string;
+            label: string;
+        };
+        ReviewerChoices: {
+            groups: components["schemas"]["ReviewerChoice"][];
+            people: components["schemas"]["ReviewerChoice"][];
+        };
+        ReviewerSearch: {
+            text?: string;
+        };
         RoleView: {
             description: string;
             /** Format: uuid */
@@ -9371,6 +9632,14 @@ export interface components {
             description?: string;
             name: string;
             requiredLicenceType?: string;
+        };
+        SaveApplicationSettingRequest: {
+            application: string;
+            key: string;
+            /** Format: int32 */
+            value: number;
+            /** Format: int64 */
+            version?: number;
         };
         SaveDataAccessRequest: {
             fields: components["schemas"]["PermissionEntry"][];
@@ -9483,6 +9752,10 @@ export interface components {
         SessionLookupRequest: {
             email: string;
             reason: string;
+        };
+        SetActionPlanFormRequest: {
+            /** Format: uuid */
+            actionTemplateId?: string;
         };
         SetEntitlementRequest: {
             enabled?: boolean;
@@ -9931,6 +10204,8 @@ export interface components {
             rows: components["schemas"]["SheetTabRow"][];
             /** @enum {string} */
             rowsMode: "FIXED" | "REPEATABLE" | "FIXED_AND_REPEATABLE";
+            /** @description The key of the one formula cell that is the score of a fill-in: the percent the sheet calculated, read by the platform when a fill-in is reviewed. Absent means the sheet has no score. It names a cell that holds a formula. */
+            score?: string;
             /** @description The name of the tab: at most 31 characters, no markup. */
             title?: string;
         };
@@ -10011,6 +10286,10 @@ export interface components {
         };
         SignUpRequest: {
             email: string;
+        };
+        StartFillInRequest: {
+            period?: string;
+            plant?: string;
         };
         StartImportRequest: {
             delimiter?: string;
@@ -10816,6 +11095,101 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ApiResponseDataAccessView"];
+                };
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    listApplicationSettings: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseApplicationSettingsView"];
+                };
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    saveApplicationSetting: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SaveApplicationSettingRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseApplicationSettingsView"];
+                };
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    resetApplicationSetting: {
+        parameters: {
+            query: {
+                application: string;
+                key: string;
+                version: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseApplicationSettingsView"];
                 };
             };
             /** @description Error. The code says what went wrong; the message is safe to show. */
@@ -12493,6 +12867,74 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ApiResponseReportColumnsView"];
+                };
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    getFillInActionPlan: {
+        parameters: {
+            query: {
+                /** @description The application whose records are meant (its API name). It chooses among the sets of records only and proves nothing: NOT_FOUND, in the same words, for an application that does not exist, one the organization does not have and the platform host. What the caller may do inside the set is decided by the same rights as ever. */
+                application: string;
+            };
+            header?: never;
+            path: {
+                fillId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseActionPlanStateView"];
+                };
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    startFillInActionPlan: {
+        parameters: {
+            query: {
+                /** @description The application whose records are meant (its API name). It chooses among the sets of records only and proves nothing: NOT_FOUND, in the same words, for an application that does not exist, one the organization does not have and the platform host. What the caller may do inside the set is decided by the same rights as ever. */
+                application: string;
+            };
+            header?: never;
+            path: {
+                fillId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseFillInStartedView"];
                 };
             };
             /** @description Error. The code says what went wrong; the message is safe to show. */
@@ -22354,7 +22796,11 @@ export interface operations {
             };
             cookie?: never;
         };
-        requestBody?: never;
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["StartFillInRequest"];
+            };
+        };
         responses: {
             /** @description OK */
             200: {
@@ -22435,6 +22881,222 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ApiResponseTemplateLifecycleView"];
+                };
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    getTemplatePlants: {
+        parameters: {
+            query: {
+                /** @description The application whose records are meant (its API name). It chooses among the sets of records only and proves nothing: NOT_FOUND, in the same words, for an application that does not exist, one the organization does not have and the platform host. */
+                application: string;
+            };
+            header?: never;
+            path: {
+                templateId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponsePlantPublicationState"];
+                };
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    publishTemplateToPlants: {
+        parameters: {
+            query: {
+                /** @description The application whose records are meant (its API name). It chooses among the sets of records only and proves nothing: NOT_FOUND, in the same words, for an application that does not exist, one the organization does not have and the platform host. */
+                application: string;
+            };
+            header?: never;
+            path: {
+                templateId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PublishPlantsRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponsePlantPublicationState"];
+                };
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    getTemplateActionPlanForm: {
+        parameters: {
+            query: {
+                /** @description The application whose records are meant (its API name). It chooses among the sets of records only and proves nothing: NOT_FOUND, in the same words, for an application that does not exist, one the organization does not have and the platform host. */
+                application: string;
+            };
+            header?: never;
+            path: {
+                templateId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseActionPlanFormView"];
+                };
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    setTemplateActionPlanForm: {
+        parameters: {
+            query: {
+                /** @description The application whose records are meant (its API name). It chooses among the sets of records only and proves nothing: NOT_FOUND, in the same words, for an application that does not exist, one the organization does not have and the platform host. */
+                application: string;
+            };
+            header?: never;
+            path: {
+                templateId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SetActionPlanFormRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseActionPlanFormView"];
+                };
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    templatePlantOptions: {
+        parameters: {
+            query: {
+                /** @description The application whose records are meant (its API name). It chooses among the sets of records only and proves nothing: NOT_FOUND, in the same words, for an application that does not exist, one the organization does not have and the platform host. */
+                application: string;
+            };
+            header?: never;
+            path: {
+                templateId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseAudienceOptionsView"];
+                };
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    templatePlantReviewerChoices: {
+        parameters: {
+            query: {
+                /** @description The application whose records are meant (its API name). It chooses among the sets of records only and proves nothing: NOT_FOUND, in the same words, for an application that does not exist, one the organization does not have and the platform host. */
+                application: string;
+            };
+            header?: never;
+            path: {
+                templateId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReviewerSearch"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseReviewerChoices"];
                 };
             };
             /** @description Error. The code says what went wrong; the message is safe to show. */

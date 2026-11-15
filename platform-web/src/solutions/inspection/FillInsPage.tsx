@@ -3,6 +3,8 @@
 import { useRecordObjects } from "./objects";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useState } from "react";
+import { Modal } from "@/components/ui/Modal";
+import { StartFillIn } from "./StartFillIn";
 import { ListPage, type ListColumn } from "@/components/ui/lists/ListPage";
 import { useListViews } from "@/components/ui/lists/useListViews";
 import { Tag } from "@/components/ui/lists/Tag";
@@ -119,7 +121,15 @@ export function FillInsList({ templateId: given, embedded = false }: { templateI
     });
   };
 
+  const [startOpen, setStartOpen] = useState(false);
+  // An application that asks for one fill-in each month for each plant asks which plant and month first (MC2A).
+  const monthly = options.status === "ready" && options.options.monthly;
   const start = async () => {
+    if (monthly) {
+      setStartMessage(undefined);
+      setStartOpen(true);
+      return;
+    }
     setStarting(true);
     setStartMessage(undefined);
     const outcome = await startFillIn(templateId);
@@ -181,6 +191,12 @@ export function FillInsList({ templateId: given, embedded = false }: { templateI
               : `Rev ${revisionNumber(row.versionNo)} (a newer revision is in use)`,
           kind: "muted",
         },
+        ...(ready?.rows.some((row) => row.plant || row.period)
+          ? [
+              { key: "plant", header: "Plant", cell: (row: FillInRow) => row.plantLabel || row.plant || "—" },
+              { key: "period", header: "Month", cell: (row: FillInRow) => row.period || "—", sort: (row: FillInRow) => row.period ?? "" },
+            ]
+          : []),
         { key: "rows", header: "Rows", cell: (row) => String(row.rowCount), kind: "muted" },
         {
           key: "createdAt",
@@ -232,6 +248,19 @@ export function FillInsList({ templateId: given, embedded = false }: { templateI
       testId="fill-ins-list"
     />
     {views.dialogs}
+    {startOpen && options.status === "ready" ? (
+      <Modal title="Start a fill-in" onClose={() => setStartOpen(false)}>
+        <StartFillIn
+          templateId={templateId}
+          options={options.options}
+          onClose={() => setStartOpen(false)}
+          onStarted={(started) => {
+            setStartOpen(false);
+            router.push(fillInsHref(started.fillId, application));
+          }}
+        />
+      </Modal>
+    ) : null}
     </>
   );
 }

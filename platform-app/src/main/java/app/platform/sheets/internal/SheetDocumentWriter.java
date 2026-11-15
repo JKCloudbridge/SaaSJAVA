@@ -67,7 +67,7 @@ final class SheetDocumentWriter {
                     FormulaPrinter.canonical(formula, CANON)));
             sheets.add(new Tab(tab.key(), tab.title(), tab.fillable(), freeze, tab.print(), inputs,
                     SheetGridNormalizer.normalize(tab.body()), looks, new TreeMap<>(tab.links()), conditions, formulas,
-                    columnFormulas));
+                    columnFormulas, tab.score()));
         }
         return new SheetDocument(sheets);
     }
@@ -106,6 +106,9 @@ final class SheetDocumentWriter {
         }
         if (!tab.fillable()) {
             out.put("fillable", false);
+        }
+        if (tab.score() != null) {
+            out.put("score", tab.score());
         }
         if (tab.freeze() != null && !tab.freeze().isNone()) {
             Map<String, Object> freeze = new TreeMap<>();

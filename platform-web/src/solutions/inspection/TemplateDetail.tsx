@@ -35,6 +35,8 @@ import { ChangeRequestsList } from "./ChangeRequestsPage";
 import { FillInsList } from "./FillInsPage";
 import { lifecycleText, stateTag } from "./lifecycle";
 import { OpenRequestsMark } from "./OpenRequestsMark";
+import { PlantPublishDialog } from "./PlantPublishDialog";
+import { usePlantState } from "./plantPublication";
 import { PublishDialog } from "./PublishDialog";
 import { SheetOptionsDialog } from "./SheetOptionsDialog";
 import { TemplateApprovals } from "./TemplateApprovals";
@@ -81,6 +83,9 @@ export function TemplateDetail({ id, onBack }: { id: string; onBack: () => void 
   const { state: form } = useObjectForm(objects.template, undefined, id);
   const { state: lifecycle, reload } = useLifecycle(id, refresh);
   const { state: requests, reload: reloadRequests } = useChangeRequests(id, refresh);
+  const plantState = usePlantState(id, refresh);
+  const plants = plantState.status === "ready" ? plantState.state : undefined;
+  const [plantsOpen, setPlantsOpen] = useState(false);
   const [approval, setApproval] = useState<ApprovalState>({ locked: false, mayOverride: false, mayApprove: false });
   const [editing, setEditing] = useState(false);
   const [publishing, setPublishing] = useState(false);
@@ -283,6 +288,17 @@ export function TemplateDetail({ id, onBack }: { id: string; onBack: () => void 
         {view?.canPublish ? (
           <button type="button" className="button" onClick={() => setPublishing(true)} disabled={busy} data-testid="template-publish">
             {view.audience.length > 0 ? "Change publishing" : "Publish"}
+          </button>
+        ) : null}
+        {plants?.canPublish ? (
+          <button
+            type="button"
+            className="button button-secondary"
+            onClick={() => setPlantsOpen(true)}
+            disabled={busy}
+            data-testid="template-publish-plants"
+          >
+            {plants.plants.length > 0 ? "Change plants" : "Publish to plants"}
           </button>
         ) : null}
       </ApprovalHeaderActions>
@@ -507,6 +523,21 @@ export function TemplateDetail({ id, onBack }: { id: string; onBack: () => void 
             onDone={() => {
               setPublishing(false);
               setNotice({ text: "The template is published to the people of the departments you chose.", error: false });
+              changed();
+            }}
+          />
+        </Modal>
+      ) : null}
+      {plantsOpen && plants ? (
+        <Modal title="Publish to plants" onClose={() => setPlantsOpen(false)}>
+          <PlantPublishDialog
+            templateId={id}
+            state={plants}
+            inModal
+            onClose={() => setPlantsOpen(false)}
+            onDone={() => {
+              setPlantsOpen(false);
+              setNotice({ text: "The plants and their reviewers are saved.", error: false });
               changed();
             }}
           />
