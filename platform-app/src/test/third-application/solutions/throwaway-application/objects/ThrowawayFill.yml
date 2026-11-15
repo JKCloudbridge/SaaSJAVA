@@ -44,3 +44,20 @@ fields:
     platformWritten: true
     indexed: true
     settings: { maxLength: 20 }
+
+  # MC2B: the hook of the shared fill-in writes the score and its result, so every fill-in object has them.
+  - apiName: score
+    label: Score
+    description: The percent the sheet calculated.
+    type: DECIMAL
+    platformWritten: true
+    indexed: true
+    settings: { precision: 5, scale: 2 }
+
+  - apiName: result
+    label: Result
+    description: Pass, or action plan needed.
+    type: TEXT
+    platformWritten: true
+    indexed: true
+    settings: { maxLength: 20 }

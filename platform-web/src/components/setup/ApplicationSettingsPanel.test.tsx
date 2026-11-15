@@ -8,7 +8,7 @@ vi.mock("@/lib/session/SessionProvider", () => ({ useOffers: offers }));
 
 const limit = {
   key: "scoreLimit", label: "Score limit", description: "A score below this needs an Action plan.", kind: "PERCENT",
-  value: 85, defaultValue: 85, least: 1, most: 100, changed: false, version: null,
+  value: 85, defaultValue: 85, least: 1, most: 100, changed: false, version: null as number | null,
 };
 const listing = (setting = limit) => ({ data: { applications: [{ application: "management-core", label: "Management Core", settings: [setting] }] } });
 
@@ -31,7 +31,7 @@ describe("ApplicationSettingsPanel", () => {
   it("sends the choice with no version for a first choice and says it applies to later reviews", async () => {
     const calls = fakeApi({
       "GET /api/v1/application-settings": () => json(listing()),
-      "PUT /api/v1/application-settings": () => json(listing({ ...limit, value: 90, changed: true, version: 0 as never })),
+      "PUT /api/v1/application-settings": () => json(listing({ ...limit, value: 90, changed: true, version: 0 })),
     });
     render(<ApplicationSettingsPanel />);
     fireEvent.change(await screen.findByLabelText("Score limit (percent)"), { target: { value: "90" } });

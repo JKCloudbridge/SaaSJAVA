@@ -27,7 +27,8 @@ class ScoreAndActionPlanIT extends PlantsSupport {
 
     /** Two named rows of numbers and a third whose cell is the score: achieved over possible, in percent points. */
     private static final String SCORED = "{\"formatVersion\":2,\"sheets\":[{\"key\":\"main\",\"score\":\"r3:n\","
-            + "\"dimension\":2,\"rowsMode\":\"FIXED\",\"columns\":[{\"id\":\"t\",\"label\":\"Item\",\"type\":\"text\"},"
+            + "\"dimension\":2,\"rowsMode\":\"FIXED_AND_REPEATABLE\","
+            + "\"columns\":[{\"id\":\"t\",\"label\":\"Item\",\"type\":\"text\"},"
             + "{\"id\":\"n\",\"label\":\"Value\",\"type\":\"number\"}],\"headerRows\":[{\"id\":\"h1\"}],"
             + "\"rows\":[{\"id\":\"r1\",\"label\":\"Achieved\"},{\"id\":\"r2\",\"label\":\"Possible\"},"
             + "{\"id\":\"r3\",\"label\":\"Score\"}],\"cells\":{\"h1:t\":{\"value\":\"Plant activity\"},"
@@ -35,7 +36,8 @@ class ScoreAndActionPlanIT extends PlantsSupport {
 
     /** The form of the Action plan: a sheet with one text row to fill. */
     private static final String PLAN = "{\"formatVersion\":2,\"sheets\":[{\"key\":\"main\",\"dimension\":2,"
-            + "\"rowsMode\":\"FIXED\",\"columns\":[{\"id\":\"t\",\"label\":\"Action\",\"type\":\"text\"}],"
+            + "\"rowsMode\":\"FIXED_AND_REPEATABLE\",\"columns\":[{\"id\":\"t\",\"label\":\"Action\","
+            + "\"type\":\"text\"}],"
             + "\"headerRows\":[{\"id\":\"h1\"}],\"rows\":[{\"id\":\"r1\",\"label\":\"First\"}],"
             + "\"cells\":{\"h1:t\":{\"value\":\"Action plan\"}},\"merges\":[]}]}";
 
@@ -183,8 +185,7 @@ class ScoreAndActionPlanIT extends PlantsSupport {
 
         Response listed = admin.get("/api/v1/application-settings");
         assertThat(listed.status()).as(listed.body()).isEqualTo(200);
-        assertThat(JsonPath.<Integer>read(listed.body(),
-                "$.data.applications[?(@.application=='management-core')].settings[0].value[0]")).isEqualTo(85);
+        assertThat(JsonPath.<Integer>read(listed.body(), "$.data.applications[0].settings[0].value")).isEqualTo(85);
         Response chosen = admin.request("PUT", "/api/v1/application-settings",
                 "{\"application\":\"management-core\",\"key\":\"scoreLimit\",\"value\":90}");
         assertThat(chosen.status()).as(chosen.body()).isEqualTo(200);

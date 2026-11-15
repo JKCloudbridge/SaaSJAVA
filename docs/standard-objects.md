@@ -168,6 +168,9 @@ A fill-in of a template of the Environment Management application. Its records a
 | `application` | Application | TEXT |  |  | up to 60 characters; written by the platform only |
 | `plant` | Plant | TEXT |  |  | up to 10 characters; written by the platform only |
 | `period` | Month | TEXT |  |  | up to 7 characters; written by the platform only |
+| `score` | Score | DECIMAL |  |  | 5 digits, 2 after the point; written by the platform only |
+| `result` | Result | TEXT |  |  | up to 20 characters; written by the platform only |
+| `parentFill` | Action plan for | TEXT |  | yes | up to 36 characters; written by the platform only |
 
 ## EnvironmentTemplate
 
@@ -235,6 +238,9 @@ A fill-in of a template of the Quality Management System application. Its record
 | `application` | Application | TEXT |  |  | up to 60 characters; written by the platform only |
 | `plant` | Plant | TEXT |  |  | up to 10 characters; written by the platform only |
 | `period` | Month | TEXT |  |  | up to 7 characters; written by the platform only |
+| `score` | Score | DECIMAL |  |  | 5 digits, 2 after the point; written by the platform only |
+| `result` | Result | TEXT |  |  | up to 20 characters; written by the platform only |
+| `parentFill` | Action plan for | TEXT |  | yes | up to 36 characters; written by the platform only |
 
 ## InspectionTemplate
 

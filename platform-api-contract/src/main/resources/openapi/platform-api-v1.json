@@ -272,6 +272,125 @@
         "tags" : [ "Access" ]
       }
     },
+    "/api/v1/application-settings" : {
+      "delete" : {
+        "description" : "Needs application-settings.manage and the version read. The application's own default applies again.",
+        "operationId" : "resetApplicationSetting",
+        "parameters" : [ {
+          "in" : "query",
+          "name" : "application",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "query",
+          "name" : "key",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "query",
+          "name" : "version",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseApplicationSettingsView"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "Take a choice back",
+        "tags" : [ "Application settings" ]
+      },
+      "get" : {
+        "description" : "Needs application-settings.manage. Every setting of every application the organization has that offers one: its words, the value in force, the default, the range and the version to send when changing it. The settings are declared by the application's solution file; nothing is listed for an application the organization does not have.",
+        "operationId" : "listApplicationSettings",
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseApplicationSettingsView"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "The settings each application offers",
+        "tags" : [ "Application settings" ]
+      },
+      "put" : {
+        "description" : "Needs application-settings.manage. Without a version it makes the organization's first choice for the setting (CONFLICT when it already has one); with the version read it changes that choice. The value must be one the setting's kind takes. A change applies from the next question: a review that ends afterwards uses it. Audited by the application and the setting, never the value.",
+        "operationId" : "saveApplicationSetting",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/SaveApplicationSettingRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseApplicationSettingsView"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "Choose a value for a setting",
+        "tags" : [ "Application settings" ]
+      }
+    },
     "/api/v1/applications" : {
       "get" : {
         "description" : "An application is listed when it names the profile of the member or names no profile. Inside it only what the member may open is listed (Sprint 18): an object or record page entry needs the permission to read the object, a tab entry needs the tab and its custom page to exist; a heading that leads nowhere and an application with nothing left are left out. Items that point to something that no longer exists are left out. Presentation only: every page a link opens is decided again by the server. NOT_FOUND on the platform host.",
@@ -2438,6 +2557,98 @@
           }
         },
         "summary" : "The columns of a template version that can be reported on",
+        "tags" : [ "Fill-ins" ]
+      }
+    },
+    "/api/v1/fill-ins/{fillId}/action-plan" : {
+      "get" : {
+        "description" : "needed: the fill-in scored below the limit. canStart: the caller is a plant head of its plant, may fill in, no Action plan was started and the form its document names is ready; the flag only hides a button. actionPlanId: the Action plan, when the caller can read it. NOT_FOUND for a fill-in the caller cannot see. No score and no limit is ever told.",
+        "operationId" : "getFillInActionPlan",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "fillId",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "The application whose records are meant (its API name). It chooses among the sets of records only and proves nothing: NOT_FOUND, in the same words, for an application that does not exist, one the organization does not have and the platform host. What the caller may do inside the set is decided by the same rights as ever.",
+          "in" : "query",
+          "name" : "application",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseActionPlanStateView"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "Whether a fill-in needs an Action plan and whether the caller may start it",
+        "tags" : [ "Fill-ins" ]
+      },
+      "post" : {
+        "description" : "For a plant head of the fill-in's plant who may fill in, whether or not the Action plan form was published to them. Starts a fill-in of the form the fill-in's document names, for the same plant and month, pinned to the Revision in use, linked to this fill-in (one Action plan for each, CONFLICT when one exists) and shared read only with the plant's plant heads. Its reviewers are those of this fill-in's plant. NOT_FOUND for a fill-in the caller cannot see, FORBIDDEN without the right to fill in, CONFLICT with fixed words otherwise. Audited by identifiers.",
+        "operationId" : "startFillInActionPlan",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "fillId",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "The application whose records are meant (its API name). It chooses among the sets of records only and proves nothing: NOT_FOUND, in the same words, for an application that does not exist, one the organization does not have and the platform host. What the caller may do inside the set is decided by the same rights as ever.",
+          "in" : "query",
+          "name" : "application",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseFillInStartedView"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "Start the Action plan of a fill-in that scored below the limit",
         "tags" : [ "Fill-ins" ]
       }
     },
@@ -15708,6 +15919,108 @@
         "tags" : [ "Templates" ]
       }
     },
+    "/api/v1/templates/{templateId}/plants/action-plan-form" : {
+      "get" : {
+        "description" : "The document a plant head fills when a fill-in of this document scores below the limit. The choices are the documents of the same application the caller can read (the record store decides), told only to a caller who may change it. NOT_FOUND for a document the caller cannot see, for one that does not exist and on the platform host (all alike). ",
+        "operationId" : "getTemplateActionPlanForm",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "templateId",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "The application whose records are meant (its API name). It chooses among the sets of records only and proves nothing: NOT_FOUND, in the same words, for an application that does not exist, one the organization does not have and the platform host.",
+          "in" : "query",
+          "name" : "application",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseActionPlanFormView"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "The Action plan form of a document and the documents it can be chosen from",
+        "tags" : [ "Templates" ]
+      },
+      "put" : {
+        "description" : "Names another document of the same application that the caller can read; with no document it takes the form back. It changes no fill-in that exists. Audited by the identifier of the document. Allowed to the person who made the document and to a member who holds the ability to publish documents to plants (FORBIDDEN otherwise); CONFLICT for a document that does not belong to an application that publishes to plants. NOT_FOUND for a document the caller cannot see, for one that does not exist and on the platform host (all alike). ",
+        "operationId" : "setTemplateActionPlanForm",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "templateId",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "The application whose records are meant (its API name). It chooses among the sets of records only and proves nothing: NOT_FOUND, in the same words, for an application that does not exist, one the organization does not have and the platform host.",
+          "in" : "query",
+          "name" : "application",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/SetActionPlanFormRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseActionPlanFormView"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "Name the Action plan form of a document, or take it back",
+        "tags" : [ "Templates" ]
+      }
+    },
     "/api/v1/templates/{templateId}/plants/options" : {
       "get" : {
         "description" : "Every location of the organization's list with whether a group of plant heads is set up for it; a location without one cannot be published to. Allowed to the person who made the document and to a member who holds the ability to publish documents to plants (FORBIDDEN otherwise); CONFLICT for a document that does not belong to an application that publishes to plants. NOT_FOUND for a document the caller cannot see, for one that does not exist and on the platform host (all alike). ",
@@ -16498,6 +16811,69 @@
         },
         "required" : [ "abilities", "description", "id", "managed", "name" ]
       },
+      "ActionPlanChoice" : {
+        "type" : "object",
+        "properties" : {
+          "id" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "name" : {
+            "type" : "string"
+          },
+          "number" : {
+            "type" : "string"
+          }
+        },
+        "required" : [ "id" ]
+      },
+      "ActionPlanFormView" : {
+        "type" : "object",
+        "properties" : {
+          "actionName" : {
+            "type" : "string"
+          },
+          "actionTemplateId" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "available" : {
+            "type" : "boolean"
+          },
+          "canChange" : {
+            "type" : "boolean"
+          },
+          "choices" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/ActionPlanChoice"
+            }
+          }
+        },
+        "required" : [ "available", "canChange", "choices" ]
+      },
+      "ActionPlanStateView" : {
+        "type" : "object",
+        "properties" : {
+          "actionPlanId" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "canStart" : {
+            "type" : "boolean"
+          },
+          "needed" : {
+            "type" : "boolean"
+          },
+          "reason" : {
+            "type" : "string"
+          },
+          "started" : {
+            "type" : "boolean"
+          }
+        },
+        "required" : [ "canStart", "needed", "started" ]
+      },
       "Activity" : {
         "type" : "object",
         "properties" : {
@@ -16809,11 +17185,38 @@
         },
         "required" : [ "data" ]
       },
+      "ApiResponseActionPlanFormView" : {
+        "type" : "object",
+        "properties" : {
+          "data" : {
+            "$ref" : "#/components/schemas/ActionPlanFormView"
+          }
+        },
+        "required" : [ "data" ]
+      },
+      "ApiResponseActionPlanStateView" : {
+        "type" : "object",
+        "properties" : {
+          "data" : {
+            "$ref" : "#/components/schemas/ActionPlanStateView"
+          }
+        },
+        "required" : [ "data" ]
+      },
       "ApiResponseAddedFieldValueView" : {
         "type" : "object",
         "properties" : {
           "data" : {
             "$ref" : "#/components/schemas/AddedFieldValueView"
+          }
+        },
+        "required" : [ "data" ]
+      },
+      "ApiResponseApplicationSettingsView" : {
+        "type" : "object",
+        "properties" : {
+          "data" : {
+            "$ref" : "#/components/schemas/ApplicationSettingsView"
           }
         },
         "required" : [ "data" ]
@@ -18593,6 +18996,77 @@
           }
         },
         "required" : [ "items" ]
+      },
+      "ApplicationSettingView" : {
+        "type" : "object",
+        "properties" : {
+          "changed" : {
+            "type" : "boolean"
+          },
+          "defaultValue" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "description" : {
+            "type" : "string"
+          },
+          "key" : {
+            "type" : "string"
+          },
+          "kind" : {
+            "type" : "string"
+          },
+          "label" : {
+            "type" : "string"
+          },
+          "least" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "most" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "value" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "version" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        },
+        "required" : [ "changed", "defaultValue", "description", "key", "kind", "label", "least", "most", "value" ]
+      },
+      "ApplicationSettingsGroupView" : {
+        "type" : "object",
+        "properties" : {
+          "application" : {
+            "type" : "string"
+          },
+          "label" : {
+            "type" : "string"
+          },
+          "settings" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/ApplicationSettingView"
+            }
+          }
+        },
+        "required" : [ "application", "label", "settings" ]
+      },
+      "ApplicationSettingsView" : {
+        "type" : "object",
+        "properties" : {
+          "applications" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/ApplicationSettingsGroupView"
+            }
+          }
+        },
+        "required" : [ "applications" ]
       },
       "ApplicationView" : {
         "type" : "object",
@@ -22220,6 +22694,10 @@
       "FillInRow" : {
         "type" : "object",
         "properties" : {
+          "answers" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
           "archivedAt" : {
             "type" : "string",
             "format" : "date-time"
@@ -22247,9 +22725,15 @@
           "plantLabel" : {
             "type" : "string"
           },
+          "result" : {
+            "type" : "string"
+          },
           "rowCount" : {
             "type" : "integer",
             "format" : "int32"
+          },
+          "score" : {
+            "type" : "string"
           },
           "status" : {
             "type" : "string"
@@ -26819,6 +27303,30 @@
         },
         "required" : [ "abilities", "name" ]
       },
+      "SaveApplicationSettingRequest" : {
+        "type" : "object",
+        "properties" : {
+          "application" : {
+            "type" : "string",
+            "maxLength" : 60,
+            "minLength" : 0
+          },
+          "key" : {
+            "type" : "string",
+            "maxLength" : 30,
+            "minLength" : 0
+          },
+          "value" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "version" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        },
+        "required" : [ "application", "key", "value" ]
+      },
       "SaveDataAccessRequest" : {
         "type" : "object",
         "properties" : {
@@ -27218,6 +27726,15 @@
           }
         },
         "required" : [ "email", "reason" ]
+      },
+      "SetActionPlanFormRequest" : {
+        "type" : "object",
+        "properties" : {
+          "actionTemplateId" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }
       },
       "SetEntitlementRequest" : {
         "type" : "object",
@@ -28332,6 +28849,12 @@
           "rowsMode" : {
             "type" : "string",
             "enum" : [ "FIXED", "REPEATABLE", "FIXED_AND_REPEATABLE" ]
+          },
+          "score" : {
+            "type" : "string",
+            "description" : "The key of the one formula cell that is the score of a fill-in: the percent the sheet calculated, read by the platform when a fill-in is reviewed. Absent means the sheet has no score. It names a cell that holds a formula.",
+            "maxLength" : 80,
+            "minLength" : 1
           },
           "title" : {
             "type" : "string",

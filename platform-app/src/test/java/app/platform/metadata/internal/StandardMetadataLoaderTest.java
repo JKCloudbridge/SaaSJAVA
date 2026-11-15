@@ -190,7 +190,7 @@ class StandardMetadataLoaderTest {
                         + "{ values: [ { value: 'Not a code', label: X } ] } }\n", "is a code of 1 to 10"),
                 Arguments.of("a field only the platform writes that is not text", head
                         + "fields:\n  - { apiName: a, label: A, type: NUMBER, platformWritten: true }\n",
-                        "is a text field"),
+                        "is a text, decimal or a yes/no field"),
                 Arguments.of("a field only the platform writes that is required", head
                         + "fields:\n  - { apiName: a, label: A, type: TEXT, required: true, platformWritten: true }\n",
                         "is not required"),
@@ -275,7 +275,8 @@ class StandardMetadataLoaderTest {
         assertThat(fill.fields().stream().skip(standard.systemFields().size())).allSatisfy(
                 field -> assertThat(field.platformWritten()).as(field.apiName()).isTrue());
         assertThat(fill.fields().stream().skip(standard.systemFields().size()).map(FieldDefinition::apiName))
-                .containsExactly("name", "templateId", "status", "application", "plant", "period");
+                .containsExactly("name", "templateId", "status", "application", "plant", "period", "score",
+                        "result", "parentFill");
         // A change request's review record (FA6E, ADR-0199): private, kept, and every field one only the platform
         // writes.
         ObjectDefinition request = standard.object("InspectionChangeRequest").orElseThrow();

@@ -34,8 +34,8 @@ describe("the score marker", () => {
     const doc = fromApi(document("r2:c1"));
     expect(scoreCell(doc)).toBe("r2:c1");
     expect(isScore(doc, "r2", "c1")).toBe(true);
-    const sent = toApi(doc) as { sheets: Record<string, unknown>[] };
-    expect(sent.sheets[0].score).toBe("r2:c1");
+    const sent = toApi(doc) as unknown as { sheets: Record<string, unknown>[] };
+    expect(sent.sheets[0]?.score).toBe("r2:c1");
   });
 
   it("can mark only a cell that holds a formula, and a sheet has one mark", () => {
@@ -54,9 +54,9 @@ describe("the score marker", () => {
   it("is not sent when its cell lost its formula or its row", () => {
     const doc = fromApi(document("r2:c1"));
     const withoutFormula = { ...doc, sheet: { ...doc.sheet!, cells: {} } };
-    const sent = toApi(withoutFormula) as { sheets: Record<string, unknown>[] };
-    expect(sent.sheets[0].score).toBeUndefined();
-    const withoutRow = { ...doc, rows: doc.rows.filter((row) => row.id !== "r2") };
-    expect((toApi(withoutRow) as { sheets: Record<string, unknown>[] }).sheets[0].score).toBeUndefined();
+    const sent = toApi(withoutFormula) as unknown as { sheets: Record<string, unknown>[] };
+    expect(sent.sheets[0]?.score).toBeUndefined();
+    const withoutRow = { ...doc, rows: (doc.rows ?? []).filter((row) => row.id !== "r2") };
+    expect((toApi(withoutRow) as unknown as { sheets: Record<string, unknown>[] }).sheets[0]?.score).toBeUndefined();
   });
 });

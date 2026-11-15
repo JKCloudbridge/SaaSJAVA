@@ -79,6 +79,9 @@ EnvironmentFill.status TEXT indexed platformWritten
 EnvironmentFill.application TEXT indexed platformWritten
 EnvironmentFill.plant TEXT indexed platformWritten
 EnvironmentFill.period TEXT indexed platformWritten
+EnvironmentFill.score DECIMAL indexed platformWritten
+EnvironmentFill.result TEXT indexed platformWritten
+EnvironmentFill.parentFill TEXT indexed platformWritten
 EnvironmentTemplate managedBy=none requiresFeature=environment-management retainRecords sharingDefault=PRIVATE
 EnvironmentTemplate.name TEXT
 EnvironmentTemplate.level PICKLIST codeValues organizationValues
@@ -106,6 +109,9 @@ InspectionFill.status TEXT indexed platformWritten
 InspectionFill.application TEXT indexed platformWritten
 InspectionFill.plant TEXT indexed platformWritten
 InspectionFill.period TEXT indexed platformWritten
+InspectionFill.score DECIMAL indexed platformWritten
+InspectionFill.result TEXT indexed platformWritten
+InspectionFill.parentFill TEXT indexed platformWritten
 InspectionTemplate managedBy=none requiresFeature=inspection retainRecords sharingDefault=PRIVATE
 InspectionTemplate.name TEXT
 InspectionTemplate.level PICKLIST codeValues organizationValues
