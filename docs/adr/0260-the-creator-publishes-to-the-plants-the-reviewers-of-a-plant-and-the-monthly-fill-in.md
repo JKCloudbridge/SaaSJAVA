@@ -131,3 +131,11 @@ place of the request (`plants[1]`, `plants[1].reviewers[0]`) and never the value
   option `monthlyFillIn` is new. The field `application` is unchanged.
 - **ADR-0189:** the open-task read now also covers a person who holds a task through `PUBLICATION_REVIEWERS`; nothing changed in how it is decided.
 - **ADR-0146:** one more approver kind; the resolution of a step is otherwise as before.
+
+## Note added by ADR-0261 (MC2B)
+
+- The reviewers of a fill-in are the ones chosen for its document and plant. For an **Action plan** (a fill-in whose `parentFill` names another) they are
+  those of the fill-in it answers, read through that link by `PlantReviewers`; the choice made for the Action plan form is never used.
+- The process of Management Core fill-ins made by the demo setup carries the entry criteria `application = 'management-core' AND ISBLANK(parentFill)`,
+  and a second process for Action plans carries `... AND NOT(ISBLANK(parentFill))`: the engine refuses two processes that both fit.
+- "What top management decides in the score" (the last step of the demo process) is answered by ADR-0261 decisions 5 and 6.

@@ -764,6 +764,22 @@ public final class TenantScopedTables {
                     tenant, UUID.randomUUID(), UUID.randomUUID(), ActorId.SYSTEM.value(),
                     ActorId.SYSTEM.value()));
 
+    /** What an organization chose for an application (MC2B, ADR-0261). Every probe uses its own key. */
+    public static final TenantScopedTable APPLICATION_SETTING = new TenantScopedTable("application_setting",
+            (connection, tenant) -> TenantFixtures.update(connection,
+                    "insert into application_setting (tenant_id, application, setting_key, value, created_by, "
+                            + "updated_by) values (?, 'probe-application', ?, 50, ?, ?)",
+                    tenant, "probe" + UUID.randomUUID().toString().substring(0, 8).replace("-", "x"),
+                    ActorId.SYSTEM.value(), ActorId.SYSTEM.value()));
+
+    /** The Action plan form of a document (MC2B, ADR-0261). Each probe is a document of its own. */
+    public static final TenantScopedTable INSPECTION_ACTION_PLAN_LINK = new TenantScopedTable(
+            "inspection_action_plan_link",
+            (connection, tenant) -> TenantFixtures.update(connection,
+                    "insert into inspection_action_plan_link (tenant_id, template_id, action_template_id, "
+                            + "created_by, updated_by) values (?, ?, ?, ?, ?)",
+                    tenant, UUID.randomUUID(), UUID.randomUUID(), ActorId.SYSTEM.value(), ActorId.SYSTEM.value()));
+
     /** The outcomes of keyed writes of the public API (Sprint 30, ADR-0246). Every probe uses its own key. */
     public static final TenantScopedTable IDEMPOTENCY_RECORD = new TenantScopedTable("idempotency_record",
             (connection, tenant) -> TenantFixtures.update(connection,
@@ -1103,7 +1119,8 @@ public final class TenantScopedTables {
             INSPECTION_PUBLICATION, INSPECTION_CHANGE_REQUEST, INSPECTION_CHANGE_COMMENT,
             INSPECTION_AUDIENCE_SUGGESTION, INSPECTION_TEMPLATE_OPTION, INSPECTION_CHANGE_REGISTER,
             INSPECTION_FILL_DEPARTMENT, INSPECTION_TEMPLATE_EVENT, INSPECTION_DOCUMENT_ROUTING,
-            INSPECTION_PLANT_PUBLICATION, INSPECTION_PLANT_REVIEWER, INSPECTION_FILL_PERIOD);
+            INSPECTION_PLANT_PUBLICATION, INSPECTION_PLANT_REVIEWER, INSPECTION_FILL_PERIOD,
+            APPLICATION_SETTING, INSPECTION_ACTION_PLAN_LINK);
 
     private TenantScopedTables() {
     }

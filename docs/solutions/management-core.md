@@ -45,8 +45,8 @@ Nobody is told of their own act.
 
 ## What it cannot do yet
 
-The creator publishing to the plant heads with reviewers per plant, the monthly fill-in, the score and the 85 percent rule, the approval chain to
-the top and the dashboard are the next sessions (MC2A, MC2B, MC3).
+The dashboard that compares the plants (MC3), an editor for the score mark beyond one tick (SH6), several sheets in one form (SH7) and a reminder to a
+plant head who has not filled their month or not started an Action plan.
 
 ## For administrators
 
@@ -114,3 +114,30 @@ month). The option `monthlyFillIn` follows the document's application (`RecordSe
 `ApprovalProcessCodecTest`, `ApprovalArchitectureTest`; real PostgreSQL: `PlantPublishingIT`, `MonthlyFillInIT`, `PlantReviewersIT`,
 `PlantPublicationGuardIT`, `PlantPublishingLogsAreCleanIT`, `FillInsIT`; frontend `plantPublication.test.ts`, `PlantPublishDialog.test.tsx`,
 `StartFillIn.test.tsx`.
+
+## The score, the limit, the Action plan and top management last (MC2B, ADR-0261)
+
+**The score.** The template marks one formula cell as the score (an author ticks "Use as the score" beside the formula bar of a draft; the mark is a
+property of the sheet and travels with every Revision, so a Revision made by uploading a file again must be marked again). The platform calculates it
+with the sheet's own formulas at every approval of the review, in percent points with two decimals, and writes `score` and `result` on the fill-in's
+header. A score that cannot be calculated stops the approval in fixed words. Nobody types it.
+
+**The limit.** Setup, **Application settings** (ability `application-settings.manage`): a whole percent from 1 to 100, default 85 from the application's
+file, per organization. **Strictly below the limit needs an Action plan; exactly the limit does not.** A change applies from the next approval.
+
+**The Action plan.** The Plant activity document names its **Action plan form** (another document of the application) in the plants dialog. When a
+fill-in is below the limit its filler gets a notice and a mail (no number in them); a plant head **of the same plant** starts the Action plan from that
+fill-in. It is a fill-in of the form, for the same plant and month, linked by the unique `parentFill`, shared read only with the plant's plant heads,
+and reviewed by **the reviewers of the fill-in it answers** (never those of the Action plan form). The form need not be published to the plants.
+
+**Top management last.** The last step of both processes is the Level 5 group. The last step of a low-scoring fill-in is refused until its Action plan
+has been sent; a fill-in with a good score has no such rule.
+
+**Change requests.** Management users (anyone who can read the published document, in the Document Management chain) ask for a change; a plant head
+who cannot change the document cannot. The request carries the application and the next Revision keeps the plants and reviewers.
+
+**What the numbers are for MC3.** `score`, `result`, `plant`, `period`, `status` and the link are indexed fields of the fill-in and in every policy's
+read list; the list of fill-ins returns them. A dashboard counts them with the record store's own query.
+
+**Demo.** `scripts/demo-setup.mjs` now makes two processes: Management Core fill-in review (criteria `... AND ISBLANK(parentFill)`) and Management Core
+Action plan review (`... AND NOT(ISBLANK(parentFill))`), each the plant's reviewers then Level 5.

@@ -45,6 +45,15 @@ options:
   monthlyFillIn: "true"
   publishTo: places
   publishDepartment: PLANTHEAD
+# MC2B, ADR-0261: what an organization may change for this application in Setup, Application settings. The value here
+# is the default, so the application works with no setup. scoreLimit is the percent below which a fill-in whose sheet
+# marks a score needs an Action plan; a score equal to it needs none.
+settings:
+  - key: scoreLimit
+    label: Score limit
+    description: A fill-in whose score is below this whole percent needs an Action plan. A score equal to it needs none.
+    kind: PERCENT
+    default: 85
 application:
   apiName: management-core
   label: Management Core

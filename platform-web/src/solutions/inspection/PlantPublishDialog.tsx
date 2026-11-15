@@ -2,6 +2,7 @@
 
 import { useEffect, useId, useMemo, useState } from "react";
 import type { ApiFailure } from "@/lib/api/errors";
+import { ActionPlanFormPicker } from "./ActionPlanFormPicker";
 import {
   addReviewer,
   getPlantOptions,
@@ -143,6 +144,8 @@ export function PlantPublishDialog({
           })}
         </fieldset>
       ) : null}
+
+      <ActionPlanFormPicker templateId={templateId} />
 
       {selection.map((entry) => (
         <fieldset key={entry.plant} className="stack" data-testid={`plant-reviewers-${entry.plant}`}>

@@ -1,5 +1,7 @@
 package app.platform.inspection.internal;
 
+import app.platform.inspection.internal.ActionPlanViews.ActionPlanFormView;
+import app.platform.inspection.internal.ActionPlanViews.SetActionPlanFormRequest;
 import app.platform.inspection.internal.PlantViews.PlantPublicationState;
 import app.platform.inspection.internal.PlantViews.PublishPlantsRequest;
 import app.platform.inspection.internal.PlantViews.ReviewerChoices;
@@ -39,9 +41,11 @@ class PlantPublicationController {
             + "belong to an application that publishes to plants. ";
 
     private final PlantPublishing publishing;
+    private final ActionPlanForms forms;
     private final RecordSets sets;
 
-    PlantPublicationController(PlantPublishing publishing, RecordSets sets) {
+    PlantPublicationController(PlantPublishing publishing, ActionPlanForms forms, RecordSets sets) {
+        this.forms = forms;
         this.publishing = publishing;
         this.sets = sets;
     }
@@ -81,6 +85,31 @@ class PlantPublicationController {
             @RequestParam @Parameter(description = APPLICATION) String application,
             @Valid @RequestBody PlantViews.ReviewerSearch search) {
         return ApiResponse.of(publishing.reviewerChoices(sets.require(application), templateId, search.text()));
+    }
+
+    @GetMapping(BASE + "/action-plan-form")
+    @Operation(
+            operationId = "getTemplateActionPlanForm",
+            summary = "The Action plan form of a document and the documents it can be chosen from",
+            description = "The document a plant head fills when a fill-in of this document scores below the limit. "
+                    + "The choices are the documents of the same application the caller can read (the record store "
+                    + "decides), told only to a caller who may change it. " + SEES)
+    ApiResponse<ActionPlanFormView> actionPlanForm(@PathVariable UUID templateId,
+            @RequestParam @Parameter(description = APPLICATION) String application) {
+        return ApiResponse.of(forms.view(sets.require(application), templateId));
+    }
+
+    @PutMapping(BASE + "/action-plan-form")
+    @Operation(
+            operationId = "setTemplateActionPlanForm",
+            summary = "Name the Action plan form of a document, or take it back",
+            description = "Names another document of the same application that the caller can read; with no document "
+                    + "it takes the form back. It changes no fill-in that exists. Audited by the identifier of the "
+                    + "document. " + WHO + SEES)
+    ApiResponse<ActionPlanFormView> setActionPlanForm(@PathVariable UUID templateId,
+            @RequestParam @Parameter(description = APPLICATION) String application,
+            @Valid @RequestBody SetActionPlanFormRequest request) {
+        return ApiResponse.of(forms.set(sets.require(application), templateId, request.actionTemplateId()));
     }
 
     @PutMapping(BASE)

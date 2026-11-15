@@ -1481,3 +1481,21 @@ reviewers afterwards never reaches a review that is running.
 **What it does not do.** Unpublishing or retiring the document in Document Management leaves the plants; taking them back is the creator's act. A
 reviewer should hold no policy that views every fill-in (Reviewer, Approver, Observer): such a policy shows every fill-in whatever the plant. A plant
 with no reviewer cannot be saved, and a draft at a plant that was taken back cannot be sent until the plant is given the document again.
+
+## 52. The score, the limit in Application settings and the Action plan (MC2B)
+
+**What a bundle writer needs to know.** A `solution.yml` may declare `settings:` for its applications: each has a `key` (lower camel case), a `label`,
+a `description`, a `kind` (only `PERCENT` today: a whole number from 1 to 100) and the `default` the application starts with. The default must be a
+value the kind accepts and a key may not be used twice, or the application does not start. An organization changes it in Setup, Application settings
+(ability `application-settings.manage`); the module that owns the application's functions asks it through the shared-kernel contract
+`ApplicationSettings.value(application, key)`. Management Core declares `scoreLimit` (default 85).
+
+**What an author needs to know.** A sheet in format version 2 carries one property, `score`: the key of a cell that holds a formula. In the grid of a
+draft, select a formula cell and tick **Use as the score** beside the formula bar. The mark is kept only while the cell holds a formula; a new
+Revision made by uploading a file again must be marked again, or fill-ins on it have no score. The platform reads the percent from that cell at every
+approval: a cell shown as a percent (0.9) counts as 90 points; a number outside 0 to 100 or an error is "cannot be calculated" and stops the approval.
+
+**What an administrator needs to know.** The result is `ACTION_PLAN` only strictly below the limit. The fill-in object has three platform-written fields,
+`score`, `result` and `parentFill`; give a policy that reads fill-ins the three in its `read` list, or they do not exist for it. The two processes of
+Management Core fill-ins must not both fit one fill-in: the Plant activity one carries `ISBLANK(parentFill)` and the Action plan one
+`NOT(ISBLANK(parentFill))`. The Action plan's reviewers are those of the fill-in it answers.

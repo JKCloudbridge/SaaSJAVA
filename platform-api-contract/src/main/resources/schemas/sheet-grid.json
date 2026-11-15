@@ -291,6 +291,12 @@
           "type": "boolean",
           "description": "False for an information tab: no fill-in cell belongs to it. Absent means true."
         },
+        "score": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 80,
+          "description": "The key of the one formula cell that is the score of a fill-in: the percent the sheet calculated, read by the platform when a fill-in is reviewed. Absent means the sheet has no score. It names a cell that holds a formula."
+        },
         "freeze": {
           "$ref": "#/components/schemas/SheetFreeze"
         },

@@ -522,7 +522,8 @@ async function ensureFillProcess(admin, wanted, steps) {
   // a rule of the kind PUBLICATION_REVIEWERS (MC2A) names nobody: the reviewers are chosen for each document and plant
   const missingGroup = steps.some((step) => step.approvers.some((rule) => rule.kind !== "PUBLICATION_REVIEWERS" && !rule.value));
   const shapeOf = (list) => list.map((step) => step.approvers.map((rule) => `${rule.kind}:${rule.value ?? ""}`).join(",")).join("|");
-  if (found && (!wanted.upgrade || shapeOf(found.steps) === shapeOf(steps))) return say("ok", `approval process for fill-ins: ${wanted.label} (left as it is)`);
+  const sameCriteria = (found?.entryCriteria ?? "") === (wanted.criteria ?? "");
+  if (found && (!wanted.upgrade || (shapeOf(found.steps) === shapeOf(steps) && sameCriteria))) return say("ok", `approval process for fill-ins: ${wanted.label} (left as it is)`);
   if (checkOnly || missingGroup) return say("missing", `the approval process for fill-ins: ${wanted.label}`);
   if (found) {
     must(
@@ -602,7 +603,16 @@ async function main() {
     // document); step 2 is top management. What top management decides in the score is MC2B.
     await ensureFillProcess(admin, { name: "ManagementCoreFillInReview", label: "Management Core fill-in review",
       description: "Fill-ins of documents routed to Management Core: the reviewers chosen for the plant review them, then Level 5.",
-      criteria: "application = 'management-core'", upgrade: true },
+      criteria: "application = 'management-core' AND ISBLANK(parentFill)", upgrade: true },
+    [
+      { name: "PlantReviewers", label: "Plant reviewers", completion: "ANY", skipWhenNobody: false, asksForChoice: false, approvers: [{ kind: "PUBLICATION_REVIEWERS" }] },
+      { name: "Level5", label: "Level 5", completion: "ANY", skipWhenNobody: false, asksForChoice: false, approvers: [{ kind: "GROUP", value: groupIds["Level 5"] }] },
+    ]);
+    // MC2B: the Action plan is a fill-in too, told apart by its link (parentFill). Its reviewers are those of the plant
+    // of the fill-in it answers (the same rule PUBLICATION_REVIEWERS reads through the link), then top management.
+    await ensureFillProcess(admin, { name: "ManagementCoreActionPlanReview", label: "Management Core Action plan review",
+      description: "Action plans of Management Core: the reviewers of the plant review them, then Level 5 (top management).",
+      criteria: "application = 'management-core' AND NOT(ISBLANK(parentFill))", upgrade: true },
     [
       { name: "PlantReviewers", label: "Plant reviewers", completion: "ANY", skipWhenNobody: false, asksForChoice: false, approvers: [{ kind: "PUBLICATION_REVIEWERS" }] },
       { name: "Level5", label: "Level 5", completion: "ANY", skipWhenNobody: false, asksForChoice: false, approvers: [{ kind: "GROUP", value: groupIds["Level 5"] }] },

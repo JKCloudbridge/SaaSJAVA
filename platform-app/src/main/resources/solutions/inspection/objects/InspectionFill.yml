@@ -80,3 +80,35 @@ fields:
     platformWritten: true
     indexed: true
     settings: { maxLength: 7 }
+
+  # MC2B, ADR-0261: the score of a fill-in whose sheet marks a score cell, and what it means. Both are written by the
+  # platform each time a reviewer approves (from the cells, with the sheet's own formulas) and are never typed. The score
+  # is in percent points with two decimals (90.00). The result is PASS, or ACTION_PLAN when the score is strictly below
+  # the limit of the application (Setup, Application settings). Both are empty for a fill-in whose sheet marks no score.
+  - apiName: score
+    label: Score
+    description: The percent the sheet calculated, in percent points. Empty for a fill-in that has no score.
+    type: DECIMAL
+    platformWritten: true
+    indexed: true
+    settings: { precision: 5, scale: 2 }
+
+  - apiName: result
+    label: Result
+    description: Pass, or action plan needed when the score is below the limit. Empty for a fill-in that has no score.
+    type: TEXT
+    platformWritten: true
+    indexed: true
+    settings: { maxLength: 20 }
+
+  # MC2B, ADR-0261: an Action plan is a fill-in of the Action plan document that answers one low-scoring fill-in. This
+  # is the link, written once by the platform when the plant head starts it, as the text of the identifier of the
+  # low-scoring fill-in. Unique: one Action plan for each low-scoring fill-in. Empty for every other fill-in.
+  - apiName: parentFill
+    label: Action plan for
+    description: The fill-in this Action plan answers, as the text of its identifier. Empty for every other fill-in.
+    type: TEXT
+    unique: true
+    platformWritten: true
+    indexed: true
+    settings: { maxLength: 36 }

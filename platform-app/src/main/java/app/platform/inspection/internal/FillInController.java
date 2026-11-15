@@ -1,5 +1,6 @@
 package app.platform.inspection.internal;
 
+import app.platform.inspection.internal.ActionPlanViews.ActionPlanStateView;
 import app.platform.inspection.internal.FillInViews.FillInOptionsView;
 import app.platform.inspection.internal.FillInViews.FillInPage;
 import app.platform.inspection.internal.FillInViews.FillInStartedView;
@@ -88,6 +89,36 @@ class FillInController {
             @Valid @RequestBody(required = false) StartFillInRequest request) {
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(ApiResponse.of(fillIns.start(sets.require(application), templateId, request)));
+    }
+
+    @GetMapping(ApiPaths.V1 + "/fill-ins/{fillId}/action-plan")
+    @Operation(
+            operationId = "getFillInActionPlan",
+            summary = "Whether a fill-in needs an Action plan and whether the caller may start it",
+            description = "needed: the fill-in scored below the limit. canStart: the caller is a plant head of its "
+                    + "plant, may fill in, no Action plan was started and the form its document names is ready; the "
+                    + "flag only hides a button. actionPlanId: the Action plan, when the caller can read it. "
+                    + "NOT_FOUND for a fill-in the caller cannot see. No score and no limit is ever told.")
+    ApiResponse<ActionPlanStateView> actionPlan(@PathVariable UUID fillId,
+            @RequestParam @Parameter(description = APPLICATION) String application) {
+        return ApiResponse.of(fillIns.actionPlan(sets.require(application), fillId));
+    }
+
+    @PostMapping(ApiPaths.V1 + "/fill-ins/{fillId}/action-plan")
+    @Operation(
+            operationId = "startFillInActionPlan",
+            summary = "Start the Action plan of a fill-in that scored below the limit",
+            description = "For a plant head of the fill-in's plant who may fill in, whether or not the Action plan "
+                    + "form was published to them. Starts a fill-in of the form the fill-in's document names, for "
+                    + "the same plant and month, pinned to the Revision in use, linked to this fill-in (one Action "
+                    + "plan for each, CONFLICT when one exists) and shared read only with the plant's plant heads. "
+                    + "Its reviewers are those of this fill-in's plant. NOT_FOUND for a fill-in the caller cannot "
+                    + "see, FORBIDDEN without the right to fill in, CONFLICT with fixed words otherwise. Audited by "
+                    + "identifiers.")
+    ResponseEntity<ApiResponse<FillInStartedView>> startActionPlan(@PathVariable UUID fillId,
+            @RequestParam @Parameter(description = APPLICATION) String application) {
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(ApiResponse.of(fillIns.startActionPlan(sets.require(application), fillId)));
     }
 
     @PostMapping(ApiPaths.V1 + "/fill-ins/{fillId}/submit")

@@ -125,6 +125,12 @@ describe("the console rail", () => {
     );
     expect(linksOf(homeRail(["metadata.manage"])).some((entry) => entry.href === "/setup/numbering")).toBe(false);
   });
+  it("offers Application settings only through its own ability", () => {
+    expect(linksOf(homeRail(["application-settings.manage"]))).toContainEqual(
+      expect.objectContaining({ href: "/setup/application-settings", ability: "application-settings.manage" }),
+    );
+    expect(linksOf(homeRail(["numbering.manage"])).some((entry) => entry.href === "/setup/application-settings")).toBe(false);
+  });
   it("offers Integrations only to those who may see them", () => {
     expect(linksOf(homeRail(["integrations.view"]))).toContainEqual(
       expect.objectContaining({ href: "/setup/integrations", ability: "integrations.view" }),

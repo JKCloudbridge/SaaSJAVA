@@ -168,6 +168,8 @@ function fromTwo(source: Record<string, unknown>): GridDoc {
   const title = text(first.title);
   if (title !== undefined) sheet.title = title;
   if (first.fillable === false) sheet.fillable = false;
+  const score = text(first.score);
+  if (score !== undefined) sheet.score = score;
   if (Object.keys(asRecord(first.freeze)).length > 0) sheet.freeze = asRecord(first.freeze);
   if (Object.keys(asRecord(first.print)).length > 0) sheet.print = asRecord(first.print);
   if (Object.keys(asRecord(first.inputs)).length > 0) sheet.inputs = asRecord(first.inputs);
@@ -280,6 +282,9 @@ function toTwo(body: GridDoc, sheet: SheetExtras): TwoDocument {
   const out: Record<string, unknown> = { key: sheet.key };
   if (sheet.title !== undefined) out.title = sheet.title;
   if (sheet.fillable === false) out.fillable = false;
+  // The mark stays only while its cell still holds a formula (the server refuses any other).
+  const marked = sheet.score !== undefined ? cells[sheet.score] : undefined;
+  if (sheet.score !== undefined && exists(sheet.score) && marked?.formula !== undefined) out.score = sheet.score;
   if (sheet.freeze) out.freeze = sheet.freeze;
   if (sheet.print) out.print = sheet.print;
   if (Object.keys(inputs).length > 0) out.inputs = inputs;

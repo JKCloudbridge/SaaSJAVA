@@ -46,6 +46,17 @@ class FillHeaders {
      */
     DataRecord create(RecordSet set, UUID owner, UUID templateId, String name, String application, String plant,
             String period) {
+        return create(set, owner, templateId, name, application, plant, period, null);
+    }
+
+    /**
+     * Makes the header of a new fill-in that may be an Action plan (MC2B, ADR-0261).
+     *
+     * @param parentFill the identifier of the low-scoring fill-in an Action plan answers, written once; null for any
+     *        other fill-in
+     */
+    DataRecord create(RecordSet set, UUID owner, UUID templateId, String name, String application, String plant,
+            String period, UUID parentFill) {
         List<Assignment> values = new ArrayList<>(List.of(
                 new Assignment(Fills.NAME, new Value.Literal(name)),
                 new Assignment(Fills.TEMPLATE_ID, new Value.Literal(templateId.toString())),
@@ -59,7 +70,21 @@ class FillHeaders {
         if (period != null && !period.isBlank()) {
             values.add(new Assignment(Fills.PERIOD, new Value.Literal(period)));
         }
+        if (parentFill != null) {
+            values.add(new Assignment(Fills.PARENT_FILL, new Value.Literal(parentFill.toString())));
+        }
         return writes.create(Source.solution("fill.start", templateId), set.fill(), owner, values);
+    }
+
+    /**
+     * Brings the score and the result of a header up to date when its cells were corrected after the review (MC2B,
+     * ADR-0261). A null empties the field, so a correction that leaves the sheet without a score never leaves an old
+     * answer behind.
+     */
+    void scores(String fillObject, UUID fillId, String score, String result) {
+        writes.update(Source.solution("fill.score", fillId), fillObject, fillId, List.of(
+                new Assignment(Fills.SCORE, score == null ? new Value.Copied(null) : new Value.Literal(score)),
+                new Assignment(Fills.RESULT, result == null ? new Value.Copied(null) : new Value.Literal(result))));
     }
 
     /** Follows a move of the fill-in on its header. */

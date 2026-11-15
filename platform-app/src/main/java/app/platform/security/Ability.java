@@ -199,6 +199,15 @@ public enum Ability {
             "Set the organization's document number formats, preview a number, and raise a pair's next count. "
                     + "Numbers already given never change."),
 
+    /**
+     * Change what an application lets an organization choose, such as the limit of the score (MC2B, ADR-0261). Apart
+     * from {@link #NUMBERING_MANAGE}: that one is about document numbers, and the choices of an application will grow
+     * beyond numbering.
+     */
+    APPLICATION_SETTINGS_MANAGE("application-settings.manage", "Manage application settings",
+            "See and change the settings an application offers the organization, such as the limit of the score "
+                    + "below which a fill-in needs an Action plan. A change applies to reviews that end afterwards."),
+
     /** See the connections to external systems and the connector types (Sprint 26, ADR-0209). */
     INTEGRATIONS_VIEW("integrations.view", "View integrations",
             "See the organization's connections to external systems, their state and the result of their last test."),

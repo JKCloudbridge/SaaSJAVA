@@ -11,6 +11,7 @@ import app.platform.data.QuerySort;
 import app.platform.data.RecordQuery;
 import app.platform.data.RecordShares;
 import app.platform.data.Records;
+import app.platform.inspection.internal.ActionPlanViews.ActionPlanStateView;
 import app.platform.inspection.internal.FillInViews.FillInOptionsView;
 import app.platform.inspection.internal.FillInViews.FillInPlantChoice;
 import app.platform.inspection.internal.FillInViews.StartFillInRequest;
@@ -79,12 +80,14 @@ class FillIns {
     private static final int MOST = 200;
     private static final Set<String> STATUSES = Set.of("DRAFT", "SUBMITTED", "RETURNED", "APPROVED");
     private static final List<String> FIELDS = List.of(Fills.NAME, Fills.TEMPLATE_ID, Fills.STATUS);
-    private static final List<String> MONTHLY_FIELDS = List.of(Fills.NAME, Fills.TEMPLATE_ID, Fills.STATUS, Fills.PLANT,
-            Fills.PERIOD);
     /** The words of the refusal to start a fill-in on a template that is only a reference (FA7, ADR-0201). */
     static final String VIEW_ONLY = "This template is view only, so no fill-in can be started from it.";
     private static final String CHANGED = "The template changed while you started. Try again.";
     private static final String NO_PLANT = "This document is not published to a plant you are plant head of.";
+    private static final String NO_PLANT_HEAD = "Only a plant head of this fill-in's plant can start its Action plan.";
+    private static final String ACTION_PLAN_STARTED = "An Action plan was started for this fill-in already.";
+    private static final String ACTION_FORM = "This form is started from the fill-in that needs it, not from the "
+            + "document.";
     private static final String MONTH_TAKEN = "A fill-in for this document, this plant and this month exists already. "
             + "Open it from the list.";
 
@@ -110,13 +113,18 @@ class FillIns {
     private final FillPeriods clock;
     private final RecordShares shares;
     private final Metadata metadata;
+    private final ActionPlanLinkStore actionForms;
+    private final FillScores scores;
 
     FillIns(TemplateAccess access, BackgroundRecords background, Records records, SheetLifecycle sheets,
             FillLifecycle fills, FillHeaders headers, FillSubmission submission, ApprovalApplicability approvals,
             List<ReferenceLabels> labels, AuditRecorder audit, TenantContexts contexts, MeterRegistry meters,
             TemplateNumbers templateNumbers, TemplateOptionStore templateOptions, DepartmentAudiences departments,
             QualityHomeStore home, RecordSets sets, PlantPublicationStore plants, FillPeriodStore periods,
-            FillPeriods clock, RecordShares shares, Metadata metadata) {
+            FillPeriods clock, RecordShares shares, Metadata metadata, ActionPlanLinkStore actionForms,
+            FillScores scores) {
+        this.actionForms = actionForms;
+        this.scores = scores;
         this.sets = sets;
         this.plants = plants;
         this.periods = periods;
@@ -312,6 +320,140 @@ class FillIns {
         return new FillInSubmittedView("SUBMITTED");
     }
 
+    // ---- the Action plan of a fill-in that scored below the limit (MC2B, ADR-0261) ----
+
+    /**
+     * Whether a fill-in needs an Action plan, whether the caller may start it and which one answers it. The caller
+     * must be able to read the fill-in (the record store says so); what is told about an Action plan the caller cannot
+     * read is only that one was started.
+     *
+     * @throws ApiException {@code NOT_FOUND} for a fill-in the caller cannot see
+     */
+    @Transactional(readOnly = true)
+    ActionPlanStateView actionPlan(RecordSet set, UUID fillId) {
+        Caller caller = access.member();
+        records.get(set.fill(), fillId);
+        DataRecord parent = background.find(set.fill(), fillId)
+                .orElseThrow(() -> ApiException.notFound("This fill-in does not exist."));
+        if (!Fills.ACTION_PLAN.equals(text(parent, Fills.RESULT))) {
+            return new ActionPlanStateView(false, false, null, null, false);
+        }
+        UUID started = scores.actionPlanOf(set.fill(), fillId);
+        if (started != null) {
+            return new ActionPlanStateView(true, false, "An Action plan was started for this fill-in.",
+                    visibleActionPlan(set, fillId), true);
+        }
+        String reason = startRefusal(set, caller, parent);
+        return new ActionPlanStateView(true, reason == null, reason, null, false);
+    }
+
+    /**
+     * Starts the Action plan of a fill-in that scored below the limit, for the same plant and month, on the Action plan
+     * form its document names. The person who starts it must be a plant head of the plant, whether or not the form was
+     * published to them: the form is read here as the platform, and the Action plan is shared with the plant's plant
+     * heads read only, as a monthly fill-in is. One Action plan exists for each fill-in (the link is unique), and the
+     * reviewers of the Plant activity of that plant review it.
+     *
+     * @throws ApiException {@code NOT_FOUND} (a fill-in the caller cannot see), {@code FORBIDDEN} (they may not fill
+     *         in), {@code CONFLICT} with fixed words
+     */
+    FillInStartedView startActionPlan(RecordSet set, UUID fillId) {
+        Caller caller = access.member();
+        records.get(set.fill(), fillId);
+        DataRecord parent = background.find(set.fill(), fillId)
+                .orElseThrow(() -> ApiException.notFound("This fill-in does not exist."));
+        if (!Fills.ACTION_PLAN.equals(text(parent, Fills.RESULT))) {
+            refuse("action_plan", "not_needed");
+            throw new ApiException(ErrorCode.CONFLICT, "This fill-in needs no Action plan.");
+        }
+        if (!access.has(caller, Ability.SHEETS_FILL)) {
+            refuse("action_plan", "forbidden");
+            throw new ApiException(ErrorCode.FORBIDDEN);
+        }
+        if (scores.actionPlanOf(set.fill(), fillId) != null) {
+            refuse("action_plan", "started");
+            throw new ApiException(ErrorCode.CONFLICT, ACTION_PLAN_STARTED);
+        }
+        String reason = startRefusal(set, caller, parent);
+        if (reason != null) {
+            refuse("action_plan", "refused");
+            throw new ApiException(ErrorCode.CONFLICT, reason);
+        }
+        UUID parentTemplate = Fills.templateOf(parent.fields().get(Fills.TEMPLATE_ID));
+        UUID formId = actionForms.actionFormOf(parentTemplate).orElseThrow();
+        DataRecord form = template(set, formId);
+        int active = activeVersion(set, formId);
+        String plant = text(parent, Fills.PLANT);
+        DataRecord header;
+        try {
+            header = headers.create(set, caller.userId(), formId, nameOf(form), text(form, Templates.APPLICATION),
+                    plant, text(parent, Fills.PERIOD), fillId);
+        } catch (BackgroundWriteException refused) {
+            // The one Action plan of this fill-in was made by someone else a moment ago (the link is unique), or the
+            // header could not be made; either way the start is undone and no value is named.
+            refuse("action_plan", refused.reason().key());
+            throw new ApiException(ErrorCode.CONFLICT, scores.actionPlanOf(set.fill(), fillId) != null
+                    ? ACTION_PLAN_STARTED : "The Action plan could not be started right now.");
+        }
+        try {
+            fills.start(set.fill(), header.id(), set.template(), formId, active, caller.userId());
+        } catch (FillRefusal refusal) {
+            refuse("action_plan", refusal.reason().name().toLowerCase(Locale.ROOT));
+            throw new ApiException(ErrorCode.CONFLICT, refusal.reason() == FillRefusal.Reason.NOT_IN_USE ? CHANGED
+                    : refusal.getMessage());
+        }
+        plants.livePlants(parentTemplate).stream().filter(row -> row.plant().equals(plant)).findFirst()
+                .map(PlantPublicationStore.Plant::groupId).ifPresent(group -> shares.grantRead(set.fill(),
+                        header.id(), new Grantee(Grantee.Kind.GROUP, group), caller.userId()));
+        home.recordFillPlaces(header.id(), departments.placesOf(caller.membershipId()), caller.userId());
+        audit.record(AuditRecord.of("inspection.fill.actionplan.started", AuditOutcome.SUCCESS)
+                .forUser(caller.userId()).inTenant(contexts.require().tenantId())
+                .onObject(set.fill(), header.id().toString()).with("answers", fillId.toString())
+                .with("version_no", Integer.toString(active)));
+        meters.counter("platform.inspection.fill", "act", "action_plan", "result", "ok").increment();
+        return new FillInStartedView(header.id(), formId, active);
+    }
+
+    /**
+     * The words that say why the caller cannot start the Action plan of this fill-in, or null when they can: they must
+     * be a plant head of its plant, the fill-in must be a plain one (an Action plan has none of its own), and the form
+     * its document names must be there, not retired and in use.
+     */
+    private String startRefusal(RecordSet set, Caller caller, DataRecord parent) {
+        if (text(parent, Fills.PARENT_FILL) != null) {
+            return "An Action plan needs no Action plan of its own.";
+        }
+        if (!access.has(caller, Ability.SHEETS_FILL)) {
+            return "You do not have the right to fill in templates.";
+        }
+        UUID parentTemplate = Fills.templateOf(parent.fields().get(Fills.TEMPLATE_ID));
+        DataRecord document = parentTemplate == null ? null
+                : background.find(set.template(), parentTemplate).orElse(null);
+        RecordSet plantSet = document == null ? null
+                : sets.plantSetOf(document.fields().get(Templates.APPLICATION)).orElse(null);
+        String plant = text(parent, Fills.PLANT);
+        if (plantSet == null || plant == null || !headOf(plantSet, caller).contains(plant)) {
+            return NO_PLANT_HEAD;
+        }
+        UUID formId = actionForms.actionFormOf(parentTemplate).orElse(null);
+        if (formId == null) {
+            return "This document names no Action plan form yet. Ask the person who published it.";
+        }
+        DataRecord form = background.find(set.template(), formId).orElse(null);
+        if (form == null || !plantSet.admits(form.fields()) || Boolean.TRUE.equals(form.fields().get(Templates.RETIRED))
+                || activeVersion(set, formId) == 0) {
+            return "The Action plan form is not ready to be filled in. Ask the person who published the document.";
+        }
+        return null;
+    }
+
+    /** The Action plan that answers a fill-in when the caller can read it: the record store's own question. */
+    private UUID visibleActionPlan(RecordSet set, UUID fillId) {
+        QueryResult found = records.query(set.fill(), new RecordQuery(new QueryFilter(QueryFilter.Op.EQ, null,
+                Fills.PARENT_FILL, List.of(fillId.toString())), List.of(), List.of(Fills.NAME), List.of(), 1, null));
+        return found.records().isEmpty() ? null : found.records().get(0).record().id();
+    }
+
     /**
      * One page of the fill-ins the caller may see, newest first.
      *
@@ -412,7 +554,9 @@ class FillIns {
                     summary.versionNo(), inUse != null && inUse.active() == summary.versionNo(), summary.rowCount(),
                     people.get(header.ownerId()), summary.createdAt(), summary.updatedAt(), summary.submittedAt(),
                     summary.archivedAt(), numbers.get(template), text(header, Fills.PLANT),
-                    plantLabel(places, text(header, Fills.PLANT)), text(header, Fills.PERIOD)));
+                    plantLabel(places, text(header, Fills.PLANT)), text(header, Fills.PERIOD),
+                    plain(header.fields().get(Fills.SCORE)), text(header, Fills.RESULT),
+                    Fills.templateOf(header.fields().get(Fills.PARENT_FILL))));
         }
         return rows;
     }
@@ -425,9 +569,27 @@ class FillIns {
      * the code shared by every application never asks an object for a field it does not have.
      */
     List<String> projection(RecordSet set) {
-        boolean monthly = metadata.object(set.fill()).map(object -> object.field(Fills.PLANT).isPresent()
-                && object.field(Fills.PERIOD).isPresent()).orElse(false);
-        return monthly ? MONTHLY_FIELDS : FIELDS;
+        List<String> fields = new ArrayList<>(FIELDS);
+        metadata.object(set.fill()).ifPresent(object -> {
+            for (String optional : List.of(Fills.PLANT, Fills.PERIOD, Fills.SCORE, Fills.RESULT, Fills.PARENT_FILL)) {
+                if (object.field(optional).isPresent()) {
+                    fields.add(optional);
+                }
+            }
+        });
+        return fields;
+    }
+
+    /** A stored number as plain digits, or null when there is none. */
+    private static String plain(Object stored) {
+        if (stored == null) {
+            return null;
+        }
+        try {
+            return new java.math.BigDecimal(String.valueOf(stored)).toPlainString();
+        } catch (NumberFormatException e) {
+            return null;
+        }
     }
 
     private static String plantLabel(Map<String, String> places, String plant) {
@@ -459,6 +621,9 @@ class FillIns {
         }
         if (templateOptions.find(templateId).viewOnly()) {
             return VIEW_ONLY;
+        }
+        if (actionForms.isActionForm(templateId)) {
+            return ACTION_FORM;
         }
         if (active == 0) {
             return "This template has no revision in use, so a fill-in cannot be started on it.";

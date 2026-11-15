@@ -411,4 +411,66 @@ class SolutionLoaderTest {
                 Arguments.of("one object in two parts", "roles: { first: Widget, second: Widget }",
                         "plays more than one part"));
     }
+
+    // ---- the settings an organization may change (MC2B, ADR-0261) ----
+
+    private static final String SETTING = """
+            settings:
+              - key: scoreLimit
+                label: Score limit
+                description: The percent below which an Action plan is needed.
+                kind: PERCENT
+                default: 85
+            """;
+
+    @Test
+    void aBundleMayDeclareSettingsWithADefaultTheKindAccepts(@TempDir Path dir) throws IOException {
+        write(dir, "demo", GOOD + SETTING);
+
+        SolutionBundle bundle = load(dir).get(0);
+
+        assertThat(bundle.settings()).hasSize(1);
+        SolutionBundle.Setting setting = bundle.settings().get(0);
+        assertThat(setting.key()).isEqualTo("scoreLimit");
+        assertThat(setting.kind().accepts(setting.defaultValue())).isTrue();
+        assertThat(setting.defaultValue()).isEqualTo(85);
+        assertThat(setting.kind().least()).isEqualTo(1);
+        assertThat(setting.kind().most()).isEqualTo(100);
+    }
+
+    @Test
+    void aBundleWithNoSettingsOffersNone(@TempDir Path dir) throws IOException {
+        write(dir, "demo", GOOD);
+        assertThat(load(dir).get(0).settings()).isEmpty();
+    }
+
+    @ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"default: 101", "default: 0", "default: 85.5",
+        "default: high", "kind: MONEY"})
+    void aSettingWithADefaultTheKindRefusesOrAKindThisReleaseDoesNotKnowStopsTheStart(String wrong,
+            @TempDir Path dir) throws IOException {
+        String changed = SETTING.replace(wrong.startsWith("kind") ? "kind: PERCENT" : "default: 85", wrong);
+        write(dir, "demo", GOOD + changed);
+
+        assertThatThrownBy(() -> load(dir)).isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("settings").hasMessageNotContaining("high").hasMessageNotContaining("MONEY");
+    }
+
+    @Test
+    void theSameKeyTwiceStopsTheStart(@TempDir Path dir) throws IOException {
+        String twice = SETTING + SETTING.substring(SETTING.indexOf("  - key"));
+        write(dir, "demo", GOOD + twice);
+
+        assertThatThrownBy(() -> load(dir)).isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("used twice");
+    }
+
+    @Test
+    void managementCoreDeclaresTheLimitOfTheScoreWithTheDefaultOfEightyFive() {
+        SolutionBundle bundle = SolutionLoader.load().stream().filter(one -> one.key().equals("management-core"))
+                .findFirst().orElseThrow();
+
+        assertThat(bundle.settings()).extracting(SolutionBundle.Setting::key).containsExactly("scoreLimit");
+        assertThat(bundle.settings().get(0).defaultValue()).isEqualTo(85);
+    }
 }

@@ -102,11 +102,16 @@ public final class FillInViews {
      * @param plant the plant code of a monthly fill-in, or null (MC2A, ADR-0260)
      * @param plantLabel what people read for the plant, or null
      * @param period the month of a monthly fill-in as {@code YYYY-MM}, or null
+     * @param score the score the sheet calculated at the last approval, in percent points with two decimals, or null
+     *        when the fill-in has none (MC2B, ADR-0261)
+     * @param result {@code PASS}, or {@code ACTION_PLAN} when the score is below the limit, or null
+     * @param answers the fill-in this one is the Action plan of, or null for any other fill-in
      */
     public record FillInRow(@NotNull UUID fillId, @NotNull UUID templateId, String name, @NotNull String status,
             @NotNull Integer versionNo, @NotNull Boolean versionInUse, @NotNull Integer rowCount, String filledBy,
             @NotNull Instant createdAt, @NotNull Instant updatedAt, Instant submittedAt, Instant archivedAt,
-            String templateNumber, String plant, String plantLabel, String period) {
+            String templateNumber, String plant, String plantLabel, String period, String score, String result,
+            UUID answers) {
     }
 
     /**

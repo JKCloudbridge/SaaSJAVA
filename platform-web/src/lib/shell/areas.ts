@@ -100,6 +100,7 @@ const HOME_ENTRIES: readonly RailEntry[] = [
   },
   link("/audit", "Audit trail", "audit.view"),
   link("/setup/numbering", "Numbering", "numbering.manage"),
+  link("/setup/application-settings", "Application settings", "application-settings.manage"),
   link("/setup/integrations", "Integrations", "integrations.view"),
   link("/setup/credentials", "Credentials", "credentials.view"),
 ];

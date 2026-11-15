@@ -162,6 +162,7 @@ class NotificationTemplateService implements NotificationTemplates {
             case CHANGE_REQUEST -> "Something happened to a change request on a record (the platform's own text).";
             case DOCUMENT_PUBLISHED -> "A document the person made was published (the platform's own text).";
             case DOCUMENT_AT_PLANT -> "A document was made available to the person's plant (the platform's own text).";
+            case ACTION_PLAN_NEEDED -> "A fill-in the person filled scored below the limit (the platform's own text).";
         };
     }
 

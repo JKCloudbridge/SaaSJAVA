@@ -81,7 +81,7 @@ final class SheetDocumentReader {
                 print.isObject() ? new Print(print.path("paper").asString(), print.path("orientation").asString(),
                         print.path("fitToWidth").asBoolean(), print.path("repeatHeaderRows").asBoolean()) : null,
                 inputs, fixedFormulaCells(SheetGridReader.readBody(node), formulas), looks, links, conditions,
-                formulas, columnFormulas);
+                formulas, columnFormulas, node.has("score") ? node.path("score").asString() : null);
     }
 
     /**

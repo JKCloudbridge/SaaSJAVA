@@ -42,10 +42,20 @@ record SheetDocument(List<Tab> sheets) {
      * @param conditions the conditional colours, in the order they are applied
      * @param formulas the formulas of cells, by cell key, each in its stored form (SH2, ADR-0252)
      * @param columnFormulas the one formula of each calculated column, by column identifier, drawn at every body row
+     * @param score the key of the one formula cell the template marks as the score of a fill-in (MC2B, ADR-0261), or
+     *        null for a sheet that has none; it names a key of {@code formulas}
      */
     record Tab(String key, String title, boolean fillable, Freeze freeze, Print print, Map<String, Input> inputs,
             SheetGrid body, Map<String, SheetLook> looks, Map<String, String> links, List<Condition> conditions,
-            Map<String, String> formulas, Map<String, String> columnFormulas) {
+            Map<String, String> formulas, Map<String, String> columnFormulas, String score) {
+
+        /** A sheet with formulas and no score marker (the shape before MC2B). */
+        Tab(String key, String title, boolean fillable, Freeze freeze, Print print, Map<String, Input> inputs,
+                SheetGrid body, Map<String, SheetLook> looks, Map<String, String> links, List<Condition> conditions,
+                Map<String, String> formulas, Map<String, String> columnFormulas) {
+            this(key, title, fillable, freeze, print, inputs, body, looks, links, conditions, formulas,
+                    columnFormulas, null);
+        }
 
         Tab {
             inputs = Collections.unmodifiableMap(new LinkedHashMap<>(inputs));
@@ -71,7 +81,7 @@ record SheetDocument(List<Tab> sheets) {
         /** The same sheet with other formulas. */
         Tab withFormulas(Map<String, String> cellFormulas, Map<String, String> columns) {
             return new Tab(key, title, fillable, freeze, print, inputs, body, looks, links, conditions, cellFormulas,
-                    columns);
+                    columns, score);
         }
 
         @Override

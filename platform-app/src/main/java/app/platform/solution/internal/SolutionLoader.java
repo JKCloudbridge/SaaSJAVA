@@ -44,7 +44,9 @@ final class SolutionLoader {
     private static final Pattern PLAIN_TEXT = Pattern.compile("[\\p{L}\\p{N}][\\p{L}\\p{N} .,;:!?&'()/+-]{0,499}");
 
     private static final Set<String> BUNDLE_KEYS = Set.of("key", "feature", "label", "removalNote", "application",
-            "applications", "objects", "sheetOwners", "accessPolicies", "uses", "order", "roles", "options");
+            "applications", "objects", "sheetOwners", "accessPolicies", "uses", "order", "roles", "options",
+            "settings");
+    private static final Set<String> SETTING_KEYS = Set.of("key", "label", "description", "kind", "default");
     /** The name of a part (a role): a lower camel case word, chosen by the module that owns the functions. */
     private static final Pattern ROLE = Pattern.compile("[a-z][A-Za-z0-9]{0,29}");
     /** The value of an option: a short word or number, no space and no markup. */
@@ -182,7 +184,36 @@ final class SolutionLoader {
                     rights(policy), abilities(policy), fieldRights(policy), alsoWith(policy)));
         }
         return new SolutionBundle(key, feature, label, note, applications, objects, sheetOwners, policies, uses,
-                order, roles(node, where, objects, uses), options(node, where));
+                order, roles(node, where, objects, uses), options(node, where), settings(node));
+    }
+
+    /**
+     * The settings an organization may change for each application of the solution (MC2B, ADR-0261): a list of a key,
+     * a label, a description, a kind and the default the application starts with. A kind this module does not know, a
+     * default the kind refuses and a key used twice stop the start and name the place, never the text.
+     */
+    private static List<SolutionBundle.Setting> settings(Node node) {
+        List<SolutionBundle.Setting> settings = new ArrayList<>();
+        Set<String> keys = new LinkedHashSet<>();
+        for (Node setting : node.children("settings", SETTING_KEYS)) {
+            String key = setting.pattern("key", ROLE, "a lower camel case word");
+            if (!keys.add(key)) {
+                throw new IllegalStateException(setting.where() + ": the key '" + key + "' is used twice");
+            }
+            SolutionBundle.Setting.Kind kind;
+            try {
+                kind = SolutionBundle.Setting.Kind.valueOf(setting.text("kind"));
+            } catch (IllegalArgumentException unknown) {
+                throw new IllegalStateException(setting.where() + ": 'kind' is not one this release knows");
+            }
+            if (!(setting.optional("default") instanceof Integer value) || !kind.accepts(value)) {
+                throw new IllegalStateException(setting.where() + ": 'default' is a whole number the kind accepts");
+            }
+            settings.add(new SolutionBundle.Setting(key,
+                    setting.pattern("label", PLAIN_LABEL, "a plain label of at most 80 characters"),
+                    setting.pattern("description", PLAIN_TEXT, "plain text of at most 500 characters"), kind, value));
+        }
+        return settings;
     }
 
     /**

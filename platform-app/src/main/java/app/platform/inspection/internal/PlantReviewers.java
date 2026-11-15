@@ -42,6 +42,16 @@ class PlantReviewers implements PublicationReviewers {
         if (header == null) {
             return Reviewers.none();
         }
+        // An Action plan is reviewed by the reviewers of the fill-in it answers: its document and its plant (MC2B,
+        // ADR-0261), never the choice made for the Action plan form. One step only: an Action plan has none of its own.
+        UUID parent = Fills.templateOf(header.fields().get(Fills.PARENT_FILL));
+        if (parent != null) {
+            DataRecord answered = records.find(object, parent).orElse(null);
+            if (answered == null) {
+                return Reviewers.none();
+            }
+            header = answered;
+        }
         UUID templateId = Fills.templateOf(header.fields().get(Fills.TEMPLATE_ID));
         Object plant = header.fields().get(Fills.PLANT);
         if (templateId == null || !(plant instanceof String code) || code.isBlank()) {

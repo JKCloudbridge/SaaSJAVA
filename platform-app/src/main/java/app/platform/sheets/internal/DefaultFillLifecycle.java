@@ -45,10 +45,12 @@ class DefaultFillLifecycle implements FillLifecycle {
     private final FillValidator validator;
     private final FillChanges changes;
     private final RecordFileDirectory directory;
+    private final FillCalculations calculations;
     private final JsonMapper json = JsonMapper.builder().build();
 
     DefaultFillLifecycle(SheetFillStore store, SheetVersionStore versions, FillValidator validator,
-            FillChanges changes, RecordFileDirectory directory) {
+            FillChanges changes, RecordFileDirectory directory, FillCalculations calculations) {
+        this.calculations = calculations;
         this.store = store;
         this.versions = versions;
         this.validator = validator;
@@ -238,6 +240,20 @@ class DefaultFillLifecycle implements FillLifecycle {
             changes.reviewed(actor, fillObject, fillId, result.name());
         }
         return moved.isPresent();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Score scoreOf(String fillObject, UUID fillId) {
+        Optional<SheetFillStore.WithCells> found = store.findCells(fillObject, fillId);
+        if (found.isEmpty()) {
+            return Score.notCalculated();
+        }
+        FillStructure structure = structureOf(found.get().row());
+        if (structure == null || !structure.isFormatThree() || structure.tab().score() == null) {
+            return Score.notMarked();
+        }
+        return ScoreReading.of(structure, calculations.calculate(structure, validator.read(found.get().cells())));
     }
 
     @Override

@@ -674,3 +674,14 @@ application's page is [management-core.md](management-core.md), the administrato
   pure choices), `StartFillIn` (plant and month), the Plant and Month columns of `FillInsPage`. They show what the API answers in its words and decide
   nothing.
 - **Tests:** see [management-core.md](management-core.md).
+
+## The score, the Action plan and the plant head's change requests (MC2B)
+
+The fill-in header gained `score`, `result` and `parentFill` (platform-written, indexed; `InspectionFill.yml`, and the same three, always empty, on
+`EnvironmentFill.yml`). The score is calculated by `FillLifecycle.scoreOf` from the cell the sheet marks and judged against the application's limit by
+`FillScores` at every approval (`FillApprovalHooks.beforeApprove`); the last step of a fill-in below the limit is refused until its Action plan has been
+sent. The Action plan is started by `FillIns.startActionPlan` (`POST /api/v1/fill-ins/{id}/action-plan`, state at `GET` of the same address), is
+linked by `parentFill`, and is reviewed by the reviewers of the fill-in it answers (`PlantReviewers`). The Action plan form of a document is named in the
+plants dialog (`ActionPlanForms`, table `inspection_action_plan_link`, `GET` and `PUT /api/v1/templates/{id}/plants/action-plan-form`). The notice kind
+`ACTION_PLAN_NEEDED` (category Documents, mail template of the same name) carries facts only: no score, no limit, no plant. A plant head of one of a
+document's plants who cannot change the document cannot ask for a change (`ChangeRequests.onlyAPlantHead`). Decision: ADR-0261.

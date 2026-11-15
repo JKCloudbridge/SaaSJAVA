@@ -21,6 +21,7 @@ import { submitFillIn } from "./fillIns";
 import { useRecordObjects } from "./objects";
 import { useApplication } from "./application";
 import { appBase } from "./appPaths";
+import { ActionPlanSection } from "./ActionPlanSection";
 import { text } from "./template";
 
 const TONES = { active: "ok", draft: "on", review: "on", done: "quiet", stopped: "error" } as const;
@@ -63,6 +64,8 @@ export function FillInDetail({ id, onBack }: { id: string; onBack: () => void })
   const name = text(fields.name) || "Fill-in";
   const status = text(fields.status);
   const tag = status ? fillStatusTag(status) : undefined;
+  // A decimal may come as digits in a text or as a number; it is shown as it was stored, never calculated here.
+  const scoreText = typeof fields.score === "number" || typeof fields.score === "string" ? String(fields.score) : "";
   const templateId = text(fields.templateId);
   // The footer of the View page: the template's number and the revision the fill-in was made on (as the Sheet tab writes it).
   const templateRecord = useRecord(objects.template, templateId || undefined, refresh);
@@ -119,6 +122,12 @@ export function FillInDetail({ id, onBack }: { id: string; onBack: () => void })
               {tag ? <Tag tone={TONES[tag.tone]}>{tag.text}</Tag> : "Not available"}
             </DetailItem>
             {templateId ? <TemplateNumber id={templateId} refresh={refresh} /> : null}
+            {scoreText ? <DetailItem label="Score">{scoreText}</DetailItem> : null}
+            {text(fields.result) ? (
+              <DetailItem label="Result">
+                {text(fields.result) === "ACTION_PLAN" ? <Tag tone="error">Below the limit</Tag> : <Tag tone="ok">Passed</Tag>}
+              </DetailItem>
+            ) : null}
           </DetailGrid>
           {approval.locked ? (
             <p className="hint" role="note">
@@ -130,6 +139,8 @@ export function FillInDetail({ id, onBack }: { id: string; onBack: () => void })
       ) : null}
 
       {header ? <ApprovalCard approval={decisions} recordVersion={header.version} actions={false} /> : null}
+
+      {header ? <ActionPlanSection fillId={id} refresh={refresh} /> : null}
 
       {header ? (
         <DetailSection title="Attachments" stack>

@@ -204,3 +204,29 @@ export function refusedPlace(place: string, selection: readonly PlantSelection[]
   const reviewer = found[2] === undefined ? undefined : entry.reviewers[Number(found[2])]?.name;
   return { plant: entry.plant, reviewer };
 }
+
+export type ActionPlanFormState = components["schemas"]["ActionPlanFormView"];
+export type ActionPlanChoice = components["schemas"]["ActionPlanChoice"];
+
+/** The document named as the Action plan form, and the documents it can be chosen from (MC2B, ADR-0261). */
+export function getActionPlanForm(templateId: string): Promise<Outcome<ActionPlanFormState>> {
+  return unwrap(
+    call(() =>
+      api.GET("/api/v1/templates/{templateId}/plants/action-plan-form", {
+        params: { path: { templateId }, query: scopeQuery() },
+      }),
+    ),
+  );
+}
+
+/** Names the Action plan form of the document, or takes it back (no document). The server decides who may. */
+export function setActionPlanForm(templateId: string, actionTemplateId: string | null): Promise<Outcome<ActionPlanFormState>> {
+  return unwrap(
+    call(() =>
+      api.PUT("/api/v1/templates/{templateId}/plants/action-plan-form", {
+        params: { path: { templateId }, query: scopeQuery() },
+        body: { actionTemplateId: actionTemplateId ?? undefined },
+      }),
+    ),
+  );
+}

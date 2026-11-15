@@ -72,5 +72,13 @@ public enum MailTemplate {
      * built at send time on the organization's own host, queued with the in-app notice of the same kind and following
      * the same category switch.
      */
-    DOCUMENT_AT_PLANT
+    DOCUMENT_AT_PLANT,
+
+    /**
+     * A fill-in scored below the limit, so its plant head must fill the Action plan (MC2B, ADR-0261). Built like
+     * {@link #DOCUMENT_AT_PLANT}: facts only, the link built at send time on the organization's own host, queued with
+     * the in-app notice of the same kind and following the same category switch. No score, no limit and no plant: the
+     * words say only that the fill-in is below the limit.
+     */
+    ACTION_PLAN_NEEDED
 }

@@ -42,7 +42,7 @@ final class SheetSchemas {
             "height", "value", "style", "kind", "bold", "italic", "fontSize", "underline", "alignment", "colour",
             "from", "to", "sheets", "key", "title", "fillable", "freeze", "print", "inputs", "look", "link", "font",
             "size", "fill", "wrap", "verticalAlignment", "borders", "numberFormat", "top", "right", "bottom", "left",
-            "paper", "orientation", "fitToWidth", "repeatHeaderRows", "class", "maxFiles");
+            "paper", "orientation", "fitToWidth", "repeatHeaderRows", "class", "maxFiles", "score");
     private static final Pattern CELL = Pattern.compile("[A-Za-z0-9_-]{1,40}:[A-Za-z0-9_-]{1,40}");
 
     /**

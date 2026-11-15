@@ -70,3 +70,29 @@ fields:
     platformWritten: true
     indexed: true
     settings: { maxLength: 7 }
+
+  # MC2B, ADR-0261: the same fields as its counterpart (EnvironmentParityTest). Not used by this application; always empty.
+  - apiName: score
+    label: Score
+    description: Not used by this application; kept so the two applications have the same fields. Always empty.
+    type: DECIMAL
+    platformWritten: true
+    indexed: true
+    settings: { precision: 5, scale: 2 }
+
+  - apiName: result
+    label: Result
+    description: Not used by this application; kept so the two applications have the same fields. Always empty.
+    type: TEXT
+    platformWritten: true
+    indexed: true
+    settings: { maxLength: 20 }
+
+  - apiName: parentFill
+    label: Action plan for
+    description: Not used by this application; kept so the two applications have the same fields. Always empty.
+    type: TEXT
+    unique: true
+    platformWritten: true
+    indexed: true
+    settings: { maxLength: 36 }

@@ -111,6 +111,8 @@ class MailComposer {
             case TRIAL_NOTICE -> trialNotice(mail);
             case DOCUMENT_PUBLISHED -> documentPublished(mail);
             case DOCUMENT_AT_PLANT -> documentAtPlant(mail);
+            case ACTION_PLAN_NEEDED -> documentMail(mail, NoticeKind.ACTION_PLAN_NEEDED,
+                    MailTexts.Kind.ACTION_PLAN_NEEDED, "action_plan_needed_sent");
             case PASSWORD_CHANGED -> notice(mail, MailTexts.Kind.PASSWORD_CHANGED, "notice_sent");
             case ACCOUNT_LOCKED -> notice(mail, MailTexts.Kind.ACCOUNT_LOCKED, "notice_sent");
         };
