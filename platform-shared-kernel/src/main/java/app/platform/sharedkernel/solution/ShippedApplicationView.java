@@ -16,9 +16,17 @@ import java.util.Objects;
  * @param entries the navigation in order
  * @param objectRoles the object that plays each part of the application, by the part's name (FA13B, ADR-0226); empty
  *        for an application whose solution declares none. The browser reads the object names here and holds none
+ * @param options what the solution's file states about the application, by name (plain data the screens may read, for
+ *        example which dashboard the Home page draws, MC3); empty when it states none
  */
 public record ShippedApplicationView(String apiName, String label, String iconKey, String group,
-        List<ShippedEntryView> entries, Map<String, String> objectRoles) {
+        List<ShippedEntryView> entries, Map<String, String> objectRoles, Map<String, String> options) {
+
+    /** An application that states no options. */
+    public ShippedApplicationView(String apiName, String label, String iconKey, String group,
+            List<ShippedEntryView> entries, Map<String, String> objectRoles) {
+        this(apiName, label, iconKey, group, entries, objectRoles, Map.of());
+    }
 
     /** An application that declares no parts. */
     public ShippedApplicationView(String apiName, String label, String iconKey, String group,
@@ -37,6 +45,7 @@ public record ShippedApplicationView(String apiName, String label, String iconKe
         Objects.requireNonNull(label, "label");
         entries = List.copyOf(entries);
         objectRoles = objectRoles == null ? Map.of() : Map.copyOf(objectRoles);
+        options = options == null ? Map.of() : Map.copyOf(options);
     }
 
     /** Prints the identity only: the label is text the platform chose but is never needed in a log. */

@@ -182,10 +182,13 @@ public final class FillInViews {
      * @param status only fill-ins in this status, or null
      * @param size the page size, at most 200; null is 50
      * @param cursor the cursor of the previous page of the same question, or null
+     * @param waiting only fill-ins that wait for a decision: {@code review} (before the last step) or {@code top}
+     *        (at the last step), or null (MC3, ADR-0262); a page may hold fewer rows than the size and still have a
+     *        cursor
      */
     public record FillInQuery(@Size(max = 80) String search, @Valid QueryFilterNode filter,
             @Size(max = 2) List<@NotNull @Valid QuerySortKey> sort, UUID templateId, @Size(max = 20) String status,
-            Integer size, @Size(max = 2000) String cursor) {
+            Integer size, @Size(max = 2000) String cursor, @Size(max = 10) String waiting) {
 
         @Override
         public String toString() {

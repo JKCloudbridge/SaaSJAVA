@@ -365,4 +365,27 @@ class RecordSetsTest {
                 RecordSets.PUBLISH_DEPARTMENT, "X"))), series("OddTemplate"), contexts))
                 .isInstanceOf(IllegalStateException.class).hasMessageContaining("publishTo");
     }
+
+    @Test
+    void theDashboardOptionKnowsOneValueAndNeedsAMonthlyRoutedApplication() {
+        assertThatThrownBy(() -> new RecordSets(declaring(withOptions(Map.of(RecordSets.DASHBOARD, "fancy"))),
+                series("OddTemplate"), contexts)).isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("application 'odd'").hasMessageContaining("dashboard");
+        assertThatThrownBy(() -> new RecordSets(declaring(withOptions(Map.of(RecordSets.DASHBOARD,
+                RecordSets.MANAGEMENT))), series("OddTemplate"), contexts))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("needs 'monthlyFillIn' and 'routedByNumber'");
+    }
+
+    @Test
+    void aRoutedMonthlyApplicationMayAskForTheDashboardThatComparesThePlantsAndNoOtherHasIt() {
+        ObjectRoles whole = RecordSetsFixture.roles("dm", "dm", RecordSetsFixture.QMS);
+        ObjectRoles core = RecordSetsFixture.routed("core", "core", RecordSetsFixture.QMS,
+                Map.of(RecordSets.DASHBOARD, RecordSets.MANAGEMENT, RecordSets.MONTHLY_FILL_IN, "true"));
+        RecordSets sets = RecordSetsFixture.sets(List.of(whole, core), List.of("dm", "core"), contexts);
+
+        assertThat(asMember(() -> sets.require("core")).managementDashboard()).isTrue();
+        assertThat(asMember(() -> sets.require("dm")).managementDashboard()).isFalse();
+        assertThat(RecordSetsFixture.QMS.managementDashboard()).isFalse();
+    }
 }

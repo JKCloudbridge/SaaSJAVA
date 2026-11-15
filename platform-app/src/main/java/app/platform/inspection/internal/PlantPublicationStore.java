@@ -90,6 +90,18 @@ class PlantPublicationStore {
                 .param("tenant", tenant()).param("template", templateId).query(PlantPublicationStore::plant).list();
     }
 
+    /** The codes of the plants any of these documents is published to now, each once (the dashboard, MC3). */
+    java.util.Set<String> livePlantCodes(java.util.Collection<UUID> templateIds) {
+        if (templateIds.isEmpty()) {
+            return java.util.Set.of();
+        }
+        return new java.util.TreeSet<>(jdbc.sql("select distinct plant from inspection_plant_publication where "
+                        + "tenant_id = :tenant and template_id in (:templates) and revoked_at is null "
+                        + "and deleted_at is null")
+                .param("tenant", tenant()).param("templates", java.util.List.copyOf(templateIds))
+                .query(String.class).list());
+    }
+
     /** Whether the document is published to a plant whose group is this one (a share to it is still wanted). */
     boolean holdsGroup(UUID templateId, UUID groupId) {
         return jdbc.sql("select exists (select 1 from inspection_plant_publication where " + LIVE_PLANTS

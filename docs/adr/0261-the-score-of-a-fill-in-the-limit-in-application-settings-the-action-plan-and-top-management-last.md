@@ -147,3 +147,7 @@ kind of change; refusals have fixed words. The limit is not in the notice, and t
   the result, and it is written from the same calculation at the moments of decision 2.
 - **ADR-0191.** A request is raised by whoever reads the document, except as decision 7 says for the plant heads of an application that publishes to
   plants.
+
+## Note added after testing (2026-11-15)
+
+- The standard metadata loader only allowed a text or yes/no field to be written by the platform alone. It now also allows a **decimal** (still never required, no default), so the score stays a number a list can sort and filter. Every fill-in object (`InspectionFill`, `EnvironmentFill` and the third-application fixture) carries `score`, `result` and `parentFill`, because the one approval hook of the fill-in serves them all.

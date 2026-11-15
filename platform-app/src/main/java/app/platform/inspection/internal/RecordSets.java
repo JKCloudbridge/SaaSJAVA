@@ -58,8 +58,15 @@ final class RecordSets {
      * their plant and the month when they start one. It follows the document, like the footer day.
      */
     static final String MONTHLY_FILL_IN = "monthlyFillIn";
+    /**
+     * Option: which dashboard the application's Home page draws (MC3, ADR-0262). {@link #MANAGEMENT} is the one that
+     * compares the plants month by month; an application that states none has the Quality Management System one.
+     */
+    static final String DASHBOARD = "dashboard";
+    /** The value of {@link #DASHBOARD} that asks for the dashboard that compares the plants. */
+    static final String MANAGEMENT = "management";
     private static final Set<String> OPTION_NAMES = Set.of(FOOTER_DATE, PUBLISH_TO,
-            PUBLISH_DEPARTMENT, ROUTED, MONTHLY_FILL_IN);
+            PUBLISH_DEPARTMENT, ROUTED, MONTHLY_FILL_IN, DASHBOARD);
 
     private static final String NO_APPLICATION = "This application does not exist.";
 
@@ -107,6 +114,15 @@ final class RecordSets {
         }
         if (PLACES.equals(publishTo) != roles.options().containsKey(PUBLISH_DEPARTMENT)) {
             throw new IllegalStateException(where + ": 'publishTo: places' and 'publishDepartment' go together");
+        }
+        String dashboard = roles.options().get(DASHBOARD);
+        if (dashboard != null && !MANAGEMENT.equals(dashboard)) {
+            throw new IllegalStateException(where + ": 'dashboard' is '" + MANAGEMENT + "' or absent");
+        }
+        if (dashboard != null && !("true".equals(roles.options().get(MONTHLY_FILL_IN))
+                && "true".equals(roles.options().get(ROUTED)))) {
+            throw new IllegalStateException(where + ": 'dashboard: " + MANAGEMENT
+                    + "' needs 'monthlyFillIn' and 'routedByNumber'");
         }
         boolean routed = "true".equals(roles.options().get(ROUTED));
         return new RecordSet(template, fill, request, series.get(0).key(), roles.options(),

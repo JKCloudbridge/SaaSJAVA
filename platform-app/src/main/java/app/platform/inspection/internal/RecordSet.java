@@ -50,6 +50,11 @@ record RecordSet(String template, String fill, String request, String series, Ma
         return "true".equals(options.get(RecordSets.MONTHLY_FILL_IN));
     }
 
+    /** Whether the application's Home page compares the plants month by month (MC3, ADR-0262). */
+    boolean managementDashboard() {
+        return RecordSets.MANAGEMENT.equals(options.get(RecordSets.DASHBOARD));
+    }
+
     /** Whether a template of this set is published to the places alone (each place's one fixed department). */
     boolean placesOnly() {
         return RecordSets.PLACES.equals(options.get(RecordSets.PUBLISH_TO));

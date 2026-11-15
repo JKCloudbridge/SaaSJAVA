@@ -90,6 +90,7 @@ class ApplicationSettingService implements ApplicationSettings {
             throw ApiException.validation("value", "Give a whole number from " + declared.setting().kind().least()
                     + " to " + declared.setting().kind().most() + ".");
         }
+        checkOrder(declared, request.application(), request.value());
         Optional<ApplicationSettingStore.Chosen> existing = store.find(request.application(), request.key());
         boolean done;
         String kind;
@@ -111,7 +112,8 @@ class ApplicationSettingService implements ApplicationSettings {
 
     ApplicationSettingsView reset(String application, String key, long version) {
         UUID actor = requireManager();
-        offered(application, key);
+        Declared declared = offered(application, key);
+        checkOrder(declared, application, declared.setting().defaultValue());
         ApplicationSettingStore.Chosen existing = store.find(application, key)
                 .orElseThrow(() -> new ApiException(ErrorCode.CONFLICT, CHANGED));
         if (!store.remove(existing.id(), version, actor)) {
@@ -144,6 +146,28 @@ class ApplicationSettingService implements ApplicationSettings {
             }
         }
         return new ApplicationSettingsView(groups);
+    }
+
+    /**
+     * A setting that must stay below another (the band words of a dashboard, MC3) is refused, in fixed words, when the
+     * value would meet or pass it, and the other way round for a setting another one must stay below. The words name
+     * the other setting by the label the solution file gave it, never a value.
+     */
+    private void checkOrder(Declared declared, String application, int value) {
+        SolutionBundle.Setting mine = declared.setting();
+        for (SolutionBundle.Setting other : declared.bundle().settings()) {
+            if (other.key().equals(mine.below()) && value >= valueOf(application, other)) {
+                throw ApiException.validation("value", "This must be lower than \"" + other.label() + "\".");
+            }
+            if (mine.key().equals(other.below()) && valueOf(application, other) >= value) {
+                throw ApiException.validation("value", "This must be higher than \"" + other.label() + "\".");
+            }
+        }
+    }
+
+    private int valueOf(String application, SolutionBundle.Setting setting) {
+        return store.find(application, setting.key()).map(ApplicationSettingStore.Chosen::value)
+                .orElse(setting.defaultValue());
     }
 
     /** The declaration of a setting of an application the organization has; empty for anything else. */

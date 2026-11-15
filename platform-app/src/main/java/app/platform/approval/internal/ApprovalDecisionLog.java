@@ -4,6 +4,7 @@ import app.platform.approval.internal.ApprovalStore.HistoryRow;
 import app.platform.approval.internal.ApprovalStore.StepRow;
 import app.platform.sharedkernel.approval.ApprovalDecisions;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -30,6 +31,11 @@ class ApprovalDecisionLog implements ApprovalDecisions {
     @Override
     public Optional<UUID> pendingRequest(String objectApiName, UUID recordId) {
         return store.pendingFor(objectApiName, recordId).map(ApprovalStore.InstanceRow::id);
+    }
+
+    @Override
+    public Map<UUID, PendingStep> pendingSteps(String objectApiName, Collection<UUID> recordIds) {
+        return store.pendingSteps(objectApiName, recordIds);
     }
 
     @Override

@@ -6,6 +6,7 @@ import type { ListRequest } from "@/components/ui/lists/useListViews";
 import { call, type Outcome } from "@/lib/records/call";
 import { scopeQuery } from "./scope";
 import { appBase, DEFAULT_APPLICATION } from "./appPaths";
+import { both, type AddressSlice } from "./addressSlice";
 
 /**
  * The calls of the fill-ins of the Quality Management System application (Functional track FF1, ADR-0192): whether a fill-in can be
@@ -79,6 +80,7 @@ export function queryFillIns(
   templateId: string,
   cursor?: string,
   status?: string,
+  slice?: Pick<AddressSlice, "filter" | "waiting">,
 ): Promise<Outcome<FillInPage>> {
   return unwrap(
     call(() =>
@@ -86,10 +88,11 @@ export function queryFillIns(
         params: { query: scopeQuery() },
         body: {
           search: request.search === "" ? undefined : request.search,
-          filter: request.filter,
+          filter: both(request.filter, slice?.filter),
           sort: request.sort,
           templateId: templateId === "" ? undefined : templateId,
           status: status === undefined || status === "" ? undefined : status,
+          waiting: slice?.waiting,
           cursor,
         },
       }),

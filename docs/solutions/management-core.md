@@ -45,7 +45,7 @@ Nobody is told of their own act.
 
 ## What it cannot do yet
 
-The dashboard that compares the plants (MC3), an editor for the score mark beyond one tick (SH6), several sheets in one form (SH7) and a reminder to a
+An editor for the score mark beyond one tick (SH6), several sheets in one form (SH7) and a reminder to a
 plant head who has not filled their month or not started an Action plan.
 
 ## For administrators
@@ -141,3 +141,45 @@ read list; the list of fill-ins returns them. A dashboard counts them with the r
 
 **Demo.** `scripts/demo-setup.mjs` now makes two processes: Management Core fill-in review (criteria `... AND ISBLANK(parentFill)`) and Management Core
 Action plan review (`... AND NOT(ISBLANK(parentFill))`), each the plant's reviewers then Level 5.
+
+## The Home dashboard that compares the plants (MC3, ADR-0262)
+
+The Home tab of Management Core is a dashboard for top management, the Observer and the people who approve; a plant head sees their own plant in it.
+It is chosen by the application's file (`options: dashboard: management`), so no code names the application.
+
+**Filters** (in the address, so a view can be shared): **Month** (this, last, or one of the last 24), **Compare over** (3, 6 or 12 months), **Plant**
+and **Form**. Months are months in UTC.
+
+**Six numbers** (each opens the fill-in list narrowed to what it counts):
+
+| Tile | Counts | Opens |
+|---|---|---|
+| Plants that sent their fill-in | plants with a fill-in of the month that is waiting or decided; "n of m" where m is the plants the person may see | `?period=&sent=1&plan=none` |
+| Average score | the average of the plants' scores of the month (approved fill-ins only) | `?period=&status=APPROVED&scored=1&plan=none` |
+| Plants below the limit | plants whose fill-in of the month was decided to need an Action plan; the line under it says how many have none yet | `?period=&needs=1` |
+| Waiting for review | fill-ins waiting before the last step, in every month | `?waiting=review` |
+| Waiting for top management | fill-ins waiting at the last step, in every month | `?waiting=top` |
+| Action plans open | Action plans not yet approved, in every month | `?plan=open` |
+
+**Six graphs**, each with a "View as table" of the same numbers: the score of each plant for the month (bars on a 0 to 100 scale with the limit drawn
+across them), the plants over the months (one line each; a month a plant did not report is a **gap, never a zero**), the average of the plants by month, the
+plants ranked with the word of their band, the Action plans by plant (being written or returned, sent, approved) and the fill-ins by month and status.
+
+**The words of the bands** (Setup, Application settings, next to the limit): **Excellent above** (85) and **Good above** (65). A score above the first is
+Excellent, above the second up to the first is Good, anything else is Poor; exactly 85 is Good and exactly 65 is Poor. Good must stay below Excellent: the
+setting refuses a value that breaks the order. The **limit** (default 85) is another number: an Action plan is needed strictly below it. If the limit was
+changed after a review, a bar can be under the limit line while its fill-in was decided to need no plan; the table says "decided under an earlier limit".
+
+**Who sees what** is the record store's: a plant head sees one plant (the whole of "n of m" and the plant list are only the plants they may see), a person who
+may view every fill-in (Observer, Approver, a Reviewer policy) sees every plant, and a person who reads no fill-in is shown no section and no zero. A reviewer
+with no access policy is asked to decide through the inbox and reads no fill-in here.
+
+**Not narrowed by form:** the waiting tiles and the Action plan numbers, because an Action plan belongs to another form than the fill-in it answers and a
+fill-in waits in every month. The page says so when a form is chosen.
+
+**Contributors.** `ManagementHome` (service), `ManagementNumbers` (the arithmetic, pure), `ManagementHomeViews`, `ManagementHomeController`; the web page is
+`platform-web/src/solutions/inspection/management/` and `HomePage.tsx` chooses between the two dashboards from the application's `options`. The list reads
+its slice from the address (`addressSlice.ts`) and the server filter `waiting` of `POST /fill-ins/query`. The step of a pending request is
+`ApprovalDecisions.pendingSteps`. Tests: `ManagementNumbersTest`, `ManagementHomeNarrowingTest`, `RecordSetsTest`, `SolutionLoaderTest`,
+`ApplicationSettingOrderTest`; real PostgreSQL: `ManagementHomeIT`, `ManagementHomeLogsAreCleanIT`, `ManagementHomeCostIT`; frontend `model.test.ts`,
+`ManagementHome.test.tsx`, `HomePage.test.tsx`, `addressSlice.test.ts`.

@@ -1876,6 +1876,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/management-home/summary": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * The numbers and graphs of the Home page that compares the plants
+         * @description One answer for the whole page: the tiles and the graphs, for a month (this, last or a month as year-month) and how many months to compare (3, 6 or 12), and optionally one plant and one form. A post, because the filters do not belong in an address. Needs no ability: every number is counted over the fill-ins the caller may see, through the same record store query the lists use, narrowed to the application, so the page agrees with the lists and a plant head sees one plant. A section whose object the caller cannot read at all is null (never a zero) and a month a plant did not report is a gap (a null score, never a zero). The record store gives no total, so the headers are read in pages up to a limit; a number that reached it says atLeast. A section that failed is named in problems and the others are still answered. Months are months in UTC. NOT_FOUND on the platform host, for an application without this page and for an organization without the plan feature; VALIDATION_ERROR for a month, span, plant or form that is not offered. Nothing typed, no score, limit, plant or month is logged or audited.
+         */
+        post: operations["managementHomeSummary"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/members": {
         parameters: {
             query?: never;
@@ -6753,6 +6773,9 @@ export interface components {
         ApiResponseLookupLabelsView: {
             data: components["schemas"]["LookupLabelsView"];
         };
+        ApiResponseManagementSummaryView: {
+            data: components["schemas"]["ManagementSummaryView"];
+        };
         ApiResponseMappingCatalogueView: {
             data: components["schemas"]["MappingCatalogueView"];
         };
@@ -8165,6 +8188,7 @@ export interface components {
             status?: string;
             /** Format: uuid */
             templateId?: string;
+            waiting?: string;
         };
         FillInRow: {
             /** Format: uuid */
@@ -8302,6 +8326,11 @@ export interface components {
             layout?: string;
             sections: components["schemas"]["FormSectionView"][];
             source: string;
+        };
+        FormOption: {
+            /** Format: uuid */
+            id: string;
+            name: string;
         };
         FormRecordTypeView: {
             apiName: string;
@@ -8553,6 +8582,14 @@ export interface components {
             /** Format: int64 */
             version: number;
         };
+        LegendView: {
+            /** Format: int32 */
+            excellentAbove?: number;
+            /** Format: int32 */
+            goodAbove?: number;
+            /** Format: int32 */
+            limit?: number;
+        };
         LevelTypeCount: {
             /** Format: int64 */
             count: number;
@@ -8636,6 +8673,63 @@ export interface components {
             /** Format: int32 */
             limit?: number;
             text?: string;
+        };
+        ManagementAppliedView: {
+            /** Format: uuid */
+            form?: string;
+            plant?: string;
+        };
+        ManagementChartsView: {
+            actionPlansByPlant?: components["schemas"]["PlantPlans"][];
+            averageByMonth?: components["schemas"]["MonthAverage"][];
+            fillsByMonth?: components["schemas"]["MonthStatus"][];
+            plantsOverMonths?: components["schemas"]["PlantSeries"][];
+            scoresByPlant?: components["schemas"]["PlantScore"][];
+        };
+        ManagementFiltersView: {
+            forms: components["schemas"]["FormOption"][];
+            plants: components["schemas"]["PlantOption"][];
+        };
+        ManagementSummaryRequest: {
+            /** Format: uuid */
+            form?: string;
+            month?: string;
+            plant?: string;
+            /** Format: int32 */
+            span?: number;
+        };
+        ManagementSummaryView: {
+            applied: components["schemas"]["ManagementAppliedView"];
+            charts: components["schemas"]["ManagementChartsView"];
+            filters: components["schemas"]["ManagementFiltersView"];
+            /** Format: date-time */
+            generatedAt: string;
+            legend: components["schemas"]["LegendView"];
+            month: string;
+            monthChoices: string[];
+            months: string[];
+            previousMonth: string;
+            problems: string[];
+            tiles: components["schemas"]["ManagementTilesView"];
+        };
+        ManagementTile: {
+            atLeast: boolean;
+            /** Format: double */
+            extra?: number;
+            /** Format: double */
+            previous?: number;
+            /** Format: double */
+            value?: number;
+            /** Format: double */
+            whole?: number;
+        };
+        ManagementTilesView: {
+            actionPlansOpen?: components["schemas"]["ManagementTile"];
+            averageScore?: components["schemas"]["ManagementTile"];
+            plantsBelowLimit?: components["schemas"]["ManagementTile"];
+            plantsSubmitted?: components["schemas"]["ManagementTile"];
+            waitingForReview?: components["schemas"]["ManagementTile"];
+            waitingForTopManagement?: components["schemas"]["ManagementTile"];
         };
         MappingCatalogueView: {
             conflicts: components["schemas"]["MappingChoice"][];
@@ -8761,10 +8855,33 @@ export interface components {
             status: string;
             you?: boolean;
         };
+        MonthAverage: {
+            /** Format: double */
+            average?: number;
+            month: string;
+            /** Format: int32 */
+            plants: number;
+        };
         MonthCount: {
             /** Format: int64 */
             count: number;
             month: string;
+        };
+        MonthScore: {
+            month: string;
+            /** Format: double */
+            score?: number;
+        };
+        MonthStatus: {
+            /** Format: int64 */
+            approved: number;
+            /** Format: int64 */
+            draft: number;
+            month: string;
+            /** Format: int64 */
+            returned: number;
+            /** Format: int64 */
+            submitted: number;
         };
         MyApplicationView: {
             apiName: string;
@@ -8773,6 +8890,9 @@ export interface components {
             items: components["schemas"]["NavigationEntryView"][];
             label: string;
             objectRoles?: {
+                [key: string]: string;
+            };
+            options?: {
                 [key: string]: string;
             };
         };
@@ -9102,9 +9222,23 @@ export interface components {
             /** Format: int32 */
             trialDays?: number;
         };
+        PlantOption: {
+            code: string;
+            label: string;
+        };
         PlantPick: {
             plant: string;
             reviewers: components["schemas"]["PlantReviewerPick"][];
+        };
+        PlantPlans: {
+            /** Format: int64 */
+            approved: number;
+            label: string;
+            /** Format: int64 */
+            open: number;
+            plant: string;
+            /** Format: int64 */
+            sent: number;
         };
         PlantPublicationState: {
             available: boolean;
@@ -9130,6 +9264,25 @@ export interface components {
             id: string;
             kind: string;
             name?: string;
+        };
+        PlantScore: {
+            band?: string;
+            bandWord?: string;
+            belowCurrentLimit: boolean;
+            /** Format: int32 */
+            forms: number;
+            label: string;
+            needsActionPlan: boolean;
+            plant: string;
+            /** Format: int32 */
+            rank?: number;
+            /** Format: double */
+            score?: number;
+        };
+        PlantSeries: {
+            label: string;
+            plant: string;
+            points: components["schemas"]["MonthScore"][];
         };
         PlatformOrganizationDetail: {
             displayName: string;
@@ -14349,6 +14502,42 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ApiResponseListLicencePoolView"];
+                };
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    managementHomeSummary: {
+        parameters: {
+            query: {
+                /** @description The application whose records are counted (its API name). It chooses among the sets of records only: NOT_FOUND, in the same words, for an application that does not exist, that the organization does not have or that has no such page. */
+                application: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["ManagementSummaryRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseManagementSummaryView"];
                 };
             };
             /** @description Error. The code says what went wrong; the message is safe to show. */

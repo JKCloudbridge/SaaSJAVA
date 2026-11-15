@@ -2,7 +2,7 @@
 
 import { useRecordObjects } from "./objects";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Suspense, useEffect, useState } from "react";
+import { Suspense, useEffect, useMemo, useState } from "react";
 import { Modal } from "@/components/ui/Modal";
 import { StartFillIn } from "./StartFillIn";
 import { ListPage, type ListColumn } from "@/components/ui/lists/ListPage";
@@ -11,6 +11,7 @@ import { Tag } from "@/components/ui/lists/Tag";
 import { useListRoute } from "@/components/ui/lists/useListRoute";
 import { fillStatusTag } from "@/lib/sheets/fillTags";
 import { AddressFilterNote } from "./AddressFilterNote";
+import { addressSlice, SLICE_KEYS, sliceKey } from "./addressSlice";
 import { FillInDetail } from "./FillInDetail";
 import {
   fillInsHref,
@@ -63,12 +64,16 @@ function when(iso: string | null | undefined): string {
 export function FillInsList({ templateId: given, embedded = false }: { templateId?: string; embedded?: boolean }) {
   const application = useApplication();
   const objects = useRecordObjects();
-  const route = useListRoute({ keep: ["template", "status"] });
+  const route = useListRoute({ keep: ["template", "status", ...SLICE_KEYS] });
   const params = useSearchParams();
   const router = useRouter();
   const templateId = given ?? params?.get("template") ?? "";
   // A tile of the home page opens the list narrowed to one status (FA9); only the statuses the server knows count.
   const status = embedded ? "" : fillStatusParam(params?.get("status"));
+  // The tiles of the Management Core home page narrow the list by month, plant, result and step (MC3, ADR-0262).
+  const sliceText = params?.toString() ?? "";
+  const slice = useMemo(() => (embedded ? addressSlice(null) : addressSlice(new URLSearchParams(sliceText))), [embedded, sliceText]);
+  const sliceId = sliceKey(slice);
   const options = useFillInOptions(embedded ? templateId : "", 0);
   const [startMessage, setStartMessage] = useState<string | undefined>();
   const [starting, setStarting] = useState(false);
@@ -83,7 +88,7 @@ export function FillInsList({ templateId: given, embedded = false }: { templateI
     allLabel: "All fill-ins",
   });
   const request = views.request;
-  const key = `${templateId}|${status}|${views.requestKey}`;
+  const key = `${templateId}|${status}|${sliceId}|${views.requestKey}`;
   const loaded: Loaded = result && result.key === key ? result.loaded : { status: "loading" };
 
   useEffect(() => {
@@ -91,7 +96,7 @@ export function FillInsList({ templateId: given, embedded = false }: { templateI
       return;
     }
     let live = true;
-    void queryFillIns(request, templateId, undefined, status).then((outcome) => {
+    void queryFillIns(request, templateId, undefined, status, slice).then((outcome) => {
       if (live) {
         setResult({
           key,
@@ -104,14 +109,14 @@ export function FillInsList({ templateId: given, embedded = false }: { templateI
     return () => {
       live = false;
     };
-  }, [request, templateId, status, key, route.openId, embedded, views.ready]);
+  }, [request, templateId, status, slice, key, route.openId, embedded, views.ready]);
 
   const showMore = async () => {
     if (loaded.status !== "ready" || !loaded.next) {
       return;
     }
     setMore(true);
-    const outcome = await queryFillIns(request, templateId, loaded.next, status);
+    const outcome = await queryFillIns(request, templateId, loaded.next, status, slice);
     setMore(false);
     setResult({
       key,
@@ -225,8 +230,10 @@ export function FillInsList({ templateId: given, embedded = false }: { templateI
           <p className="form-message" role="alert">
             {startMessage}
           </p>
-        ) : status ? (
-          <AddressFilterNote what={fillStatusParamWords(status)} />
+        ) : status || slice.words.length > 0 ? (
+          <AddressFilterNote
+            what={[...(status ? [fillStatusParamWords(status)] : []), ...slice.words].join(", ")}
+          />
         ) : undefined
       }
       below={

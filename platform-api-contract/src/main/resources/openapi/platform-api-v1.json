@@ -4480,6 +4480,54 @@
         "tags" : [ "Members" ]
       }
     },
+    "/api/v1/management-home/summary" : {
+      "post" : {
+        "description" : "One answer for the whole page: the tiles and the graphs, for a month (this, last or a month as year-month) and how many months to compare (3, 6 or 12), and optionally one plant and one form. A post, because the filters do not belong in an address. Needs no ability: every number is counted over the fill-ins the caller may see, through the same record store query the lists use, narrowed to the application, so the page agrees with the lists and a plant head sees one plant. A section whose object the caller cannot read at all is null (never a zero) and a month a plant did not report is a gap (a null score, never a zero). The record store gives no total, so the headers are read in pages up to a limit; a number that reached it says atLeast. A section that failed is named in problems and the others are still answered. Months are months in UTC. NOT_FOUND on the platform host, for an application without this page and for an organization without the plan feature; VALIDATION_ERROR for a month, span, plant or form that is not offered. Nothing typed, no score, limit, plant or month is logged or audited.",
+        "operationId" : "managementHomeSummary",
+        "parameters" : [ {
+          "description" : "The application whose records are counted (its API name). It chooses among the sets of records only: NOT_FOUND, in the same words, for an application that does not exist, that the organization does not have or that has no such page.",
+          "in" : "query",
+          "name" : "application",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/ManagementSummaryRequest"
+              }
+            }
+          }
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseManagementSummaryView"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "The numbers and graphs of the Home page that compares the plants",
+        "tags" : [ "Management home" ]
+      }
+    },
     "/api/v1/members" : {
       "get" : {
         "description" : "With each member's profile, role, access policies and licence. For members who may see members. NOT_FOUND on the platform host, FORBIDDEN without the ability.",
@@ -18337,6 +18385,15 @@
         },
         "required" : [ "data" ]
       },
+      "ApiResponseManagementSummaryView" : {
+        "type" : "object",
+        "properties" : {
+          "data" : {
+            "$ref" : "#/components/schemas/ManagementSummaryView"
+          }
+        },
+        "required" : [ "data" ]
+      },
       "ApiResponseMappingCatalogueView" : {
         "type" : "object",
         "properties" : {
@@ -22688,6 +22745,11 @@
           "templateId" : {
             "type" : "string",
             "format" : "uuid"
+          },
+          "waiting" : {
+            "type" : "string",
+            "maxLength" : 10,
+            "minLength" : 0
           }
         }
       },
@@ -23065,6 +23127,19 @@
           }
         },
         "required" : [ "sections", "source" ]
+      },
+      "FormOption" : {
+        "type" : "object",
+        "properties" : {
+          "id" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "name" : {
+            "type" : "string"
+          }
+        },
+        "required" : [ "id", "name" ]
       },
       "FormRecordTypeView" : {
         "type" : "object",
@@ -23746,6 +23821,23 @@
         },
         "required" : [ "apiName", "definition", "description", "label", "objectApiName", "version" ]
       },
+      "LegendView" : {
+        "type" : "object",
+        "properties" : {
+          "excellentAbove" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "goodAbove" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "limit" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        }
+      },
       "LevelTypeCount" : {
         "type" : "object",
         "properties" : {
@@ -23991,6 +24083,187 @@
             "type" : "string",
             "maxLength" : 200,
             "minLength" : 0
+          }
+        }
+      },
+      "ManagementAppliedView" : {
+        "type" : "object",
+        "properties" : {
+          "form" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "plant" : {
+            "type" : "string"
+          }
+        }
+      },
+      "ManagementChartsView" : {
+        "type" : "object",
+        "properties" : {
+          "actionPlansByPlant" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/PlantPlans"
+            }
+          },
+          "averageByMonth" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/MonthAverage"
+            }
+          },
+          "fillsByMonth" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/MonthStatus"
+            }
+          },
+          "plantsOverMonths" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/PlantSeries"
+            }
+          },
+          "scoresByPlant" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/PlantScore"
+            }
+          }
+        }
+      },
+      "ManagementFiltersView" : {
+        "type" : "object",
+        "properties" : {
+          "forms" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/FormOption"
+            }
+          },
+          "plants" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/PlantOption"
+            }
+          }
+        },
+        "required" : [ "forms", "plants" ]
+      },
+      "ManagementSummaryRequest" : {
+        "type" : "object",
+        "properties" : {
+          "form" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "month" : {
+            "type" : "string"
+          },
+          "plant" : {
+            "type" : "string"
+          },
+          "span" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        }
+      },
+      "ManagementSummaryView" : {
+        "type" : "object",
+        "properties" : {
+          "applied" : {
+            "$ref" : "#/components/schemas/ManagementAppliedView"
+          },
+          "charts" : {
+            "$ref" : "#/components/schemas/ManagementChartsView"
+          },
+          "filters" : {
+            "$ref" : "#/components/schemas/ManagementFiltersView"
+          },
+          "generatedAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "legend" : {
+            "$ref" : "#/components/schemas/LegendView"
+          },
+          "month" : {
+            "type" : "string"
+          },
+          "monthChoices" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
+          },
+          "months" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
+          },
+          "previousMonth" : {
+            "type" : "string"
+          },
+          "problems" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
+          },
+          "tiles" : {
+            "$ref" : "#/components/schemas/ManagementTilesView"
+          }
+        },
+        "required" : [ "applied", "charts", "filters", "generatedAt", "legend", "month", "monthChoices", "months", "previousMonth", "problems", "tiles" ]
+      },
+      "ManagementTile" : {
+        "type" : "object",
+        "properties" : {
+          "atLeast" : {
+            "type" : "boolean"
+          },
+          "extra" : {
+            "type" : "number",
+            "format" : "double"
+          },
+          "previous" : {
+            "type" : "number",
+            "format" : "double"
+          },
+          "value" : {
+            "type" : "number",
+            "format" : "double"
+          },
+          "whole" : {
+            "type" : "number",
+            "format" : "double"
+          }
+        },
+        "required" : [ "atLeast" ]
+      },
+      "ManagementTilesView" : {
+        "type" : "object",
+        "properties" : {
+          "actionPlansOpen" : {
+            "$ref" : "#/components/schemas/ManagementTile"
+          },
+          "averageScore" : {
+            "$ref" : "#/components/schemas/ManagementTile"
+          },
+          "plantsBelowLimit" : {
+            "$ref" : "#/components/schemas/ManagementTile"
+          },
+          "plantsSubmitted" : {
+            "$ref" : "#/components/schemas/ManagementTile"
+          },
+          "waitingForReview" : {
+            "$ref" : "#/components/schemas/ManagementTile"
+          },
+          "waitingForTopManagement" : {
+            "$ref" : "#/components/schemas/ManagementTile"
           }
         }
       },
@@ -24408,6 +24681,23 @@
         },
         "required" : [ "displayName", "email", "id", "policies", "since", "status" ]
       },
+      "MonthAverage" : {
+        "type" : "object",
+        "properties" : {
+          "average" : {
+            "type" : "number",
+            "format" : "double"
+          },
+          "month" : {
+            "type" : "string"
+          },
+          "plants" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        },
+        "required" : [ "month", "plants" ]
+      },
       "MonthCount" : {
         "type" : "object",
         "properties" : {
@@ -24420,6 +24710,44 @@
           }
         },
         "required" : [ "count", "month" ]
+      },
+      "MonthScore" : {
+        "type" : "object",
+        "properties" : {
+          "month" : {
+            "type" : "string"
+          },
+          "score" : {
+            "type" : "number",
+            "format" : "double"
+          }
+        },
+        "required" : [ "month" ]
+      },
+      "MonthStatus" : {
+        "type" : "object",
+        "properties" : {
+          "approved" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "draft" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "month" : {
+            "type" : "string"
+          },
+          "returned" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "submitted" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        },
+        "required" : [ "approved", "draft", "month", "returned", "submitted" ]
       },
       "MyApplicationView" : {
         "type" : "object",
@@ -24443,6 +24771,12 @@
             "type" : "string"
           },
           "objectRoles" : {
+            "type" : "object",
+            "additionalProperties" : {
+              "type" : "string"
+            }
+          },
+          "options" : {
             "type" : "object",
             "additionalProperties" : {
               "type" : "string"
@@ -25634,6 +25968,18 @@
         },
         "required" : [ "features", "key", "licences", "name" ]
       },
+      "PlantOption" : {
+        "type" : "object",
+        "properties" : {
+          "code" : {
+            "type" : "string"
+          },
+          "label" : {
+            "type" : "string"
+          }
+        },
+        "required" : [ "code", "label" ]
+      },
       "PlantPick" : {
         "type" : "object",
         "properties" : {
@@ -25651,6 +25997,30 @@
           }
         },
         "required" : [ "plant", "reviewers" ]
+      },
+      "PlantPlans" : {
+        "type" : "object",
+        "properties" : {
+          "approved" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "label" : {
+            "type" : "string"
+          },
+          "open" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "plant" : {
+            "type" : "string"
+          },
+          "sent" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        },
+        "required" : [ "approved", "label", "open", "plant", "sent" ]
       },
       "PlantPublicationState" : {
         "type" : "object",
@@ -25727,6 +26097,60 @@
           }
         },
         "required" : [ "id", "kind" ]
+      },
+      "PlantScore" : {
+        "type" : "object",
+        "properties" : {
+          "band" : {
+            "type" : "string"
+          },
+          "bandWord" : {
+            "type" : "string"
+          },
+          "belowCurrentLimit" : {
+            "type" : "boolean"
+          },
+          "forms" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "label" : {
+            "type" : "string"
+          },
+          "needsActionPlan" : {
+            "type" : "boolean"
+          },
+          "plant" : {
+            "type" : "string"
+          },
+          "rank" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "score" : {
+            "type" : "number",
+            "format" : "double"
+          }
+        },
+        "required" : [ "belowCurrentLimit", "forms", "label", "needsActionPlan", "plant" ]
+      },
+      "PlantSeries" : {
+        "type" : "object",
+        "properties" : {
+          "label" : {
+            "type" : "string"
+          },
+          "plant" : {
+            "type" : "string"
+          },
+          "points" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/MonthScore"
+            }
+          }
+        },
+        "required" : [ "label", "plant", "points" ]
       },
       "PlatformOrganizationDetail" : {
         "type" : "object",

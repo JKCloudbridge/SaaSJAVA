@@ -1,6 +1,6 @@
 import type { SolutionPages } from "../types";
 import { ChangeRequestsPage } from "./ChangeRequestsPage";
-import { QualityHomePage } from "./home/QualityHome";
+import { HomePage } from "./HomePage";
 import { FillInReportPage } from "./FillInReportPage";
 import { FillInsPage } from "./FillInsPage";
 import { TemplatesPage } from "./TemplatesPage";
@@ -12,7 +12,7 @@ import { TemplatesPage } from "./TemplatesPage";
 export const PAGE_KEYS = ["home", "templates", "fill-ins", "change-requests", "fill-in-report"] as const;
 
 const PAGES = {
-  home: QualityHomePage,
+  home: HomePage,
   templates: TemplatesPage,
   "fill-ins": FillInsPage,
   "change-requests": ChangeRequestsPage,
