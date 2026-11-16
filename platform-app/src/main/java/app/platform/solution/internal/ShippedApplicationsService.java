@@ -45,18 +45,21 @@ class ShippedApplicationsService implements ShippedApplications {
             // The policies another application shares exist while any of the features they belong to is on.
             keeper.keep(bundle, featureOn);
             if (featureOn.test(bundle.feature())) {
-                bundle.applications().forEach(application -> views.add(view(application, bundle.roles())));
+                bundle.applications().forEach(application -> views.add(view(application, bundle.roles(),
+                        bundle.options())));
             }
         }
         return views;
     }
 
-    private static ShippedApplicationView view(SolutionBundle.Application application, Map<String, String> roles) {
+    private static ShippedApplicationView view(SolutionBundle.Application application, Map<String, String> roles,
+            Map<String, String> options) {
         List<ShippedEntryView> entries = application.entries().stream().map(entry -> new ShippedEntryView(entry.kind(),
                 entry.label(), blankToNull(entry.object()), blankToNull(entry.pageKey()),
                 blankToNull(entry.readsObject()), entry.placeholder())).toList();
         return new ShippedApplicationView(application.apiName(), application.label(),
-                blankToNull(application.iconKey()), blankToNull(application.group()), entries, roles);
+                blankToNull(application.iconKey()), blankToNull(application.group()), entries, roles,
+                options);
     }
 
     private static String blankToNull(String text) {

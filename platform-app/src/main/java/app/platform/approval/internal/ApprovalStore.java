@@ -1,5 +1,6 @@
 package app.platform.approval.internal;
 
+import app.platform.sharedkernel.approval.ApprovalDecisions;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Types;
@@ -8,7 +9,9 @@ import java.time.LocalDate;
 import java.time.OffsetDateTime;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
@@ -123,6 +126,29 @@ class ApprovalStore {
                         + "and i.record_id = :record and i.status = 'PENDING' and i.deleted_at is null")
                 .param("object", objectApiName).param("record", recordId).query(ApprovalStore::instanceRow)
                 .optional();
+    }
+
+    /**
+     * Where the pending requests of these records wait: the step, and whether any later step (not skipped) is left to
+     * decide. One statement for the whole list; records with no pending request are absent.
+     */
+    Map<UUID, ApprovalDecisions.PendingStep> pendingSteps(String objectApiName, Collection<UUID> recordIds) {
+        if (recordIds.isEmpty()) {
+            return Map.of();
+        }
+        Map<UUID, ApprovalDecisions.PendingStep> found = new HashMap<>();
+        jdbc.sql("select i.record_id, i.current_step, not exists (select 1 from approval_step_instance s "
+                        + "where s.instance_id = i.id and s.deleted_at is null and s.position > i.current_step "
+                        + "and s.status <> 'SKIPPED') as last_step from approval_instance i "
+                        + "where i.object_api_name = :object and i.record_id in (:ids) and i.status = 'PENDING' "
+                        + "and i.current_step is not null and i.deleted_at is null")
+                .param("object", objectApiName).param("ids", List.copyOf(recordIds))
+                .query((rs, row) -> {
+                    found.put(rs.getObject("record_id", UUID.class), new ApprovalDecisions.PendingStep(
+                            rs.getInt("current_step"), rs.getBoolean("last_step")));
+                    return row;
+                }).list();
+        return found;
     }
 
     /** The latest request of the record, pending or ended. */

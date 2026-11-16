@@ -1499,3 +1499,22 @@ approval: a cell shown as a percent (0.9) counts as 90 points; a number outside 
 `score`, `result` and `parentFill`; give a policy that reads fill-ins the three in its `read` list, or they do not exist for it. The two processes of
 Management Core fill-ins must not both fit one fill-in: the Plant activity one carries `ISBLANK(parentFill)` and the Action plan one
 `NOT(ISBLANK(parentFill))`. The Action plan's reviewers are those of the fill-in it answers.
+
+## 53. The Home dashboard that compares the plants (MC3)
+
+**What a bundle writer needs to know.** An application of the kind that routes its documents by number and asks for a monthly fill-in may say, in its
+`options`, `dashboard: management`. Its Home page is then the dashboard that compares the plants (the other options it needs are `routedByNumber` and
+`monthlyFillIn`; the start stops without them). The application declares three settings for it: `scoreLimit` (the Action plan rule), and the words of the
+bands, `excellentAbove` and `goodAbove`. A setting may name another it must stay **below** (`below: excellentAbove`): the default must already obey it, and
+Setup refuses a value that does not. The API lists the application's options with the application; a screen may read them and invents none.
+
+**What an administrator needs to know.** Setup, Application settings: **Excellent above** (default 85) and **Good above** (default 65) only word a score on
+the dashboard (Excellent above the first, Good above the second, Poor otherwise; exactly the line belongs to the lower band). They do not change who needs
+an Action plan: that is the **score limit** alone. Give the group that should see every plant a policy that views every fill-in (the Observer, or the
+Approver); a plant head sees only their plant, and a person with no policy that reads fill-ins is shown no numbers. A score counts on the dashboard when its
+fill-in is **approved**; a fill-in that waits is counted under "Waiting for review" or "Waiting for top management" until then.
+
+**What a contributor needs to know.** `ManagementHome` makes the page from header facts the record store returns (never a rule of its own for who sees a
+record); `ManagementNumbers` is the pure arithmetic and the place to change a counting rule; a new tile or chart is a field of `ManagementHomeViews` (with the
+`Management` prefix: the OpenAPI generator merges two classes of one simple name), a case in `ManagementNumbers` with a test, and a component in
+`platform-web/src/solutions/inspection/management/`. A tile that opens a list needs a slice the list understands (`addressSlice.ts`).

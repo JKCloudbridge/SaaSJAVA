@@ -22,6 +22,14 @@ export function rolesOfApplication(apiName: string): Readonly<Record<string, str
   return known.find((application) => application.apiName === apiName)?.objectRoles ?? {};
 }
 
+/**
+ * What the application's solution file states about it, by name (MC3, ADR-0262), or an empty mapping. The API lists it
+ * with the application; a screen may read it (for example which dashboard the Home page draws) and never invents it.
+ */
+export function optionsOfApplication(apiName: string): Readonly<Record<string, string>> {
+  return known.find((application) => application.apiName === apiName)?.options ?? {};
+}
+
 /** The part an object plays in some application of the member, or undefined. */
 export function roleOfObject(object: string): string | undefined {
   for (const application of known) {

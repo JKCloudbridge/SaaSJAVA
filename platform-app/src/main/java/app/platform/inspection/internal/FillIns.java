@@ -24,6 +24,7 @@ import app.platform.metadata.Metadata;
 import app.platform.security.Ability;
 import app.platform.security.Grantee;
 import app.platform.sharedkernel.approval.ApprovalApplicability;
+import app.platform.sharedkernel.approval.ApprovalDecisions;
 import app.platform.sharedkernel.audit.AuditOutcome;
 import app.platform.sharedkernel.audit.AuditRecord;
 import app.platform.sharedkernel.audit.AuditRecorder;
@@ -78,6 +79,8 @@ class FillIns {
 
     private static final int DEFAULT_SIZE = 50;
     private static final int MOST = 200;
+    /** The most extra pages a list of fill-ins that wait reads to fill one page (MC3, ADR-0262). */
+    private static final int WAITING_ROUNDS = 10;
     private static final Set<String> STATUSES = Set.of("DRAFT", "SUBMITTED", "RETURNED", "APPROVED");
     private static final List<String> FIELDS = List.of(Fills.NAME, Fills.TEMPLATE_ID, Fills.STATUS);
     /** The words of the refusal to start a fill-in on a template that is only a reference (FA7, ADR-0201). */
@@ -115,6 +118,7 @@ class FillIns {
     private final Metadata metadata;
     private final ActionPlanLinkStore actionForms;
     private final FillScores scores;
+    private final ApprovalDecisions decisions;
 
     FillIns(TemplateAccess access, BackgroundRecords background, Records records, SheetLifecycle sheets,
             FillLifecycle fills, FillHeaders headers, FillSubmission submission, ApprovalApplicability approvals,
@@ -122,7 +126,8 @@ class FillIns {
             TemplateNumbers templateNumbers, TemplateOptionStore templateOptions, DepartmentAudiences departments,
             QualityHomeStore home, RecordSets sets, PlantPublicationStore plants, FillPeriodStore periods,
             FillPeriods clock, RecordShares shares, Metadata metadata, ActionPlanLinkStore actionForms,
-            FillScores scores) {
+            FillScores scores, ApprovalDecisions decisions) {
+        this.decisions = decisions;
         this.actionForms = actionForms;
         this.scores = scores;
         this.sets = sets;
@@ -465,7 +470,7 @@ class FillIns {
      */
     @Transactional(readOnly = true)
     FillInPage page(RecordSet set, UUID templateId, String status, Integer size, String cursor) {
-        return run(set, null, null, templateId, status, List.of(new QuerySort("createdAt", true)), size, cursor);
+        return run(set, null, null, templateId, status, null, List.of(new QuerySort("createdAt", true)), size, cursor);
     }
 
     /**
@@ -482,22 +487,68 @@ class FillIns {
                 ? List.of(new QuerySort("createdAt", true))
                 : query.sort().stream().map(key -> new QuerySort(key.field(), Boolean.TRUE.equals(key.descending())))
                         .toList();
-        return run(set, query.search(), filter, query.templateId(), query.status(), sort, query.size(),
-                query.cursor());
+        return run(set, query.search(), filter, query.templateId(), query.status(), query.waiting(), sort,
+                query.size(), query.cursor());
     }
 
     private FillInPage run(RecordSet set, String search, QueryFilter extra, UUID templateId, String status,
-            List<QuerySort> sort, Integer size, String cursor) {
+            String waiting, List<QuerySort> sort, Integer size, String cursor) {
         access.member();
         String wantedStatus = status == null || status.isBlank() ? null : status.toUpperCase(Locale.ROOT);
         if (wantedStatus != null && !STATUSES.contains(wantedStatus)) {
             throw ApiException.validation("status", "Choose DRAFT, SUBMITTED, RETURNED or APPROVED.");
         }
+        Boolean top = waiting == null || waiting.isBlank() ? null : waitingAtTop(waiting);
+        if (top != null) {
+            // A fill-in waits for a decision only while it is sent; another status asked beside it matches nothing.
+            if (wantedStatus != null && !"SUBMITTED".equals(wantedStatus)) {
+                return new FillInPage(List.of(), null);
+            }
+            wantedStatus = "SUBMITTED";
+        }
         int limit = size == null || size <= 0 ? DEFAULT_SIZE : Math.min(size, MOST);
         RecordQuery query = new RecordQuery(set.narrow(filter(templateId, wantedStatus, extra, searchFilter(search))),
                 sort, projection(set), List.of(), limit, cursor);
         QueryResult result = records.query(set.fill(), query);
-        return new FillInPage(rowsOf(set, result.records()), result.nextCursor());
+        if (top == null) {
+            return new FillInPage(rowsOf(set, result.records()), result.nextCursor());
+        }
+        return waitingPage(set, query, result, top, limit);
+    }
+
+    private static boolean waitingAtTop(String waiting) {
+        return switch (waiting.strip().toLowerCase(Locale.ROOT)) {
+            case "review" -> false;
+            case "top" -> true;
+            default -> throw ApiException.validation("waiting", "Choose review or top.");
+        };
+    }
+
+    /**
+     * The fill-ins of the pages that wait at the last step ({@code top}) or before it (MC3, ADR-0262). The record store
+     * judged every row first; this only drops the rows whose pending request is at the other kind of step, reading the
+     * steps of a whole page in one statement. A page may therefore be short while a cursor remains; it reads on, a few
+     * pages at the most, until the page is full.
+     */
+    private FillInPage waitingPage(RecordSet set, RecordQuery first, QueryResult firstResult, boolean top, int limit) {
+        List<QueriedRecord> kept = new ArrayList<>();
+        QueryResult page = firstResult;
+        for (int round = 0; ; round++) {
+            Map<UUID, ApprovalDecisions.PendingStep> steps = decisions.pendingSteps(set.fill(),
+                    page.records().stream().map(found -> found.record().id()).toList());
+            for (QueriedRecord found : page.records()) {
+                ApprovalDecisions.PendingStep step = steps.get(found.record().id());
+                if (step != null && step.last() == top) {
+                    kept.add(found);
+                }
+            }
+            if (kept.size() >= limit || page.nextCursor() == null || round >= WAITING_ROUNDS) {
+                break;
+            }
+            page = records.query(set.fill(), new RecordQuery(first.filter(), first.sort(), first.fields(),
+                    first.resolve(), first.limit(), page.nextCursor()));
+        }
+        return new FillInPage(rowsOf(set, kept), page.nextCursor());
     }
 
     /** The search text as a condition: part of the name, or the whole word of a status. */

@@ -46,7 +46,8 @@ final class SolutionLoader {
     private static final Set<String> BUNDLE_KEYS = Set.of("key", "feature", "label", "removalNote", "application",
             "applications", "objects", "sheetOwners", "accessPolicies", "uses", "order", "roles", "options",
             "settings");
-    private static final Set<String> SETTING_KEYS = Set.of("key", "label", "description", "kind", "default");
+    private static final Set<String> SETTING_KEYS = Set.of("key", "label", "description", "kind", "default",
+            "below");
     /** The name of a part (a role): a lower camel case word, chosen by the module that owns the functions. */
     private static final Pattern ROLE = Pattern.compile("[a-z][A-Za-z0-9]{0,29}");
     /** The value of an option: a short word or number, no space and no markup. */
@@ -209,9 +210,23 @@ final class SolutionLoader {
             if (!(setting.optional("default") instanceof Integer value) || !kind.accepts(value)) {
                 throw new IllegalStateException(setting.where() + ": 'default' is a whole number the kind accepts");
             }
+            Object below = setting.optional("below");
             settings.add(new SolutionBundle.Setting(key,
                     setting.pattern("label", PLAIN_LABEL, "a plain label of at most 80 characters"),
-                    setting.pattern("description", PLAIN_TEXT, "plain text of at most 500 characters"), kind, value));
+                    setting.pattern("description", PLAIN_TEXT, "plain text of at most 500 characters"), kind, value,
+                    below == null ? null : setting.pattern("below", ROLE, "the key of another setting")));
+        }
+        for (SolutionBundle.Setting setting : settings) {
+            if (setting.below() == null) {
+                continue;
+            }
+            SolutionBundle.Setting other = settings.stream().filter(one -> one.key().equals(setting.below()))
+                    .findFirst().orElseThrow(() -> new IllegalStateException("settings: '" + setting.key()
+                            + "' is below '" + setting.below() + "', which is not declared"));
+            if (other.key().equals(setting.key()) || setting.defaultValue() >= other.defaultValue()) {
+                throw new IllegalStateException("settings: the default of '" + setting.key()
+                        + "' must be lower than that of '" + other.key() + "'");
+            }
         }
         return settings;
     }

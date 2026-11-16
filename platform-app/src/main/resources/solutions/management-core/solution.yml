@@ -19,6 +19,8 @@
 #   * publishTo and publishDepartment (MC2A, ADR-0260): the creator of a document of this application publishes it to
 #     the plants: each plant is a location that has a group of plant heads (the fixed department), and the creator
 #     chooses the reviewers of each plant. The publish of Document Management is not changed by them;
+#   * dashboard: management (MC3, ADR-0262): its Home page is the dashboard that compares the plants month by month
+#     instead of the Quality Management System one;
 #   * monthlyFillIn (MC2A, ADR-0260): a plant head starts one fill-in each month for their plant; the fill-in carries the
 #     plant and the month, and one exists for a document, a plant and a month. The reviewers of a fill-in are the ones
 #     the creator chose for its plant (the approver rule PUBLICATION_REVIEWERS in the fill-in's approval process).
@@ -45,6 +47,7 @@ options:
   monthlyFillIn: "true"
   publishTo: places
   publishDepartment: PLANTHEAD
+  dashboard: management
 # MC2B, ADR-0261: what an organization may change for this application in Setup, Application settings. The value here
 # is the default, so the application works with no setup. scoreLimit is the percent below which a fill-in whose sheet
 # marks a score needs an Action plan; a score equal to it needs none.
@@ -54,6 +57,20 @@ settings:
     description: A fill-in whose score is below this whole percent needs an Action plan. A score equal to it needs none.
     kind: PERCENT
     default: 85
+  # MC3, ADR-0262: the words the Home dashboard puts next to a score. A score above "excellentAbove" is Excellent, above
+  # "goodAbove" is Good, and anything else is Poor. They are words for reading a score; the Action plan rule is the limit
+  # above and is not these. Good must stay below Excellent (the setting refuses a value that breaks the order).
+  - key: excellentAbove
+    label: Excellent above
+    description: A score above this percent is called Excellent on the Management Core dashboard.
+    kind: PERCENT
+    default: 85
+  - key: goodAbove
+    label: Good above
+    description: A score above this percent, up to the Excellent line, is called Good. Anything else is called Poor.
+    kind: PERCENT
+    default: 65
+    below: excellentAbove
 application:
   apiName: management-core
   label: Management Core

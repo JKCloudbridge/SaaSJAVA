@@ -6162,3 +6162,99 @@ a.board-figure:focus-visible .board-figure-value {
 .board-figures {
   grid-template-columns: 1fr;
 }
+
+/* The Home page that compares the plants (MC3, ADR-0262): the limit across a score bar, the lines over the months, the
+   ranking and the Action plan split. Tokens only; a series differs by shape, dash or pattern as well as by colour. */
+.score-track {
+  position: relative;
+}
+
+.score-limit {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  background: var(--color-danger);
+}
+
+.score-limit-line {
+  stroke: var(--color-danger);
+  stroke-width: 1.5;
+  stroke-dasharray: 5 4;
+}
+
+.score-value {
+  min-width: 8em;
+}
+
+.band-word {
+  color: var(--color-text-muted);
+  font-weight: 400;
+}
+
+.score-line {
+  fill: none;
+  stroke-width: 2.5;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+}
+
+.score-lines-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2) var(--space-4);
+  margin: var(--space-2) 0 0;
+  padding: 0;
+  list-style: none;
+  font-size: var(--font-size-sm);
+}
+
+.score-lines-legend li {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1-5);
+}
+
+.score-lines-key {
+  width: 2rem;
+  height: 1rem;
+  overflow: visible;
+}
+
+.rank-list {
+  display: grid;
+  gap: var(--space-1-5);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.rank-row {
+  display: grid;
+  grid-template-columns: 2rem 1fr auto auto;
+  gap: var(--space-2-5);
+  align-items: baseline;
+  padding: var(--space-1-5) 0;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.rank-number,
+.rank-score {
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+}
+
+.plan-track {
+  display: flex;
+  min-width: var(--space-2);
+}
+
+.plan-part {
+  display: block;
+  min-width: var(--space-0-5);
+}
+
+.dash-notes {
+  display: grid;
+  gap: var(--space-1);
+}

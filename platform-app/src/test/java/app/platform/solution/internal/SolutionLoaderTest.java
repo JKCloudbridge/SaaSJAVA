@@ -466,11 +466,67 @@ class SolutionLoaderTest {
     }
 
     @Test
-    void managementCoreDeclaresTheLimitOfTheScoreWithTheDefaultOfEightyFive() {
+    void managementCoreDeclaresTheLimitOfTheScoreAndTheWordsOfTheBandsWithTheirDefaults() {
         SolutionBundle bundle = SolutionLoader.load().stream().filter(one -> one.key().equals("management-core"))
                 .findFirst().orElseThrow();
 
-        assertThat(bundle.settings()).extracting(SolutionBundle.Setting::key).containsExactly("scoreLimit");
+        assertThat(bundle.settings()).extracting(SolutionBundle.Setting::key)
+                .containsExactly("scoreLimit", "excellentAbove", "goodAbove");
         assertThat(bundle.settings().get(0).defaultValue()).isEqualTo(85);
+        assertThat(bundle.settings().get(1).defaultValue()).isEqualTo(85);
+        assertThat(bundle.settings().get(2).defaultValue()).isEqualTo(65);
+        assertThat(bundle.settings().get(2).below()).as("Good stays below Excellent").isEqualTo("excellentAbove");
+        assertThat(bundle.settings().get(0).below()).isNull();
+        assertThat(bundle.options()).containsEntry("dashboard", "management");
+    }
+
+    // ---- a setting that must stay below another (MC3, ADR-0262) ----
+
+    private static final String BANDS = """
+            settings:
+              - key: excellentAbove
+                label: Excellent above
+                description: Above this is Excellent.
+                kind: PERCENT
+                default: 85
+              - key: goodAbove
+                label: Good above
+                description: Above this is Good.
+                kind: PERCENT
+                default: 65
+                below: excellentAbove
+            """;
+
+    @Test
+    void aSettingMayNameAnotherItMustStayBelow(@TempDir Path dir) throws IOException {
+        write(dir, "demo", GOOD + BANDS);
+
+        SolutionBundle bundle = load(dir).get(0);
+
+        assertThat(bundle.settings().get(1).below()).isEqualTo("excellentAbove");
+        assertThat(bundle.settings().get(0).below()).isNull();
+    }
+
+    @Test
+    void aSettingBelowAKeyNobodyDeclaredStopsTheStart(@TempDir Path dir) throws IOException {
+        write(dir, "demo", GOOD + BANDS.replace("below: excellentAbove", "below: nothingLikeIt"));
+
+        assertThatThrownBy(() -> load(dir)).isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("not declared");
+    }
+
+    @Test
+    void aDefaultThatAlreadyBreaksTheOrderStopsTheStart(@TempDir Path dir) throws IOException {
+        write(dir, "demo", GOOD + BANDS.replace("default: 65", "default: 90"));
+
+        assertThatThrownBy(() -> load(dir)).isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("must be lower");
+    }
+
+    @Test
+    void aSettingCannotBeBelowItself(@TempDir Path dir) throws IOException {
+        write(dir, "demo", GOOD + BANDS.replace("below: excellentAbove", "below: goodAbove"));
+
+        assertThatThrownBy(() -> load(dir)).isInstanceOf(IllegalStateException.class);
     }
 }

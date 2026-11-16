@@ -50,8 +50,15 @@ record SolutionBundle(String key, String feature, String label, String removalNo
      * @param description what it is for, in plain words
      * @param kind how a value is typed and checked
      * @param defaultValue the value an organization has until it chooses one
+     * @param below the key of another setting of the same solution whose value this one must stay strictly under (MC3,
+     *        ADR-0262: the band words of a dashboard), or null for none
      */
-    record Setting(String key, String label, String description, Kind kind, int defaultValue) {
+    record Setting(String key, String label, String description, Kind kind, int defaultValue, String below) {
+
+        /** A setting that has no ordering rule. */
+        Setting(String key, String label, String description, Kind kind, int defaultValue) {
+            this(key, label, description, kind, defaultValue, null);
+        }
 
         /** How a value is typed and checked. */
         enum Kind {
