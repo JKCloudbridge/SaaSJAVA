@@ -72,11 +72,23 @@ final class SheetImportBuilder {
      * @param firstRowIsTitle whether the first row of the table is a title: one merged area across its whole width
      * @param worksheets the visible worksheets of a workbook, empty for a text file
      * @param worksheet the worksheet that was read, among the visible ones, or -1 for a text file
-     * @param embeddedFilePlaces the cells where an embedded file stood, at most a hundred
+     * @param embeddedFilePlaces the cells where an embedded file stood that did not become an attachment cell (in
+     *         format version 1 every such cell), at most a hundred
+     * @param unplacedBoxPlaces the cells where a check box stood that could not be made part of a cell, at most a
+     *         hundred (SH5.1)
+     * @param firstBodyRow the row of the file, from zero, that became the first row of the sheet, or -1 when the
+     *         sheet names no rows (the filler adds them); a place of the file is on the sheet's row
+     *         {@code row - firstBodyRow + 1} and in the same column, because the table always starts at column A
      */
     record Report(int columns, int rows, int mergedAreas, List<ImportNote.Entry> notes, boolean firstRowLabels,
             boolean firstRowIsTitle, List<RawSheet.Worksheet> worksheets, int worksheet,
-            List<RawSheet.Place> embeddedFilePlaces) {
+            List<RawSheet.Place> embeddedFilePlaces, List<RawSheet.Place> unplacedBoxPlaces, int firstBodyRow) {
+
+        /** The sheet's row number (from one) of a place of the file, or null when the place is not a row of it. */
+        Integer sheetRow(RawSheet.Place place, int sheetRows) {
+            int row = firstBodyRow < 0 ? -1 : place.row() - firstBodyRow + 1;
+            return row >= 1 && row <= sheetRows ? row : null;
+        }
     }
 
     /**
@@ -104,6 +116,8 @@ final class SheetImportBuilder {
     private static final int MOST_FREEZE_COLUMNS = 20;
     /** The key of the one sheet a template holds for now. */
     private static final String SHEET_KEY = "main";
+    /** The kind of an input cell that takes files (SH5, ADR-0254). */
+    private static final String ATTACHMENT = "attachment";
 
     private final SheetProperties.Limits limits;
     private final FormulaLimits formulaLimits;
@@ -210,15 +224,23 @@ final class SheetImportBuilder {
         SheetGrid grid = new SheetGrid(options.dimension(), options.rowsMode(), columns, List.of(), lines, cells,
                 merges);
         SheetDocument document = null;
+        List<RawSheet.Place> unplaced = new ArrayList<>();
+        // Format version 1 has no attachment cell: every place where a file stood is listed, as before.
+        List<RawSheet.Place> filesNotPlaced = two ? new ArrayList<>() : raw.embeddedAt;
         if (two) {
             Context context = new Context(raw, bodyStart, maxRow, maxColumn, rowIds, columns, cells, dimension2,
-                    formulas);
+                    formulas, accepted, unplaced, new HashSet<>(), filesNotPlaced);
             document = new SheetDocument(List.of(sheet(context, grid)));
+            // A cell that became a Yes/No cell with a reason no longer holds its text: the body is the document's.
+            grid = document.sheets().get(0).body();
         }
-        List<RawSheet.Place> places = raw.embeddedAt.size() > MOST_PLACES ? raw.embeddedAt.subList(0, MOST_PLACES)
-                : raw.embeddedAt;
         return new Built(grid, document, new Report(columns.size(), lines.size(), merges.size(), notes.entries(),
-                labels, title, raw.worksheets, raw.worksheet, List.copyOf(places)));
+                labels, title, raw.worksheets, raw.worksheet, firstPlaces(filesNotPlaced), firstPlaces(unplaced),
+                dimension2 ? bodyStart : -1));
+    }
+
+    private static List<RawSheet.Place> firstPlaces(List<RawSheet.Place> places) {
+        return List.copyOf(places.size() > MOST_PLACES ? places.subList(0, MOST_PLACES) : places);
     }
 
     /**
@@ -437,9 +459,18 @@ final class SheetImportBuilder {
 
     // ---- format version 2 ----
 
-    /** What the version 2 part of the build needs to know about the grid that was made. */
+    /**
+     * What the version 2 part of the build needs to know about the grid that was made.
+     *
+     * @param areas the merged areas that came in
+     * @param unplaced where a check box stood that could not be made part of a cell, filled by the build
+     * @param prompted the cell keys whose text became the prompt of a Yes/No cell with a reason, filled by the build
+     * @param filesNotPlaced where an embedded file stood that did not become an attachment cell, filled by the build
+     */
     private record Context(RawSheet raw, int bodyStart, int maxRow, int maxColumn, List<String> rowIds,
-            List<Column> columns, Map<String, Cell> cells, boolean named, FormulaImport.Result formulas) {
+            List<Column> columns, Map<String, Cell> cells, boolean named, FormulaImport.Result formulas,
+            List<RawSheet.Area> areas, List<RawSheet.Place> unplaced, Set<String> prompted,
+            List<RawSheet.Place> filesNotPlaced) {
 
         String key(int row, int column) {
             return rowIds.get(row - bodyStart) + ":" + columns.get(column).id();
@@ -474,20 +505,38 @@ final class SheetImportBuilder {
         Map<String, Input> inputs = new LinkedHashMap<>();
         List<Condition> conditions = new ArrayList<>();
         if (context.named()) {
+            // The inputs first: a cell whose text becomes a prompt is no longer fixed text, so it keeps no link.
+            inputs(context, inputs);
+            attachments(context, inputs);
             looks(context, looks);
             links(context, links);
-            inputs(context, inputs);
             conditions(context, conditions);
         } else {
             notes.add(ImportNote.CONDITIONS_LEFT_OUT, raw.rules.size());
             notes.add(ImportNote.LINKS_NOT_KEPT, raw.links.size());
             notes.add(ImportNote.BOXES_NOT_PLACED, boxesIn(raw.yesNo) + raw.unplacedBoxes.size());
+            raw.yesNo.forEach(box -> context.unplaced().add(new RawSheet.Place(box.row(), box.column())));
+            context.unplaced().addAll(raw.unplacedBoxes);
+            // A sheet whose filler adds the rows has no cell where a file stood: every place is listed.
+            context.filesNotPlaced().addAll(raw.embeddedAt);
+            notes.add(ImportNote.FILES_NOT_PLACED, raw.embeddedAt.size());
         }
         Freeze freeze = freeze(context, grid);
         Print print = raw.print == null ? null : new Print(raw.print.paper(), raw.print.orientation(),
                 raw.print.fitToWidth(), raw.print.repeatHeaderRows());
-        return new Tab(SHEET_KEY, raw.title, true, freeze, print, inputs, grid, looks, links, conditions)
-                .withFormulas(context.formulas().cells(), context.formulas().columns());
+        return new Tab(SHEET_KEY, raw.title, true, freeze, print, inputs, withoutPrompts(grid, context.prompted()),
+                looks, links, conditions).withFormulas(context.formulas().cells(), context.formulas().columns());
+    }
+
+    /** The body with the cells whose text became a prompt left empty: the prompt lives in the stated input cell. */
+    private static SheetGrid withoutPrompts(SheetGrid grid, Set<String> prompted) {
+        if (prompted.isEmpty()) {
+            return grid;
+        }
+        Map<String, Cell> cells = new LinkedHashMap<>(grid.cells());
+        prompted.forEach(cells::remove);
+        return new SheetGrid(grid.dimension(), grid.rowsMode(), grid.columns(), grid.headerRows(), grid.rows(), cells,
+                grid.merges());
     }
 
     private static int boxesIn(List<RawSheet.YesNo> cells) {
@@ -528,7 +577,7 @@ final class SheetImportBuilder {
             int row = (int) (link.getKey() >> 32);
             int column = (int) (link.getKey() & 0xffffffffL);
             String cellKey = context.inside(row, column) ? context.key(row, column) : null;
-            Cell cell = cellKey == null ? null : context.cells().get(cellKey);
+            Cell cell = cellKey == null || context.prompted().contains(cellKey) ? null : context.cells().get(cellKey);
             if (cell != null && cell.value() instanceof String text && !text.isEmpty()
                     && link.getValue().length() <= limits.maxLinkChars()) {
                 links.put(cellKey, link.getValue());
@@ -538,72 +587,97 @@ final class SheetImportBuilder {
         }
     }
 
-    /** A check box makes a blank cell a yes/no cell; a box on a cell that holds text is reported, never merged. */
+    /**
+     * Check boxes become cells to fill in, in the cell they stand on (SH5.1, ADR-0263). A box on a cell under a
+     * merged area stands on the area's top left cell. On a blank cell (or one whose text is only the words Yes or No,
+     * the box's caption) the cell becomes a yes/no cell; on a cell that holds any other text the cell becomes a Yes/No
+     * cell with a reason and its text becomes the prompt. A box outside the table, or on a cell that holds a formula or
+     * other fixed content without text, is listed by its place for the author to set by hand.
+     */
     private static void inputs(Context context, Map<String, Input> inputs) {
         RawSheet raw = context.raw();
         int boxes = 0;
         int pairs = 0;
-        int beside = 0;
+        int prompted = 0;
         int notPlaced = raw.unplacedBoxes.size();
-        List<RawSheet.YesNo> onText = new ArrayList<>();
-        Set<Long> boxCells = new HashSet<>();
+        context.unplaced().addAll(raw.unplacedBoxes);
         for (RawSheet.YesNo cell : raw.yesNo) {
-            boxCells.add(key(cell.row(), cell.column()));
-        }
-        for (RawSheet.YesNo cell : raw.yesNo) {
-            String cellKey = context.inside(cell.row(), cell.column()) ? context.key(cell.row(), cell.column()) : null;
+            int[] at = anchorOf(context.areas(), cell.row(), cell.column());
+            String cellKey = context.inside(at[0], at[1]) ? context.key(at[0], at[1]) : null;
             Cell found = cellKey == null ? null : context.cells().get(cellKey);
-            boolean covered = cellKey != null && coveredBy(raw, cell.row(), cell.column());
-            if (cellKey != null && !covered && found != null && found.value() != null) {
-                onText.add(cell);
-            } else if (cellKey == null || covered) {
+            Input before = cellKey == null ? null : inputs.get(cellKey);
+            String text = found != null && found.value() instanceof String held && !held.isBlank() ? held : null;
+            boolean formula = cellKey != null && context.formulas().positions().contains(key(at[0], at[1]));
+            boolean otherFixed = found != null && text == null && (found.kind() == Kind.FIXED || found.value() != null);
+            if (cellKey == null || formula || otherFixed) {
                 notPlaced += cell.boxes();
-            } else {
-                inputs.put(cellKey, new Input("boolean", false, InputClass.FILLER, null, null));
-                boxes += cell.boxes();
-                if (cell.boxes() == 2) {
-                    pairs++;
+                context.unplaced().add(new RawSheet.Place(cell.row(), cell.column()));
+                continue;
+            } else if (text != null || before != null && before.prompt() != null) {
+                if (text != null) {
+                    inputs.put(cellKey, new Input(SheetDocument.BOOLEAN_REASON, false, InputClass.FILLER, null, null,
+                            text));
+                    context.prompted().add(cellKey);
                 }
-            }
-        }
-        // A box over a question: the question stays, and the cell just after it (and after its merged area) becomes
-        // the yes/no cell when that cell is inside the table, empty, free and not itself under a box.
-        for (RawSheet.YesNo cell : onText) {
-            int column = rightEdge(raw, cell.row(), cell.column()) + 1;
-            String target = context.inside(cell.row(), column) ? context.key(cell.row(), column) : null;
-            if (target != null && !coveredBy(raw, cell.row(), column) && context.cells().get(target) == null
-                    && !inputs.containsKey(target) && !boxCells.contains(key(cell.row(), column))) {
-                inputs.put(target, new Input("boolean", false, InputClass.FILLER, null, null));
-                beside += cell.boxes();
+                prompted += cell.boxes();
             } else {
-                notPlaced += cell.boxes();
+                if (before == null) {
+                    inputs.put(cellKey, new Input("boolean", false, InputClass.FILLER, null, null));
+                }
+                boxes += cell.boxes();
+            }
+            if (cell.boxes() == 2) {
+                pairs++;
             }
         }
         raw.notes.add(ImportNote.CHECK_BOXES, boxes);
         raw.notes.add(ImportNote.YES_NO_PAIRS, pairs);
-        raw.notes.add(ImportNote.BOXES_BESIDE, beside);
+        raw.notes.add(ImportNote.BOXES_WITH_PROMPT, prompted);
         raw.notes.add(ImportNote.BOXES_NOT_PLACED, notPlaced);
     }
 
-    /** The last column of the merged area that starts at the position, else the column itself. */
-    private static int rightEdge(RawSheet raw, int row, int column) {
-        for (RawSheet.Area area : raw.merges) {
-            if (area.top() == row && area.left() == column) {
-                return area.right();
+    /**
+     * The cells where an embedded file stood become attachment cells (SH5.1, ADR-0263): the form asked for a file
+     * there, so the person who fills it in attaches one. The file itself is never kept. A file on a cell under a merged
+     * area stands on the area's top left cell. The cell must be inside the table and hold nothing: no text, no formula,
+     * no other fixed content and no cell to fill of another kind (a check box on the same cell wins, because it says
+     * more). Two files on one cell make one attachment cell. Every other place is listed for the author. The cell
+     * takes the defaults of an attachment cell: up to 5 files, not required, filled by the filler.
+     */
+    private static void attachments(Context context, Map<String, Input> inputs) {
+        RawSheet raw = context.raw();
+        Set<String> made = new HashSet<>();
+        int notPlaced = 0;
+        for (RawSheet.Place place : raw.embeddedAt) {
+            int[] at = anchorOf(context.areas(), place.row(), place.column());
+            String cellKey = context.inside(at[0], at[1]) ? context.key(at[0], at[1]) : null;
+            if (cellKey != null && made.contains(cellKey)) {
+                continue;
             }
+            Cell found = cellKey == null ? null : context.cells().get(cellKey);
+            boolean holds = found != null && (found.value() != null || found.kind() == Kind.FIXED);
+            boolean formula = cellKey != null && context.formulas().positions().contains(key(at[0], at[1]));
+            if (cellKey == null || holds || formula || inputs.containsKey(cellKey)
+                    || context.prompted().contains(cellKey)) {
+                notPlaced++;
+                context.filesNotPlaced().add(place);
+                continue;
+            }
+            inputs.put(cellKey, new Input(ATTACHMENT, false, InputClass.FILLER, null, null));
+            made.add(cellKey);
         }
-        return column;
+        raw.notes.add(ImportNote.ATTACHMENT_CELLS, made.size());
+        raw.notes.add(ImportNote.FILES_NOT_PLACED, notPlaced);
     }
 
-    /** Whether the position is a cell under a merged area, that is not its top left cell. */
-    private static boolean coveredBy(RawSheet raw, int row, int column) {
-        for (RawSheet.Area area : raw.merges) {
-            if (row >= area.top() && row <= area.bottom() && column >= area.left() && column <= area.right()
-                    && (row != area.top() || column != area.left())) {
-                return true;
+    /** The top left cell of the merged area (one that came in) that covers the position, else the position itself. */
+    private static int[] anchorOf(List<RawSheet.Area> areas, int row, int column) {
+        for (RawSheet.Area area : areas) {
+            if (row >= area.top() && row <= area.bottom() && column >= area.left() && column <= area.right()) {
+                return new int[] {area.top(), area.left()};
             }
         }
-        return false;
+        return new int[] {row, column};
     }
 
     /** The conditional colours, cut to the part of the sheet that was kept; one that lies outside is counted. */

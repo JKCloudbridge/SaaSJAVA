@@ -117,7 +117,10 @@ final class FillValues {
                 case DATE -> cell instanceof String text
                         ? new Value(rowId, column.id(), Kind.DATE, null, null, LocalDate.parse(text), null) : null;
                 case BOOLEAN -> cell instanceof Boolean flag
-                        ? new Value(rowId, column.id(), Kind.BOOLEAN, null, null, null, flag) : null;
+                        ? new Value(rowId, column.id(), Kind.BOOLEAN, null, null, null, flag)
+                        // the answer of a Yes/No cell with a reason; the reason is free text and never reported
+                        : cell instanceof FillDoc.Choice choice && choice.answer() != null
+                        ? new Value(rowId, column.id(), Kind.BOOLEAN, null, null, null, choice.answer()) : null;
                 default -> null;
             };
         } catch (NumberFormatException | java.time.DateTimeException e) {

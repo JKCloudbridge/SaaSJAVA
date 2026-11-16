@@ -45,7 +45,9 @@ describe("the print view of a sheet in format version 2", () => {
 
     expect(table.querySelector("thead")?.children).toHaveLength(0);
     expect(within(table.querySelector("tbody") as HTMLElement).getByText("Inspection")).toBeInTheDocument();
-    expect((table.querySelector("col") as HTMLElement).style.width).toBe("160px");
+    // not fitted to the width of the page: the table keeps the sheet's own widths when printed too
+    expect(table).not.toHaveClass("sheet-print-fit");
+    expect((table.querySelector("col") as HTMLElement).style.getPropertyValue("--col-px")).toBe("160px");
   });
 
   it("leaves a sheet in the earlier format exactly as it was: no looked class, no custom property", () => {

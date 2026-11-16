@@ -10,7 +10,21 @@
  * fill-in in format 3, the identifiers of the files of the fill-in's header record. A file is never named by an address
  * or a file name in a cell.
  */
-export type FillValue = string | boolean | string[];
+export type FillValue = string | boolean | string[] | FillChoice;
+
+/**
+ * The value of a Yes/No cell with a reason (format 3, SH5.1, ADR-0263): the answer and the reason the person typed;
+ * either may be missing, never both. A formula and a report see only the answer.
+ */
+export interface FillChoice {
+  answer?: boolean;
+  reason?: string;
+}
+
+/** Whether a value is the answer and reason of a Yes/No cell with a reason. */
+export function isChoice(value: FillValue | undefined | null): value is FillChoice {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
 
 /** One row: the identifier of a row of the sheet, or one this browser made for a row the filler added. */
 export type FillStyle = import("./types").CellStyle;

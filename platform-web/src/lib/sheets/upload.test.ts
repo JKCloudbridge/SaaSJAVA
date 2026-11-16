@@ -119,4 +119,14 @@ describe("the choice of a worksheet", () => {
       ]),
     ).toBe("B12, AA14");
   });
+
+  it("gives the sheet's address beside the file's when rows above the table did not become rows of the sheet (SH5.1)", () => {
+    expect(
+      placesWords([
+        { row: 12, column: "B", sheetRow: 10 },
+        { row: 5, column: "C", sheetRow: 5 },
+        { row: 1, column: "D", sheetRow: null },
+      ]),
+    ).toBe("B12 in the file (B10 on the sheet), C5, D1");
+  });
 });

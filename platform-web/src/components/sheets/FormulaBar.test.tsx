@@ -40,6 +40,16 @@ function draw(initial: GridDoc = sheet(), withLimits: SheetLimits = limits) {
 }
 
 describe("the formula bar of the author's grid", () => {
+  it("shows the address of the selected cell before the formula, as the formulas write it (SH5.1)", () => {
+    draw();
+    expect(screen.getByTestId("name-box")).toHaveTextContent("A1");
+    fireEvent.keyDown(screen.getByRole("grid"), { key: "ArrowDown" });
+    fireEvent.keyDown(screen.getByRole("grid"), { key: "ArrowRight" });
+
+    // the bar is drawn again for the new cell, so it is looked up again
+    expect(screen.getByTestId("name-box")).toHaveTextContent("B2");
+  });
+
   it("gives the selected cell a formula typed with an equals sign and shows its answer as plain text", () => {
     const { doc } = draw();
     const bar = screen.getByRole("textbox", { name: "Formula bar" });

@@ -21,6 +21,13 @@ describe("the print model of a sheet", () => {
     expect(model.body.map((row) => row.id)).toEqual(["r1", "r2", "r3"]);
   });
 
+  it("prints a sheet in format version 2 as the form looks, with no band of column labels (SH5.1)", () => {
+    const doc: GridDoc = { ...sampleDoc(), formatVersion: 2, sheet: { key: "main", cells: {} } };
+
+    expect(printModel(doc).head.map((row) => row.id)).toEqual(["h1", "h2"]);
+    expect(printModel(doc, { labels: true }).head.map((row) => row.id)).toEqual(["labels", "h1", "h2"]);
+  });
+
   it("shows the cells a filler types into empty and the sheet's own text as it is", () => {
     const doc: GridDoc = {
       ...sampleDoc(),

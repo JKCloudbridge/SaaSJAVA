@@ -105,6 +105,20 @@ describe("a formula typed in a cell", () => {
   });
 });
 
+describe("numbers written in fixed cells (SH5.1)", () => {
+  it("count in SUM and in a plus, as the server reads them; words and dates stay text", () => {
+    let doc = applied(setCellFormula(named(), "r3", "c1", "=SUM(A2:A3)", spec));
+    doc = applied(setCellFormula(doc, "r3", "c2", "=A2+A3", spec));
+
+    const shown = answers(doc, spec);
+    expect(shown.cells["r3:c1"]).toBe("5");
+    expect(shown.cells["r3:c2"]).toBe("5");
+
+    const words = { ...doc, cells: { ...doc.cells, "r2:c1": { value: "2025-12-01", kind: "fixed" as const } } };
+    expect(answers(words, spec).cells["r3:c1"]).toBe("2");
+  });
+});
+
 describe("a formula in a column", () => {
   it("is the formula of a column drawn at the first row of the body", () => {
     const doc = applied(setColumnFormula(repeating(), "c2", '=IF(A2="","",A2*2)', spec));
@@ -157,7 +171,8 @@ describe("the answers the browser shows while a person types", () => {
 
     const shown = answers(doc, spec);
 
-    expect(shown.cells["r3:c1"]).toBe("0");
+    // the two fixed cells hold the numbers 2 and 3: a number written in a fixed cell counts (SH5.1, it was 0 before)
+    expect(shown.cells["r3:c1"]).toBe("5");
     expect(shown.cells["r3:c2"]).toBe("#DIV/0!");
   });
 

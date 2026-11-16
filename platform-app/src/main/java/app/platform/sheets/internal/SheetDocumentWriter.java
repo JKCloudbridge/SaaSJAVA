@@ -80,9 +80,10 @@ final class SheetDocumentWriter {
         boolean attachment = "attachment".equals(input.type());
         Integer maxFiles = attachment && input.maxFiles() != null && input.maxFiles() != SheetDocument.DEFAULT_MAX_FILES
                 ? input.maxFiles() : null;
-        Input one = new Input(input.type(), input.required(), input.cls(), input.picklist(), maxFiles);
+        Input one = new Input(input.type(), input.required(), input.cls(), input.picklist(), maxFiles,
+                input.prompt());
         boolean says = one.type() != null || one.required() || one.cls() != InputClass.FILLER || one.picklist() != null
-                || one.maxFiles() != null;
+                || one.maxFiles() != null || one.prompt() != null;
         return says ? one : null;
     }
 
@@ -234,6 +235,9 @@ final class SheetDocumentWriter {
         }
         if (input.maxFiles() != null) {
             out.put("maxFiles", input.maxFiles());
+        }
+        if (input.prompt() != null) {
+            out.put("prompt", input.prompt());
         }
         return out;
     }

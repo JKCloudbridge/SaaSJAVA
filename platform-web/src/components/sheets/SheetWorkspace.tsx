@@ -8,7 +8,6 @@ import {
   saveGrid,
   startVersion,
   type NewVersion,
-  type PrintDescription,
   type SheetOwner,
   type VersionSummary,
 } from "@/lib/sheets/api";
@@ -341,7 +340,6 @@ export function SheetWorkspace({
           label={label}
           summary={version.version.version}
           initial={fromApi(version.version.grid)}
-          print={version.version.print}
           limits={limits}
           canChange={canChange}
           canChangeHeld={canChangeHeld}
@@ -367,7 +365,6 @@ function VersionEditor({
   label,
   summary: first,
   initial,
-  print,
   limits,
   canChange,
   canChangeHeld,
@@ -384,8 +381,6 @@ function VersionEditor({
   label: string;
   summary: VersionSummary;
   initial: GridDoc;
-  /** The server's description of the page, as saved: the print view draws it and works out no page of its own. */
-  print?: PrintDescription;
   limits: SheetLimits;
   canChange: boolean;
   canChangeHeld: boolean;
@@ -612,7 +607,6 @@ function VersionEditor({
       {viewing ? (
         <SheetPrintView
           doc={editor.doc}
-          print={print}
           answers={printAnswers}
           footer={footerText ?? ""}
           label={`${label}, ${versionTitle(summary).toLowerCase()}`}

@@ -14,6 +14,11 @@ export const DEFAULT_COLUMN_WIDTH = 120;
 export const FOOTER_HEIGHT = 24;
 /** The height of the band of column labels above the first row, in pixels. */
 export const LABEL_BAND_HEIGHT = 28;
+/**
+ * The width of the band of row numbers at the left of a sheet in format version 2 (SH5.1), in pixels: room for four
+ * digits, more than a sheet may have rows.
+ */
+export const ROW_NUMBER_WIDTH = 44;
 /** How many blank sample rows a grid whose filler adds the rows shows. */
 export const BLANK_ROWS = 10;
 

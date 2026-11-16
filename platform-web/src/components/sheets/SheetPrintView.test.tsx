@@ -67,58 +67,24 @@ describe("the print view", () => {
     expect(print).toHaveBeenCalledTimes(1);
   });
 
-  it("asks for A4, portrait for a narrow sheet", () => {
-    draw();
-
-    expect(screen.getByTestId("sheet-print-view").querySelector("style")?.textContent).toContain("size: A4 portrait");
-    expect(screen.getByTestId("sheet-print-view").querySelector(".sheet-print-page")).toHaveClass("sheet-print-portrait");
-  });
-
-  it("asks for A4 landscape for a wide sheet", () => {
+  it("shows the whole sheet at the width it really has, forces no paper and leaves the choice to the print window (SH5.1)", () => {
     draw({ ...sampleDoc(), columns: sampleDoc().columns.map((column) => ({ ...column, width: 400 })) });
-
-    expect(screen.getByTestId("sheet-print-view").querySelector("style")?.textContent).toContain("size: A4 landscape");
-    expect(screen.getByTestId("sheet-print-view").querySelector(".sheet-print-page")).toHaveClass("sheet-print-landscape");
-  });
-
-  it("draws the page the server describes and works out no orientation of its own (SH3)", () => {
-    const print = {
-      paper: "A3",
-      orientation: "landscape",
-      pageWidthMm: 420,
-      pageHeightMm: 297,
-      marginLeft: 0.5,
-      marginRight: 0.5,
-      marginTop: 0.6,
-      marginBottom: 0.6,
-    };
-    // The sheet is narrow, so its own width rule would say portrait: the server's description wins.
-    render(<SheetPrintView doc={sampleDoc()} print={print} footer="" label="Fire checks" onClose={vi.fn()} />);
-
     const view = screen.getByTestId("sheet-print-view");
-    expect(view.querySelector("style")?.textContent).toContain("size: A3 landscape");
+
+    // no paper rule is written (the print window offers the paper size and Portrait or Landscape), and no A4 box
+    expect(view.querySelector("style")).toBeNull();
     const page = view.querySelector(".sheet-print-page") as HTMLElement;
-    expect(page).toHaveClass("sheet-print-landscape");
-    expect(page.style.width).toBe("420mm");
-    expect(view).toHaveTextContent("A3, landscape.");
-  });
-
-  it("keeps the A4 widths of the tokens for an A4 description", () => {
-    const print = {
-      paper: "A4",
-      orientation: "portrait",
-      pageWidthMm: 210,
-      pageHeightMm: 297,
-      marginLeft: 0.5,
-      marginRight: 0.5,
-      marginTop: 0.6,
-      marginBottom: 0.6,
-    };
-    render(<SheetPrintView doc={sampleDoc()} print={print} footer="" label="Fire checks" onClose={vi.fn()} />);
-
-    const page = screen.getByTestId("sheet-print-view").querySelector(".sheet-print-page") as HTMLElement;
-    expect(page).toHaveClass("sheet-print-portrait");
+    expect(page.className).toBe("sheet-print-page");
     expect(page.style.width).toBe("");
+    // three columns of 400 pixels: the table is 1200 pixels wide however narrow the window, and the view scrolls
+    const table = view.querySelector("table") as HTMLElement;
+    expect(table.style.getPropertyValue("--table-px")).toBe("1200px");
+    const cols = [...view.querySelectorAll("col")] as HTMLElement[];
+    expect(cols.map((col) => col.style.getPropertyValue("--col-px"))).toEqual(["400px", "400px", "400px"]);
+    expect(cols.map((col) => col.style.getPropertyValue("--col-pct"))).toEqual(["33.33333333333333%", "33.33333333333333%", "33.33333333333333%"]);
+    expect(table).toHaveClass("sheet-print-fit");
+    expect(view).toHaveTextContent("choose the paper size and Portrait or Landscape");
+    expect(view).not.toHaveTextContent("A4");
   });
 
   it("makes printing show only itself while it is open, and stops when it is closed", () => {

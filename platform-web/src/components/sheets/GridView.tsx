@@ -2,9 +2,11 @@
 
 import { TextStyleControls } from "./TextStyleControls";
 
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
+import { canStateInputs, kindWords, KIND_WORDS, readInput } from "@/lib/sheets/inputs";
 import type { FontSize } from "@/lib/sheets/types";
 import { FormulaBar } from "./FormulaBar";
+import { InputCellDialog } from "./InputCellDialog";
 import { answerMaps } from "@/lib/sheets/look/sheetLook";
 import { SheetGrid } from "./SheetGrid";
 import type { SheetEditor } from "./useSheetEditor";
@@ -50,6 +52,9 @@ export function GridView({ editor, readOnly, readOnlyReason, label, footer, serv
   const focusRow = rows[selection.fr];
   const focusColumn = doc.columns[selection.fc];
   const canAddRow = doc.dimension === 2;
+  // Whether the kind of a cell can be chosen here (SH5.1): a sheet in the new format that names its rows.
+  const stateInputs = canStateInputs(doc);
+  const [settingsOpen, setSettingsOpen] = useState(false);
 
   return (
     <div className="sheet-view" data-testid="grid-view">
@@ -108,11 +113,22 @@ export function GridView({ editor, readOnly, readOnlyReason, label, footer, serv
             type="button"
             className="button button-secondary"
             aria-pressed={state.kind === "input"}
+            aria-haspopup={stateInputs ? "dialog" : undefined}
             disabled={!focusRow || focusRow.zone === "blank"}
-            onClick={() => focusRow && focusColumn && editor.kind(focusRow.id, focusColumn.id, "input")}
+            onClick={() => {
+              if (!focusRow || !focusColumn) return;
+              // In the new format the button opens the settings of the cell (SH5.1); in the old one it makes an input cell.
+              if (stateInputs) setSettingsOpen(true);
+              else editor.kind(focusRow.id, focusColumn.id, "input");
+            }}
           >
-            Input cell
+            {stateInputs ? "Input cell…" : "Input cell"}
           </button>
+          {stateInputs && focusRow && focusColumn ? (
+            <span className="hint" data-testid="cell-kind" aria-live="polite">
+              {kindWords(doc, focusRow.id, focusColumn.id)}
+            </span>
+          ) : null}
           <span className="sheet-toolbar-gap" aria-hidden="true" />
           <button type="button" className="button button-secondary" onClick={editor.undo} disabled={!editor.canUndo}>
             Undo
@@ -144,6 +160,15 @@ export function GridView({ editor, readOnly, readOnlyReason, label, footer, serv
           answer={focusRow && focusColumn ? formulaAnswers[`${focusRow.id}:${focusColumn.id}`] : undefined}
         />
       )}
+      {settingsOpen && !readOnly && focusRow && focusColumn ? (
+        <InputCellDialog
+          initial={readInput(doc, focusRow.id, focusColumn.id)}
+          cells={Math.max(1, state.keys.length)}
+          columnKind={KIND_WORDS[focusColumn.type]}
+          onApply={(settings) => editor.setInputs(settings)}
+          onClose={() => setSettingsOpen(false)}
+        />
+      ) : null}
       <SheetGrid
         editor={editor}
         readOnly={readOnly}

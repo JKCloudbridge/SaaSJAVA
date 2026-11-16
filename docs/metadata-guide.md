@@ -1518,3 +1518,25 @@ fill-in is **approved**; a fill-in that waits is counted under "Waiting for revi
 record); `ManagementNumbers` is the pure arithmetic and the place to change a counting rule; a new tile or chart is a field of `ManagementHomeViews` (with the
 `Management` prefix: the OpenAPI generator merges two classes of one simple name), a case in `ManagementNumbers` with a test, and a component in
 `platform-web/src/solutions/inspection/management/`. A tile that opens a list needs a slice the list understands (`addressSlice.ts`).
+
+## 54. The kind of a cell, Yes/No with a reason, attachment cells, letters and grey (SH5.1)
+
+**For the author of a template (a sheet in format version 2 that names its rows).** Select one cell or a block and press **Input cell…** in the
+Sheet tab. Choose the kind (Text, Number, Date, Yes/No, Yes/No with a reason, List with its values, Attachment with the most files 1 to 5),
+whether it is Required, and who fills it (the person filling in, or the reviewer). A cell that states nothing takes its column's type, as before.
+
+**Yes/No with a reason.** The cell shows a prompt (the question as written on the form), then Yes and No, and a reason box for the person filling
+in. The reason is optional whatever the answer; Required means the answer must be given before the fill-in is sent. Formulas and reports use
+the answer only. The template's download shows the prompt.
+
+**What an upload makes.** Check boxes on a question make that cell a Yes/No cell with a reason, the question its prompt. An empty cell where the
+workbook held an embedded file becomes an attachment cell (up to 5 files, not required). The upload report counts what was made and lists every
+place it could not use, by the file's address and, when they differ, the sheet's ("B12 in the file (B10 on the sheet)").
+
+**What the grid shows.** Letters over the columns and row numbers at the left, counted exactly as the formula bar counts, so `=SUM(M8:M42)`
+means the cells under M, rows 8 to 42. The column's own name is the tooltip of its letter. Fixed text with no colour of its own is light grey,
+a cell to fill is white; a colour the author gave, or a conditional colour, always wins. In a fill-in, an attachment cell shows a paperclip with
+the number of files; a click opens the files of that cell.
+
+**Existing templates and fill-ins.** A Revision never changes, so a cell cannot change kind under a fill-in that exists; a new Revision may, and
+only fill-ins started on it follow. A sheet in format version 1 keeps its named headings and colours. Decision: ADR-0263.

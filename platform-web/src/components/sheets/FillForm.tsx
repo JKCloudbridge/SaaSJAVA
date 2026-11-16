@@ -4,14 +4,17 @@ import { useId, useState } from "react";
 import {
   attachmentWords,
   canAddRows,
+  choiceWords,
   fillDisplayRows,
   isInputCell,
   missingRequired,
   needsARow,
   type FillAnswers,
 } from "@/lib/sheets/fillModel";
-import type { FillValue } from "@/lib/sheets/fillTypes";
+import { isChoice, type FillValue } from "@/lib/sheets/fillTypes";
+import { promptOf } from "@/lib/sheets/look/display";
 import type { GridColumn } from "@/lib/sheets/types";
+import { ChoiceField } from "./ChoiceField";
 import { FillAttachments } from "./FillAttachments";
 import type { FillEditor } from "./useFillEditor";
 
@@ -25,6 +28,9 @@ function shown(value: FillValue | undefined): string {
   }
   if (Array.isArray(value)) {
     return attachmentWords(value.length);
+  }
+  if (isChoice(value)) {
+    return choiceWords(value);
   }
   return value ?? "";
 }
@@ -210,10 +216,22 @@ export function FillForm({ editor, readOnly, problems, answers, attach }: FillFo
                   </div>
                 );
               }
+              if (!readOnly && editor.canEditCell(row.id, column.id) && spec.type === "boolean_reason") {
+                return (
+                  <ChoiceField
+                    key={`${column.id}-${shown(value)}`}
+                    prompt={promptOf(grid, row.id, column.id) || column.label}
+                    value={value}
+                    required={spec.required}
+                    commit={(choice) => editor.setChoice(row.id, column.id, choice)}
+                    serverProblems={serverProblems}
+                  />
+                );
+              }
               if (!readOnly && editor.canEditCell(row.id, column.id) && spec.type !== "attachment") {
                 const effective: GridColumn = {
                   ...column,
-                  type: spec.type,
+                  type: spec.type as GridColumn["type"],
                   required: spec.required,
                   picklist: spec.picklist ? { values: spec.picklist } : column.picklist,
                 };
@@ -228,9 +246,11 @@ export function FillForm({ editor, readOnly, problems, answers, attach }: FillFo
                   />
                 );
               }
+              const prompt = spec.type === "boolean_reason" ? promptOf(grid, row.id, column.id) : "";
               return (
                 <p key={column.id}>
-                  <strong>{column.label || "Untitled column"}</strong> {shown((isInputCell(grid, row.id, column.id) ? value : fixed) ?? undefined) || "—"}
+                  <strong>{column.label || "Untitled column"}</strong> {prompt ? `${prompt} ` : ""}
+                  {shown((isInputCell(grid, row.id, column.id) ? value : fixed) ?? undefined) || "—"}
                 </p>
               );
             })}

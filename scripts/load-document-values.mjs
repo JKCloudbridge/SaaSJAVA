@@ -110,9 +110,8 @@ async function signIn(host, email, password) {
 // Codes are short (letters and digits, at most 10) because the lists are "code lists" (a code can end up in a number).
 const DOCUMENTS = {
   1: ["Quality", "EHS Policy & objectives", "IMS Manual"],
-  2: ["Operating Procedures (QSP/ESSP)"],
+  2: ["Operating Procedures (QSP/ESSP)", "Engineering documents"],
   3: [
-    "Engineering documents",
     "Work Instruction",
     "Work Standards",
     "Inspection Standards",
@@ -146,10 +145,26 @@ function codeOf(label, used) {
 const admin = await signIn(ORG_HOST, "admin-a@example.test", seedPassword());
 const read = await admin.get(`${base}`);
 if (read.status !== 200) throw new Error(`reading the template object answered ${read.status}`);
-const fields = read.json.data.fields;
-const level = fields.find((f) => f.apiName === "level");
-const document = fields.find((f) => f.apiName === "documentType");
+let fields = read.json.data.fields;
+let level = fields.find((f) => f.apiName === "level");
+let document = fields.find((f) => f.apiName === "documentType");
 if (!level || !document) throw new Error("the template has no Level or Document field");
+// The Levels the table names (L1 to L4) are added when they are missing; a Level an administrator added is never removed.
+const LEVELS = [1, 2, 3, 4].map((n) => ({ value: `L${n}`, label: `Level ${n}` }));
+const haveLevels = level.configuration?.values ?? level.settings?.values ?? [];
+const missingLevels = LEVELS.filter((l) => !haveLevels.some((v) => v.value === l.value));
+if (!checkOnly && missingLevels.length > 0) {
+  const values = [...haveLevels.map((v) => ({ value: v.value, label: v.label, active: v.active !== false })),
+    ...missingLevels.map((l) => ({ ...l, active: true }))];
+  const saved = await admin.put(`${base}/fields/level`, {
+    label: level.label, description: level.description ?? "", settings: { values }, version: level.version,
+  });
+  if (saved.status >= 300) throw new Error(`saving the Levels failed (${saved.status}): ${saved.json?.error?.message ?? saved.text.slice(0, 200)}`);
+  console.log(`made     Levels ${missingLevels.map((l) => l.value).join(", ")}`);
+  fields = (await admin.get(`${base}`)).json.data.fields;
+  level = fields.find((f) => f.apiName === "level");
+  document = fields.find((f) => f.apiName === "documentType");
+}
 const levelValues = level.configuration?.values ?? level.settings?.values ?? [];
 const documentValues = document.configuration?.values ?? document.settings?.values ?? [];
 console.log("Levels now:   ", levelValues.map((v) => `${v.value}=${v.label}${v.active === false ? " (off)" : ""}`).join(" | "));

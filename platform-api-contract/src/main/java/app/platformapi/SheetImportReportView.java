@@ -21,16 +21,20 @@ import java.util.List;
  *         (SH1B)
  * @param embeddedFilePlaces the cells where an embedded file stood in the worksheet, at most a hundred (SH1B)
  * @param formatTwo whether the sheet was made in format version 2, with the look of the file (SH1B)
+ * @param unplacedBoxPlaces the cells of the worksheet where a check box stood that could not be made part of a cell,
+ *         at most a hundred, for the author to set by hand. Absent from an older server (SH5.1, ADR-0263)
  */
 public record SheetImportReportView(@NotNull Integer columns, @NotNull Integer rows,
         @NotNull Integer mergedAreas, @NotNull List<SheetImportNoteView> notes, Boolean firstRowLabels,
         Boolean firstRowIsTitle, List<SheetImportWorksheetView> worksheets, Integer worksheet,
-        List<SheetImportPlaceView> embeddedFilePlaces, Boolean formatTwo) {
+        List<SheetImportPlaceView> embeddedFilePlaces, Boolean formatTwo,
+        List<SheetImportPlaceView> unplacedBoxPlaces) {
 
     /** Copies the lists, so that they cannot be changed from outside. */
     public SheetImportReportView {
         notes = notes == null ? null : List.copyOf(notes);
         worksheets = worksheets == null ? null : List.copyOf(worksheets);
         embeddedFilePlaces = embeddedFilePlaces == null ? null : List.copyOf(embeddedFilePlaces);
+        unplacedBoxPlaces = unplacedBoxPlaces == null ? null : List.copyOf(unplacedBoxPlaces);
     }
 }

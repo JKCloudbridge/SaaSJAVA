@@ -99,6 +99,9 @@
    */
   --sheet-paper-surface: #ffffff;
   --sheet-paper-surface-sunken: #f1f2f4;
+  /* A fixed cell with no fill of its own is light grey and a cell to fill is white (SH5.1), so a person sees at once where
+     to type. The paper is the same in both themes, so this grey is too. */
+  --sheet-paper-fixed: #e9ebee;
   --sheet-paper-text: #111111;
   --sheet-paper-text-muted: #55595e;
   --sheet-paper-border: #d4d7db;

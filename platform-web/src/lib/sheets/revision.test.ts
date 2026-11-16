@@ -12,7 +12,9 @@ import {
   revisionOf,
   revisionWords,
   revisionWordsOf,
+  submittedLine,
   versionTitle,
+  withSubmittedLine,
 } from "./revision";
 
 // The same cases are checked on the server's side (TemplateSheetTextsTest), so the screen and the file always agree.
@@ -133,5 +135,22 @@ describe("the footer with the day of the Revision", () => {
     expect(footerDay("2026-11-13T10:15:00Z", "UTC")).toBe("13-Nov-2026");
     expect(footerDay("not a date")).toBeUndefined();
     expect(footerTextWithDay("F/MR/16", "00", "not a date")).toBe("F/MR/16  Rev No.'00'");
+  });
+});
+
+describe("the submitted line of a fill-in's footer (SH5.1)", () => {
+  it("names the person and the day once it is sent, and nothing before", () => {
+    expect(submittedLine("user-a", "2026-11-13T10:00:00Z", "UTC")).toBe("Submitted by user-a on 13-Nov-2026");
+    expect(submittedLine(null, "2026-11-13T10:00:00Z", "UTC")).toBe("Submitted on 13-Nov-2026");
+    expect(submittedLine("user-a", null, "UTC")).toBe("");
+    expect(submittedLine("user-a", "not a day", "UTC")).toBe("");
+  });
+
+  it("goes below the footer, or stands alone when the footer is blank", () => {
+    expect(withSubmittedLine("F/MR/16  Rev No.'01'", "Submitted by user-a on 13-Nov-2026")).toBe(
+      "F/MR/16  Rev No.'01'\nSubmitted by user-a on 13-Nov-2026",
+    );
+    expect(withSubmittedLine("", "Submitted on 13-Nov-2026")).toBe("Submitted on 13-Nov-2026");
+    expect(withSubmittedLine("F/MR/16  Rev No.'01'", "")).toBe("F/MR/16  Rev No.'01'");
   });
 });

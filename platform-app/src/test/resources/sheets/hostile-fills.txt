@@ -30,3 +30,10 @@ value_type | a list of files in a number cell | {"formatVersion":3,"sheets":[{"k
 value_type | text in a number cell | {"formatVersion":3,"sheets":[{"key":"main","rows":[{"id":"r2","cells":{"c2":"abc"}}]}]}
 value_type | yes or no where the cell holds text | {"formatVersion":3,"sheets":[{"key":"main","rows":[{"id":"r3","cells":{"c2":true}}]}]}
 too_deep | lists inside lists inside a cell | {"formatVersion":3,"sheets":[{"key":"main","rows":[{"id":"r1","cells":{"c1":[[[[]]]]}}]}]}
+# SH5.1 (ADR-0263): r1:c3 is a Yes/No cell with a reason; its value is {"answer":true|false,"reason":"text"}.
+shape | an answer written as text inside a Yes/No cell with a reason | {"formatVersion":3,"sheets":[{"key":"main","rows":[{"id":"r1","cells":{"c3":{"answer":"yes"}}}]}]}
+shape | a part a Yes/No cell with a reason does not have | {"formatVersion":3,"sheets":[{"key":"main","rows":[{"id":"r1","cells":{"c3":{"answer":true,"note":"x"}}}]}]}
+shape | a reason that is a number | {"formatVersion":3,"sheets":[{"key":"main","rows":[{"id":"r1","cells":{"c3":{"reason":5}}}]}]}
+unsafe_text | markup in a reason | {"formatVersion":3,"sheets":[{"key":"main","rows":[{"id":"r1","cells":{"c3":{"answer":false,"reason":"<script>"}}}]}]}
+value_type | a plain yes where an answer and a reason are kept | {"formatVersion":3,"sheets":[{"key":"main","rows":[{"id":"r1","cells":{"c3":true}}]}]}
+value_type | an answer and a reason in a text cell | {"formatVersion":3,"sheets":[{"key":"main","rows":[{"id":"r3","cells":{"c2":{"answer":true}}}]}]}

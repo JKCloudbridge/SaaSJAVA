@@ -10192,6 +10192,7 @@ export interface components {
             notes: components["schemas"]["SheetImportNoteView"][];
             /** Format: int32 */
             rows: number;
+            unplacedBoxPlaces?: components["schemas"]["SheetImportPlaceView"][];
             /** Format: int32 */
             worksheet?: number;
             worksheets?: components["schemas"]["SheetImportWorksheetView"][];
@@ -10223,12 +10224,14 @@ export interface components {
             picklist?: {
                 values: string[];
             };
+            /** @description The fixed text a boolean_reason cell shows above its answer (SH5.1, ADR-0263). Only that kind takes a prompt. It is the author's text: never logged. */
+            prompt?: string;
             required?: boolean;
             /**
-             * @description Overrides the type of the column. An attachment cell holds a list of file identifiers of the fill-in (ADR-0254).
+             * @description Overrides the type of the column. An attachment cell holds a list of file identifiers of the fill-in (ADR-0254). A boolean_reason cell holds a yes or no answer and an optional reason typed by the person filling in, under the prompt the cell states (SH5.1, ADR-0263).
              * @enum {string}
              */
-            type?: "text" | "number" | "date" | "picklist" | "boolean" | "attachment";
+            type?: "text" | "number" | "date" | "picklist" | "boolean" | "boolean_reason" | "attachment";
         };
         SheetLimitsView: {
             formatTwoEnabled: boolean;

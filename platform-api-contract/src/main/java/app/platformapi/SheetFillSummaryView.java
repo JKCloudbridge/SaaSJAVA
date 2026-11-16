@@ -27,10 +27,20 @@ import java.util.UUID;
  * @param decidedAt when its last review ended, or null
  * @param archivedAt when its cells were moved to the archive (FF2, ADR-0193), or null while they are in the database;
  *        an archived fill-in is read-only and is read back from the archive on demand
+ * @param submittedBy the display name of the person who sent it (its filler, the only person who may send it), for the
+ *        footer of the View page (SH5.1, ADR-0263); null until it is sent, for a person who has left, and in lists
  */
 public record SheetFillSummaryView(@NotNull UUID fillId, @NotNull String ownerObject, @NotNull UUID ownerId,
         @NotNull Integer versionNo, String versionStatus, @NotNull String status, @NotNull Long version,
         @NotNull Integer rowCount, @NotNull Long cellsBytes, @NotNull String cellsHash, @NotNull Integer corrections,
         @NotNull Instant createdAt, @NotNull Instant updatedAt, Instant submittedAt, Instant decidedAt,
-        Instant archivedAt) {
+        Instant archivedAt, String submittedBy) {
+
+    /** The facts without the name of the person who sent it (lists and saves). */
+    public SheetFillSummaryView(UUID fillId, String ownerObject, UUID ownerId, Integer versionNo, String versionStatus,
+            String status, Long version, Integer rowCount, Long cellsBytes, String cellsHash, Integer corrections,
+            Instant createdAt, Instant updatedAt, Instant submittedAt, Instant decidedAt, Instant archivedAt) {
+        this(fillId, ownerObject, ownerId, versionNo, versionStatus, status, version, rowCount, cellsBytes, cellsHash,
+                corrections, createdAt, updatedAt, submittedAt, decidedAt, archivedAt, null);
+    }
 }

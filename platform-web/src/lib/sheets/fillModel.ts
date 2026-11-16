@@ -1,4 +1,5 @@
-import type { FillDisplayRow, FillDoc, FillLimits, FillOp, FillRow, FillStyle, FillValue } from "./fillTypes";
+import { isChoice, type FillChoice, type FillDisplayRow, type FillDoc, type FillLimits, type FillOp, type FillRow,
+  type FillStyle, type FillValue } from "./fillTypes";
 import { at, cellKey, cellKind, DEFAULT_ROW_HEIGHT, indexesOf, mergeRects, splitKey } from "./geometry";
 import { newId } from "./ids";
 import type { ColumnType, DisplayRow, GridCell, GridColumn, GridDoc, GridLine } from "./types";
@@ -49,7 +50,7 @@ export type CellClass = "filler" | "reviewer";
 
 /** What one cell holds, by its own statement in the sheet's `inputs` and else its column's (SH5, ADR-0251). */
 export interface CellSpec {
-  type: ColumnType | "attachment";
+  type: ColumnType | "attachment" | "boolean_reason";
   required: boolean;
   cls: CellClass;
   picklist: string[] | null;
@@ -79,7 +80,7 @@ export function cellSpec(grid: GridDoc, rowId: string, columnId: string): CellSp
   let required = column?.required === true;
   let cls: CellClass = "filler";
   if (own) {
-    if (typeof own.type === "string" && [...COLUMN_TYPES, "attachment"].includes(own.type)) {
+    if (typeof own.type === "string" && [...COLUMN_TYPES, "attachment", "boolean_reason"].includes(own.type)) {
       type = own.type as CellSpec["type"];
     }
     if (own.picklist && Array.isArray(own.picklist.values)) {
@@ -121,7 +122,37 @@ export function attachmentWords(count: number): string {
 
 /** Whether two values of a cell are the same value. */
 function sameValue(a: FillValue | undefined, b: FillValue | undefined): boolean {
+  if (isChoice(a) && isChoice(b)) {
+    return a.answer === b.answer && (a.reason ?? "") === (b.reason ?? "");
+  }
   return Array.isArray(a) && Array.isArray(b) ? a.length === b.length && a.every((item, i) => item === b[i]) : a === b;
+}
+
+/**
+ * The answer and the reason of a Yes/No cell with a reason in words (SH5.1): "Yes", "No", "Yes: the reason", or the
+ * reason alone when no answer was given. The prompt is drawn by the cell itself.
+ */
+export function choiceWords(choice: FillChoice): string {
+  const answer = choice.answer === true ? "Yes" : choice.answer === false ? "No" : "";
+  const reason = choice.reason ?? "";
+  return answer && reason ? `${answer}: ${reason}` : answer || reason;
+}
+
+/**
+ * What a Yes/No cell with a reason holds when the grid draws it (SH5.1): the answer in words, a line break, then the
+ * reason. The display puts the answer on the top line and the prompt with the reason below it (`look/display.ts`).
+ */
+export function choiceCellText(choice: FillChoice): string {
+  const answer = choice.answer === true ? "Yes" : choice.answer === false ? "No" : "";
+  return `${answer}\n${choice.reason ?? ""}`;
+}
+
+/** A choice in its one form: an empty reason is no reason; a choice with nothing in it is no value. */
+function tidyChoice(choice: FillChoice): FillChoice | null {
+  const out: FillChoice = {};
+  if (typeof choice.answer === "boolean") out.answer = choice.answer;
+  if (typeof choice.reason === "string" && choice.reason !== "") out.reason = choice.reason;
+  return out.answer === undefined && out.reason === undefined ? null : out;
 }
 
 /** Whether the sheet names this row. */
@@ -177,6 +208,13 @@ export function fromApiFill(raw: unknown): FillDoc {
         cells[columnId] = value;
       } else if (three && Array.isArray(value) && value.every((file) => typeof file === "string")) {
         cells[columnId] = [...(value as string[])];
+      } else if (three && typeof value === "object" && value !== null && !Array.isArray(value)) {
+        const given = value as { answer?: unknown; reason?: unknown };
+        const choice = tidyChoice({
+          ...(typeof given.answer === "boolean" ? { answer: given.answer } : {}),
+          ...(typeof given.reason === "string" ? { reason: given.reason } : {}),
+        });
+        if (choice) cells[columnId] = choice;
       }
     }
     const styles: Record<string, FillStyle> = {};
@@ -338,8 +376,10 @@ export function displayDoc(grid: GridDoc, fill: FillDoc): GridDoc {
     for (const [columnId, value] of Object.entries(row.cells)) {
       if (isInputCell(grid, row.id, columnId)) {
         const key = cellKey(row.id, columnId);
-        // An attachment cell is drawn as the number of its files; the files themselves are the form view's.
-        cells[key] = { ...cells[key], value: Array.isArray(value) ? attachmentWords(value.length) : value, kind: "input" };
+        // An attachment cell is drawn as the number of its files; the files themselves are the form view's. A Yes/No
+        // cell with a reason is drawn as its answer and reason in words, under its prompt (SH5.1).
+        const drawn = Array.isArray(value) ? attachmentWords(value.length) : isChoice(value) ? choiceCellText(value) : value;
+        cells[key] = { ...cells[key], value: drawn, kind: "input" };
       }
     }
     for (const [columnId, style] of Object.entries(row.styles ?? {})) {
@@ -455,6 +495,19 @@ export function setFillValue(grid: GridDoc, fill: FillDoc, rowId: string, column
   if (spec.type === "attachment") {
     return { ok: false, error: "Files are added with the attach control, not typed." };
   }
+  if (spec.type === "boolean_reason") {
+    // Typing into the cell gives the answer; the reason the cell already holds stays (SH5.1).
+    const held = fill.rows.find((row) => row.id === rowId)?.cells[columnId];
+    const reason = isChoice(held) ? held.reason : undefined;
+    if (text.trim() === "") {
+      return setFillChoice(grid, fill, rowId, columnId, { ...(reason ? { reason } : {}) }, limits);
+    }
+    const answer = parseYesNo(text);
+    if (answer === null) {
+      return { ok: false, error: "Type yes or no. The reason is written in the box that opens with Enter." };
+    }
+    return setFillChoice(grid, fill, rowId, columnId, { answer, ...(reason ? { reason } : {}) }, limits);
+  }
   const effective: GridColumn = {
     ...column,
     type: spec.type,
@@ -462,6 +515,29 @@ export function setFillValue(grid: GridDoc, fill: FillDoc, rowId: string, column
   };
   const parsed = parseCell(effective, text, limits);
   return parsed.ok ? { ok: true, fill: withValue(fill, grid, rowId, columnId, parsed.value) } : { ok: false, error: parsed.error };
+}
+
+/**
+ * Gives a Yes/No cell with a reason its answer and its reason (SH5.1, ADR-0263). Either may be left out; with neither the
+ * cell is cleared. The reason is bounded and refused when it holds markup, like any text a person types; the server
+ * checks again on save.
+ */
+export function setFillChoice(grid: GridDoc, fill: FillDoc, rowId: string, columnId: string, choice: FillChoice,
+  limits: FillLimits): FillOp {
+  if (!isNamedRow(grid, rowId) && !fill.rows.some((row) => row.id === rowId)) {
+    return { ok: false, error: "This row does not exist." };
+  }
+  if (!isInputCell(grid, rowId, columnId) || cellSpec(grid, rowId, columnId).type !== "boolean_reason") {
+    return { ok: false, error: NOT_INPUT };
+  }
+  const reason = choice.reason ?? "";
+  if (reason.length > limits.maxCellChars) {
+    return { ok: false, error: `A text is longer than the allowed ${limits.maxCellChars} characters.` };
+  }
+  if (unsafeText(reason)) {
+    return { ok: false, error: TEXT_UNSAFE };
+  }
+  return { ok: true, fill: withValue(fill, grid, rowId, columnId, tidyChoice(choice)) };
 }
 
 /**
@@ -609,7 +685,9 @@ export function missingRequired(grid: GridDoc, fill: FillDoc): Missing[] {
         continue;
       }
       const given = fill.rows.find((row) => row.id === rowId)?.cells[column.id];
-      if (given === undefined && isInputCell(grid, rowId, column.id)) {
+      // A Yes/No cell with a reason is answered by its answer; the reason is never compulsory (SH5.1).
+      const missing = given === undefined || (isChoice(given) && given.answer === undefined);
+      if (missing && isInputCell(grid, rowId, column.id)) {
         out.push({ rowId, columnId: column.id });
       }
     }

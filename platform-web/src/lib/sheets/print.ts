@@ -83,7 +83,9 @@ export function orientationOf(doc: GridDoc): Orientation {
 const LABEL_HEIGHT = 28;
 
 /**
- * `labels: false` leaves out the band of column labels (a page that has no headings, such as the register).
+ * `labels: false` leaves out the band of column labels (a page that has no headings, such as the register). A sheet in
+ * format version 2 has no band unless `labels: true` asks for one (SH5.1, ADR-0263): it is a form, printed as the form
+ * looks on paper, and its stored column names (often "Column 6") are not part of it.
  * `showInput: true` shows what a filler typed into the input cells (a fill-in); a template leaves them empty.
  */
 export function printModel(
@@ -175,7 +177,7 @@ export function printModel(
     fitToWidth: page?.fitToWidth !== false,
     repeatHeaderRows: page?.repeatHeaderRows !== false,
     columns,
-    head: [...(options.labels === false ? [] : [labels]), ...drawn.filter((row) => row.zone === "header")],
+    head: [...((options.labels ?? !looked) ? [labels] : []), ...drawn.filter((row) => row.zone === "header")],
     body: drawn.filter((row) => row.zone !== "header"),
   };
 }

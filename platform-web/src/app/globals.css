@@ -2536,9 +2536,45 @@ form + .detail-section {
   margin-bottom: var(--space-2);
 }
 
-.sheet-formula-bar input {
-  flex: 1 1 20rem;
+/* The formula line keeps one height whatever cell is chosen (SH5.1): it never wraps, the box gives way, and a long
+   answer is cut with its whole text in the tooltip. */
+.sheet-formula-line {
+  display: flex;
+  flex: 1 1 100%;
+  flex-wrap: nowrap;
+  align-items: center;
+  gap: var(--space-2);
   min-width: 0;
+  min-height: var(--size-control);
+}
+
+.sheet-formula-line > * {
+  flex: none;
+}
+
+.sheet-formula-bar input[type="text"] {
+  flex: 1 1 auto;
+  min-width: 6rem;
+}
+
+.sheet-name-box {
+  display: inline-flex;
+  align-items: center;
+  min-width: 4.5rem;
+  min-height: var(--size-control);
+  padding: 0 var(--space-2);
+  border: var(--border-width) solid var(--color-border-strong);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+}
+
+.sheet-formula-answer {
+  max-width: 16rem;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
 }
 
 .sheet-formula-bar .field-error {
@@ -2635,6 +2671,18 @@ form + .detail-section {
 .sheet-row {
   position: absolute;
   left: 0;
+  /* A row is a strip as wide as the sheet; a merged cell of an earlier row reaches down under it. Only what is drawn in
+     a row takes the pointer, so the lower part of a merged cell shows the cell's pointer and a click there selects it
+     (SH5.1). */
+  pointer-events: none;
+}
+
+.sheet-row .sheet-cell,
+.sheet-row .sheet-rownum,
+.sheet-row .sheet-edge-row,
+.sheet-row .sheet-footer,
+.sheet-row [role="gridcell"] {
+  pointer-events: auto;
 }
 
 .sheet-cell {
@@ -2778,31 +2826,28 @@ form + .detail-section {
   margin-bottom: var(--space-4);
 }
 
+/* On screen the page is as wide as the sheet really is, however big; the view around it scrolls (SH5.1). */
 .sheet-print-page {
-  max-width: 100%;
+  width: max-content;
+  min-width: 0;
   margin: 0 auto;
   padding: var(--space-4);
   box-sizing: border-box;
   background: var(--color-print-paper);
   color: var(--color-print-ink);
   box-shadow: var(--shadow-2);
-  overflow-x: auto;
-}
-
-.sheet-print-portrait {
-  width: var(--sheet-page-portrait-width);
-}
-
-.sheet-print-landscape {
-  width: var(--sheet-page-landscape-width);
 }
 
 .sheet-print-table {
-  width: 100%;
+  width: var(--table-px);
   border-collapse: collapse;
   table-layout: fixed;
   font-size: var(--font-size-sm);
   line-height: var(--line-height);
+}
+
+.sheet-print-table col {
+  width: var(--col-px);
 }
 
 .sheet-print-table thead {
@@ -2867,12 +2912,26 @@ form + .detail-section {
     display: none;
   }
 
+  /* Printing fits the sheet to the width of the page the person chose in the print window. */
   .sheet-print-page {
     width: auto;
     padding: 0;
     box-shadow: none;
     overflow: visible;
   }
+
+  .sheet-print-table.sheet-print-fit {
+    width: 100%;
+  }
+
+  .sheet-print-table.sheet-print-fit col {
+    width: var(--col-pct);
+  }
+}
+
+/* The paper size and orientation are the person's choice in the print window; only the margin is fixed. */
+@page {
+  margin: 12mm;
 }
 
 .sheet-merged {
@@ -3147,16 +3206,14 @@ form + .detail-section {
   box-shadow: inset 0 0 0 4px var(--sheet-ring-light);
 }
 
-.sheet-paper .sheet-cell-input {
-  /* the corner mark is a gradient, not a box of its own: a box for every input cell made a scroll slower */
-  background-image: linear-gradient(
-    225deg,
-    var(--sheet-mark-ink) 0,
-    var(--sheet-mark-ink) var(--sheet-mark-size),
-    var(--sheet-mark-edge) var(--sheet-mark-size),
-    var(--sheet-mark-edge) calc(var(--sheet-mark-size) + var(--sheet-line-thin)),
-    transparent calc(var(--sheet-mark-size) + var(--sheet-line-thin))
-  );
+/* Grey and white (SH5.1, ADR-0263): a fixed cell with no fill of its own is light grey and a cell to fill stays white, so
+   the colour says where to type. A plain white fill counts as no fill (a workbook often paints every cell white), so a
+   fixed cell the file made white is grey too. A cell with another fill, or one a conditional colour paints, keeps that
+   colour, so the grey never hides a colour the author or a rule chose. No corner mark: grey and white say it, and a
+   screen reader hears "Input cell". */
+.sheet-paper .sheet-cell-fixed:not(.sheet-has-fill),
+.sheet-paper .sheet-cell-fixed.sheet-fill-white {
+  background-color: var(--sheet-paper-fixed);
 }
 
 /* The rows and columns kept in view while the rest scrolls. A fixed row is a sticky row (its place in the flow is where it
@@ -3173,6 +3230,47 @@ form + .detail-section {
   width: 0;
   height: 0;
   z-index: 1;
+}
+
+/* Letters over the columns and numbers beside the rows of a sheet in format version 2 (SH5.1), as in a spreadsheet. The
+   numbers ride in the layer of the fixed columns, so they stay at the left edge while the rest scrolls. */
+.sheet-label-letter {
+  justify-content: center;
+  font-weight: 600;
+  color: var(--color-text-muted);
+}
+
+.sheet-rownum,
+.sheet-corner {
+  position: absolute;
+  top: 0;
+  left: 0;
+  box-sizing: border-box;
+  background: var(--color-surface-sunken);
+  border-right: var(--border-width) solid var(--color-border-strong);
+}
+
+.sheet-rownum {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-bottom: var(--border-width) solid var(--color-border);
+  color: var(--color-text-muted);
+  font-size: var(--font-size-xs);
+  font-variant-numeric: tabular-nums;
+  user-select: none;
+}
+
+/* The paperclip of an attachment cell; one click on the cell opens its files. */
+.sheet-clip {
+  flex: none;
+  width: 1em;
+  height: 1em;
+  margin-right: var(--space-1);
+}
+
+.sheet-cell[data-open-cell] {
+  cursor: pointer;
 }
 
 .sheet-row-fixed-last {
@@ -3195,10 +3293,6 @@ form + .detail-section {
   .sheet-paper .sheet-active {
     outline-color: Highlight;
     box-shadow: none;
-  }
-
-  .sheet-paper .sheet-cell-input {
-    background-image: none;
   }
 }
 

@@ -22,6 +22,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import java.io.IOException;
 import java.io.UncheckedIOException;
+import java.util.List;
 import java.util.UUID;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
@@ -174,8 +175,12 @@ class SheetController {
                 report.worksheets().stream().map(one -> new SheetImportWorksheetView(one.index(), one.title(),
                         one.rows(), one.columns())).toList(),
                 report.worksheet() < 0 ? null : report.worksheet(),
-                report.embeddedFilePlaces().stream().map(place -> new SheetImportPlaceView(place.row() + 1,
-                        SheetImportBuilder.letters(place.column()))).toList(), formatTwo);
+                places(report, report.embeddedFilePlaces()), formatTwo, places(report, report.unplacedBoxPlaces()));
+    }
+
+    private static List<SheetImportPlaceView> places(SheetImportBuilder.Report report, List<RawSheet.Place> places) {
+        return places.stream().map(place -> new SheetImportPlaceView(place.row() + 1,
+                SheetImportBuilder.letters(place.column()), report.sheetRow(place, report.rows()))).toList();
     }
 
     private static ApiException refusal(ImportRefusal e) {

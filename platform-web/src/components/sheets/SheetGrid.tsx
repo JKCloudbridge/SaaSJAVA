@@ -13,8 +13,11 @@ import {
   indexesOf,
   LABEL_BAND_HEIGHT,
   mergeRects,
+  ROW_NUMBER_WIDTH,
   type MergeRect,
 } from "@/lib/sheets/geometry";
+import { Icon } from "@/components/ui/Icon";
+import { columnLetters, rowNumber } from "@/lib/sheets/addresses";
 import { parseClipboard } from "@/lib/sheets/gridModel";
 import { edgesOf, type Edges } from "@/lib/sheets/look/borders";
 import { describe, type CellStyleDescription } from "@/lib/sheets/look/cellStyle";
@@ -93,6 +96,12 @@ export interface SheetGridProps {
    * colours; an answer with no kind is shown as the text it is.
    */
   formulaKinds?: Record<string, string>;
+  /**
+   * A cell that is filled through a popup rather than typed into (SH5.1: a Yes/No cell with a reason; an attachment cell):
+   * called when the person opens a cell with Enter, F2, a double click or a double tap. Answers true when it opened the
+   * popup, so the grid opens no text box. Typing a key still starts the text box (a yes or a no can be typed).
+   */
+  openCell?: (rowId: string, columnId: string) => boolean;
 }
 
 /** The kinds an answer may have; anything else is shown as text. */
@@ -133,6 +142,7 @@ export function SheetGrid({
   footer,
   formulaAnswers,
   formulaKinds,
+  openCell,
 }: SheetGridProps) {
   const { doc, rows, selection, rect } = editor;
   const gridId = useId();
@@ -170,18 +180,20 @@ export function SheetGrid({
     let y = 0;
     return [...rows.map((row) => { const top = y; y += liveRow && liveRow.id === row.id ? liveRow.height : row.height; return top; }), y];
   }, [rows, liveRow]);
+  // The look (SH4): a sheet in format version 2 is drawn from what it states. A sheet in version 1 takes none of this.
+  const looked = isLooked(doc);
+  // A sheet in format version 2 has a band of row numbers at its left (SH5.1): every column starts after it.
+  const gutter = looked ? ROW_NUMBER_WIDTH : 0;
   const colLeft = useMemo(() => {
-    let x = 0;
+    let x = gutter;
     return [...doc.columns.map((column) => { const left = x; x += live && live.id === column.id ? live.width : (column.width ?? DEFAULT_COLUMN_WIDTH); return left; }), x];
-  }, [doc.columns, live]);
+  }, [doc.columns, live, gutter]);
   const totalHeight = at(rowTop, rows.length);
   // A footer of two lines (the number and the Revision, then the day) is two rows (MC1, ADR-0257).
   const footerLines = footer === undefined ? [] : footer.split("\n");
   const footerHeight = footerLines.length * FOOTER_HEIGHT;
   const totalWidth = at(colLeft, doc.columns.length);
 
-  // The look (SH4): a sheet in format version 2 is drawn from what it states. A sheet in version 1 takes none of this.
-  const looked = isLooked(doc);
   const borderSource = useMemo(() => lookSource(doc, rows), [doc, rows]);
   const rules = useMemo(
     () => (looked ? readConditions(doc.sheet?.conditions, (id) => indexes.rowPos.get(id), (id) => indexes.colPos.get(id)) : []),
@@ -194,7 +206,7 @@ export function SheetGrid({
         rowHeights: rows.map(heightOf),
         columnWidths: doc.columns.map(widthOf),
         viewHeight: Math.max(0, view.height - LABEL_BAND_HEIGHT),
-        viewWidth: view.width,
+        viewWidth: Math.max(0, view.width - gutter),
       })
     : { rows: 0, columns: 0 };
   const frozenHeight = at(rowTop, freeze.rows);
@@ -216,6 +228,7 @@ export function SheetGrid({
     getScrollElement: () => scrollRef.current,
     estimateSize: (j) => widthOf(at(doc.columns, j)),
     overscan: 1,
+    paddingStart: gutter,
     scrollPaddingStart: frozenWidth,
     initialRect: { width: 800, height: 400 },
   });
@@ -312,11 +325,17 @@ export function SheetGrid({
   };
 
   const startEdit = (row: number, column: number, seed?: string) => {
-    if (readOnly) {
-      // A read-only grid does nothing when a cell is opened.
+    const target = rows[row];
+    if (seed === undefined && target && target.zone !== "blank" && openCell?.(target.id, at(doc.columns, column).id)) {
+      // The cell is filled through its own popup (SH5.1). The popup is also how a person who may only read sees what the
+      // cell holds (the files of an attachment cell, the reason of a Yes/No answer), so it opens in a read-only grid too
+      // and says itself what may be changed.
       return;
     }
-    const target = rows[row];
+    if (readOnly) {
+      // A read-only grid does nothing else when a cell is opened.
+      return;
+    }
     if (!target || target.zone === "blank") {
       editor.say("The blank rows show what a filler will get. They cannot be changed.", true);
       return;
@@ -332,10 +351,11 @@ export function SheetGrid({
     flushSync(() => setEditing({ row, column, initial: seed ?? (formula !== "" ? formula : shown(cell?.value)) }));
   };
 
-  const finishEdit = (save: boolean, dr = 0, dc = 0) => {
+  /** Ends the typing in a cell; answers false when what was typed was refused and the cell stays open. */
+  const finishEdit = (save: boolean, dr = 0, dc = 0): boolean => {
     const current = editing;
     if (!current) {
-      return;
+      return true;
     }
     if (save) {
       const target = at(rows, current.row);
@@ -343,7 +363,7 @@ export function SheetGrid({
       const problem = editor.setText(target.id, at(doc.columns, current.column).id, text);
       if (problem) {
         // Stay in the cell: the person keeps what they typed and is told why it was refused.
-        return;
+        return false;
       }
     }
     setEditing(null);
@@ -351,6 +371,7 @@ export function SheetGrid({
     if (dr !== 0 || dc !== 0) {
       moveTo(current.row + dr, current.column + dc, false);
     }
+    return true;
   };
 
   const onKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
@@ -485,8 +506,20 @@ export function SheetGrid({
 
   const onMouseDown = (event: MouseEvent<HTMLDivElement>) => {
     const at = positionOf(event);
-    if (!at || editing) {
+    if (!at) {
       return;
+    }
+    if (editing) {
+      if (at.r === editing.row && at.c === editing.column) {
+        // A click inside the text box being typed into moves the caret there.
+        return;
+      }
+      // A click on another cell keeps what was typed and selects that cell, as in a spreadsheet (SH5.1). When what was
+      // typed is refused the cell stays open with its words, and nothing else is selected.
+      event.preventDefault();
+      if (!finishEdit(true)) {
+        return;
+      }
     }
     dragging.current = true;
     editor.select(event.shiftKey ? { ...selection, fr: at.r, fc: at.c } : { ar: at.r, ac: at.c, fr: at.r, fc: at.c });
@@ -517,6 +550,15 @@ export function SheetGrid({
     lastTap.current = now;
   };
 
+  // One click on the paperclip of an attachment cell opens its popup (SH5.1); a drag over cells selects as before.
+  const onClick = (event: MouseEvent<HTMLDivElement>) => {
+    const element = (event.target as HTMLElement).closest<HTMLElement>("[data-open-cell]");
+    if (!element || editing || rect.r0 !== rect.r1 || rect.c0 !== rect.c1) {
+      return;
+    }
+    startEdit(Number(element.dataset.r), Number(element.dataset.c));
+  };
+
   const activeId = rows.length > 0 && doc.columns.length > 0 ? cellId(selection.fr, selection.fc) : undefined;
 
   /** One cell of the grid, drawn at its display position (the top left cell of a merged area is its anchor). */
@@ -536,6 +578,8 @@ export function SheetGrid({
     let words: string | null = null;
     let quiet = false;
     let list: string | null = null;
+    let clip = false;
+    let whiteFill = false;
     let alignment = cell?.style?.alignment ?? "LEFT";
     let text = answer !== undefined ? answer : shown(cell?.value);
     if (looked) {
@@ -546,10 +590,13 @@ export function SheetGrid({
       text = display.text;
       quiet = display.quiet;
       list = display.list;
+      clip = display.attachment === true;
       if (cell?.style?.alignment === undefined && display.number !== null) alignment = "RIGHT";
       const edges: Edges = edgesOf(borderSource, i, j, area);
       const hit = judge(rules, i, j, display.number);
       described = describe(own, edges, hit ?? undefined);
+      // A plain white fill of the cell's own counts as no fill for grey and white (SH5.1); a rule's colour still wins.
+      whiteFill = !hit && own.fill !== undefined && /^#f{6}$/i.test(own.fill);
       words = hit ? hit.words : null;
     }
     const classes = [
@@ -568,6 +615,7 @@ export function SheetGrid({
       area ? "sheet-merged" : "",
       quiet ? "sheet-quiet" : "",
       list ? "sheet-list" : "",
+      whiteFill ? "sheet-fill-white" : "",
       // a text colour named in the style is the cell's own ink: the automatic one is only for a cell that states none
       ...(described ? described.classes.filter((name) => !(cell?.style?.colour && name.startsWith("sheet-ink-"))) : []),
     ]
@@ -594,6 +642,7 @@ export function SheetGrid({
           hint={text === "" && row.zone !== "header" && !fixed}
           list={list}
           words={words}
+          clip={clip && row.zone !== "blank"}
         />
       );
     }
@@ -673,8 +722,15 @@ export function SheetGrid({
         className={fixedRow ? (i === freeze.rows - 1 ? "sheet-row sheet-row-fixed sheet-row-fixed-last" : "sheet-row sheet-row-fixed") : "sheet-row"}
         style={{ top: LABEL_BAND_HEIGHT + at(rowTop, i), height: heightOf(row), width: totalWidth }}
       >
-        {fixedColumns.length > 0 ? (
+        {fixedColumns.length > 0 || gutter > 0 ? (
           <div role="presentation" className="sheet-pane-left">
+            {gutter > 0 ? (
+              // The row's number, counted as the formula bar counts (SH5.1). It rides with the fixed columns, so it stays
+              // at the left edge while the rest scrolls, and it is part of the row for a screen reader.
+              <div role="rowheader" className="sheet-rownum" style={{ width: gutter, height: heightOf(row) }}>
+                {rowNumber(i)}
+              </div>
+            ) : null}
             {fixedColumns.filter(drawn).map((j) => renderCell(i, j))}
           </div>
         ) : null}
@@ -696,15 +752,20 @@ export function SheetGrid({
 
   const renderLabel = (j: number) => {
     const column = at(doc.columns, j);
+    // A sheet in format version 2 is headed by letters, as the formula bar names its columns (SH5.1); the column's own
+    // name stays as the tooltip and is said to a screen reader. A sheet in version 1 keeps its named headings.
+    const heading = looked ? columnLetters(j) : column.label;
     return (
       <div
         key={column.id}
         role="columnheader"
         aria-colindex={j + 1}
-        className="sheet-label"
+        aria-label={looked && column.label ? `${heading}, ${column.label}${column.required ? " (required)" : ""}` : undefined}
+        title={looked && column.label ? column.label : undefined}
+        className={looked ? "sheet-label sheet-label-letter" : "sheet-label"}
         style={{ left: at(colLeft, j), width: widthOf(column), height: LABEL_BAND_HEIGHT }}
       >
-        {column.label}
+        {heading}
         {column.required ? <span aria-hidden="true"> *</span> : null}
         {column.required ? <span className="visually-hidden"> (required)</span> : null}
         {onResizeColumn ? (
@@ -741,6 +802,7 @@ export function SheetGrid({
         onMouseDown={onMouseDown}
         onMouseOver={onMouseOver}
         onPointerUp={onPointerUp}
+        onClick={onClick}
         onCompositionStart={() => {
           if (!editing && !readOnly) {
             startEdit(selection.fr, selection.fc, "");
@@ -755,8 +817,11 @@ export function SheetGrid({
       >
         <div className="sheet-canvas" style={{ width: totalWidth, height: LABEL_BAND_HEIGHT + totalHeight + footerHeight }}>
           <div role="row" aria-rowindex={1} className="sheet-labels" style={{ height: LABEL_BAND_HEIGHT, width: totalWidth }}>
-            {fixedColumns.length > 0 ? (
+            {fixedColumns.length > 0 || gutter > 0 ? (
               <div role="presentation" className="sheet-pane-left">
+                {gutter > 0 ? (
+                  <div aria-hidden="true" className="sheet-corner" style={{ width: gutter, height: LABEL_BAND_HEIGHT }} />
+                ) : null}
                 {fixedColumns.map(renderLabel)}
               </div>
             ) : null}
@@ -932,6 +997,8 @@ interface CellViewProps {
   hint: boolean;
   list: string | null;
   words: string | null;
+  /** An attachment cell (SH5.1): a paperclip before the count, and one click opens the cell's popup. */
+  clip: boolean;
 }
 
 /**
@@ -953,7 +1020,10 @@ const CellView = memo(function CellView(p: CellViewProps) {
       aria-rowspan={p.rowSpan}
       aria-colspan={p.colSpan}
       style={style}
+      data-open-cell={p.clip ? "" : undefined}
     >
+      {p.clip ? <Icon name="paperclip" className="sheet-clip" /> : null}
+      {p.clip ? <span className="visually-hidden">Attachment cell: </span> : null}
       {p.text}
       {p.hint ? <span className="visually-hidden">Input cell</span> : null}
       {p.list ? <span className="sheet-list-mark" aria-hidden="true">{"\u25BE"}</span> : null}

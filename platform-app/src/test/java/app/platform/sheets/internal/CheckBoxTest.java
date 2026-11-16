@@ -10,7 +10,8 @@ import org.junit.jupiter.api.Test;
 /**
  * Check boxes (SH1B, ADR-0253 amendment): a form control drawn over the cells is placed in the cell that holds it, a
  * Yes box beside a No box is one yes/no cell, a lone box is a yes/no cell, a box that cannot be placed is reported
- * and never guessed, and a box over a cell that holds text does not replace the text. No database.
+ * by its place and never guessed, and a box over a cell that holds text makes that cell a Yes/No cell with a reason
+ * whose prompt is the text (SH5.1, ADR-0263). No database.
  *
  * <p>The sheet has the default sizes: a column is 64 pixels (609,600 units) and a row 20 pixels (190,500 units), so a
  * box of 230,000 by 150,000 units that starts 20,000 inside a cell lies wholly in it.
@@ -104,7 +105,7 @@ class CheckBoxTest {
     }
 
     @Test
-    void aBoxOverAQuestionKeepsTheQuestionAndMakesTheFreeCellBesideItTheYesNoCell() {
+    void aBoxOverAQuestionMakesThatCellAYesNoCellWithAReasonWhoseTextIsItsPrompt() {
         byte[] bytes = file(control(1025, "RID", 0, 20_000, 1));
         SpreadsheetImporter importer = new SpreadsheetImporter(ImportProperties.standard(),
                 new SheetProperties(SheetProperties.Limits.standard(), 4096, new SheetProperties.FormatTwo(true)),
@@ -114,14 +115,19 @@ class CheckBoxTest {
                 new SheetImportBuilder.Options(null, 2, RowsMode.FIXED, null, true));
 
         SheetDocument.Tab tab = imported.checked().document().sheets().get(0);
-        assertThat(tab.inputs()).hasSize(1);
-        assertThat(tab.body().cells().values()).extracting(SheetGrid.Cell::value).contains("z");
-        assertThat(imported.report().notes()).filteredOn(entry -> entry.note() == ImportNote.BOXES_BESIDE)
+        // SH5.1: the beside rule is gone; the question's own cell takes the answer and keeps its text as the prompt
+        assertThat(tab.inputs()).hasSize(1).allSatisfy((key, input) -> {
+            assertThat(input.type()).isEqualTo(SheetDocument.BOOLEAN_REASON);
+            assertThat(input.prompt()).isEqualTo("z");
+        });
+        assertThat(tab.body().cells().values()).extracting(SheetGrid.Cell::value).doesNotContain("z");
+        assertThat(imported.report().notes()).filteredOn(entry -> entry.note() == ImportNote.BOXES_WITH_PROMPT)
                 .extracting(ImportNote.Entry::count).containsExactly(1);
+        assertThat(imported.report().unplacedBoxPlaces()).isEmpty();
     }
 
     @Test
-    void aBoxOverAQuestionWithNoFreeCellBesideItIsReportedAndNothingIsInvented() {
+    void aBoxOverAQuestionWithNoCellInTheTableIsReportedByItsPlaceAndNothingIsInvented() {
         SpreadsheetImporter importer = new SpreadsheetImporter(ImportProperties.standard(),
                 new SheetProperties(SheetProperties.Limits.standard(), 4096, new SheetProperties.FormatTwo(true)),
                 new SheetGridValidator(SheetProperties.Limits.standard(), new SheetSchemas(), true));
@@ -134,6 +140,7 @@ class CheckBoxTest {
         assertThat(imported.checked().document().sheets().get(0).inputs()).isEmpty();
         assertThat(imported.report().notes()).filteredOn(entry -> entry.note() == ImportNote.BOXES_NOT_PLACED)
                 .extracting(ImportNote.Entry::count).containsExactly(1);
+        assertThat(imported.report().unplacedBoxPlaces()).containsExactly(new RawSheet.Place(0, 0));
     }
 
     @Test

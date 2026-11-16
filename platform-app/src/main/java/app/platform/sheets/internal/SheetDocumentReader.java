@@ -116,6 +116,7 @@ final class SheetDocumentReader {
         return new Input(node.has("type") ? node.path("type").asString() : null,
                 node.path("required").asBoolean(false),
                 node.has("class") ? InputClass.of(node.path("class").asString()).orElseThrow() : InputClass.FILLER,
-                picklist, node.has("maxFiles") ? node.path("maxFiles").asInt() : null);
+                picklist, node.has("maxFiles") ? node.path("maxFiles").asInt() : null,
+                node.has("prompt") ? node.path("prompt").asString() : null);
     }
 }
