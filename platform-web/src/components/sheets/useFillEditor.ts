@@ -12,12 +12,13 @@ import {
   pasteFill,
   removeFillRow,
   sameFill,
+  setFillChoice,
   setFillFiles,
   setFillValue,
   type CellSpec,
   type EditAs,
 } from "@/lib/sheets/fillModel";
-import type { FillDoc, FillLimits, FillOp, FillStyle } from "@/lib/sheets/fillTypes";
+import type { FillChoice, FillDoc, FillLimits, FillOp, FillStyle } from "@/lib/sheets/fillTypes";
 import { normalized } from "@/lib/sheets/geometry";
 import * as hist from "@/lib/sheets/history";
 import type { GridDoc, Selection } from "@/lib/sheets/types";
@@ -91,6 +92,8 @@ export interface FillEditor extends SheetGridEditor {
   spec(rowId: string, columnId: string): CellSpec;
   /** Names the files of an attachment cell (identifiers only); an empty list clears it. */
   setFiles(rowId: string, columnId: string, files: readonly string[]): string | null;
+  /** Gives a Yes/No cell with a reason its answer and reason (SH5.1); either may be left out. */
+  setChoice(rowId: string, columnId: string, choice: FillChoice): string | null;
   addRow(): void;
   removeRow(rowId: string): void;
   /** Starts again from cells just loaded: no history, nothing unsaved. */
@@ -159,6 +162,11 @@ export function useFillEditor(grid: GridDoc, initial: FillDoc, limits: FillLimit
     setFiles: (rowId, columnId, files) => {
       const result = setFillFiles(grid, fill, rowId, columnId, files);
       dispatch({ type: "run", op: (current) => setFillFiles(grid, current, rowId, columnId, files) });
+      return result.ok ? null : result.error;
+    },
+    setChoice: (rowId, columnId, choice) => {
+      const result = setFillChoice(grid, fill, rowId, columnId, choice, limits);
+      dispatch({ type: "run", op: (current) => setFillChoice(grid, current, rowId, columnId, choice, limits) });
       return result.ok ? null : result.error;
     },
     setText: (rowId, columnId, text) => {

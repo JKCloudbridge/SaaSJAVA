@@ -250,12 +250,20 @@ final class SheetCalculator {
             SheetGrid.Cell cell = tab.body().cells().get(key);
             boolean header = tab.body().headerRows().stream().anyMatch(line -> line.id().equals(row));
             if (cell != null && (header || SheetGridValidator.isFixed(cell, false))) {
-                return cell.value() instanceof String text ? text : null;
+                return cell.value() instanceof String text ? typed(text) : null;
             }
             if (inputs.cells().containsKey(key)) {
                 return inputs.cells().get(key);
             }
-            return cell != null && cell.value() instanceof String preset ? preset : null;
+            return cell != null && cell.value() instanceof String preset ? typed(preset) : null;
+        }
+
+        /**
+         * A number written in a fixed cell is a number to a formula, as in a spreadsheet (SH5.1, ADR-0263): an uploaded
+         * form keeps every value as text, and SUM skips text. Words and dates stay text.
+         */
+        private static Object typed(String text) {
+            return FillCalculations.isPlainNumber(text) ? (Object) Double.valueOf(text.strip()) : text;
         }
 
         @Override

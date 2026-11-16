@@ -61,7 +61,13 @@ describe("what a cell shows", () => {
   it("shows a quiet placeholder with the count in fixed words for an attachment cell", () => {
     const doc = twoDoc();
 
-    expect(displayOf(doc, "r1", "c5", "body", undefined, none, undefined, false)).toMatchObject({ text: "(no attachments yet)", quiet: true });
+    expect(displayOf(doc, "r1", "c5", "body", undefined, none, undefined, false)).toMatchObject({ text: "(no attachments yet)", quiet: true, attachment: true });
+    // the fill-in's grid draws the count of the files in the cell (SH5.1): shown as it is, not as the placeholder
+    expect(displayOf(doc, "r1", "c5", "body", { value: "(2 attachments)", kind: "input" }, none, undefined, false)).toMatchObject({
+      text: "(2 attachments)",
+      quiet: false,
+      attachment: true,
+    });
     expect(attachmentWords(0)).toBe("(no attachments yet)");
     expect(attachmentWords(1)).toBe("(1 attachment)");
     expect(attachmentWords(3)).toBe("(3 attachments)");

@@ -109,14 +109,14 @@ class FormulaImportTest {
     }
 
     @Test
-    void aNumberTypedAsFixedTextIsTextForAFormulaSoATotalOverItIsZero() {
+    void theNumbersOfTheFileCountInATotalOverThemAsTheyDoInASpreadsheet() {
         Tab tab = tab(read(namedFile(), NAMED));
-        SheetCalculator.Outcome outcome = SheetCalculator.calculate(tab, new SheetCalculator.Inputs(
-                Map.of(row(tab, 0) + ":" + column(tab, 1), 2.0, row(tab, 1) + ":" + column(tab, 1), 4.0),
+        SheetCalculator.Outcome outcome = SheetCalculator.calculate(tab, new SheetCalculator.Inputs(Map.of(),
                 java.util.List.of()), app.platform.sheets.internal.formula.FormulaLimits.DEFAULTS);
 
-        // The numbers of the file came in as fixed text of the sheet; a total ignores text, as a spreadsheet does.
-        assertThat(outcome.cells().get(row(tab, 2) + ":" + column(tab, 1)).value()).isEqualTo("0");
+        // The numbers of the file (2 and 4) came in as fixed text of the sheet; a number written in a fixed cell is a
+        // number to a formula (SH5.1, ADR-0263), so SUM over them gives 6 and was 0 when it skipped them as text.
+        assertThat(outcome.cells().get(row(tab, 2) + ":" + column(tab, 1)).value()).isEqualTo("6");
     }
 
     @Test

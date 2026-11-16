@@ -59,8 +59,9 @@ final class CellValues {
     /**
      * Why the value does not fit the cell, or null when it does (format 3, SH5). The kinds are the column's plus the
      * attachment: a list of at most {@code maxFiles} identifiers, none repeated. Nothing is checked about the bytes of
-     * a
-     * file; that the identifiers belong to this fill-in's header is the file service's fact, asked at save.
+     * a file; that the identifiers belong to this fill-in's header is the file service's fact, asked at save. A Yes/No
+     * cell with a reason holds a {@link FillDoc.Choice} (SH5.1); the length and the text of its reason are checked with
+     * every other text of the fill-in.
      */
     static String problem(FillStructure.Effective cell, Object value) {
         return switch (cell.type()) {
@@ -73,6 +74,8 @@ final class CellValues {
             case PICKLIST -> value instanceof String text && cell.picklist() != null
                     && cell.picklist().contains(text) ? null : "A list cell holds one of its listed values.";
             case ATTACHMENT -> attachmentProblem(cell, value);
+            case BOOLEAN_REASON -> value instanceof FillDoc.Choice choice && !choice.isEmpty() ? null
+                    : "A Yes/No cell with a reason holds an answer, a reason, or both.";
         };
     }
 

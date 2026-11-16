@@ -123,3 +123,32 @@ export function footerTextWithDay(
   const day = footerDay(publishedAt, timeZone);
   return day === undefined ? first : `${first}\nDate: ${day}`;
 }
+
+/**
+ * The line a fill-in's footer gains once it is sent (SH5.1, ADR-0263): `Submitted by <name> on 13-Nov-2026`, the day in
+ * the reader's own time zone unless one is given. Nothing before it is sent; without the name (a person who has left)
+ * the line keeps the day alone.
+ */
+export function submittedLine(
+  submittedBy: string | null | undefined,
+  submittedAt: string | null | undefined,
+  timeZone?: string,
+): string {
+  if (!submittedAt) {
+    return "";
+  }
+  const day = footerDay(submittedAt, timeZone);
+  if (day === undefined) {
+    return "";
+  }
+  const name = submittedBy?.trim();
+  return name ? `Submitted by ${name} on ${day}` : `Submitted on ${day}`;
+}
+
+/** A footer with the submitted line below it, when there is one. */
+export function withSubmittedLine(footer: string, line: string): string {
+  if (line === "") {
+    return footer;
+  }
+  return footer === "" ? line : `${footer}\n${line}`;
+}

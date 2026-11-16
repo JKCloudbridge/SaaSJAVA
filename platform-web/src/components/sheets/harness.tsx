@@ -16,7 +16,10 @@ export function GridHost({
   answers,
   kinds,
   onEditor,
+  openCell,
 }: {
+  /** A cell filled through a popup (SH5.1), handed straight to the grid. */
+  openCell?: (rowId: string, columnId: string) => boolean;
   initial?: GridDoc;
   readOnly?: boolean;
   toolbar?: boolean;
@@ -34,6 +37,6 @@ export function GridHost({
   return toolbar ? (
     <GridView editor={editor} readOnly={readOnly} label="Test sheet" footer={footer} />
   ) : (
-    <SheetGrid editor={editor} readOnly={readOnly} label="Test sheet" footer={footer} formulaAnswers={answers} formulaKinds={kinds} />
+    <SheetGrid editor={editor} readOnly={readOnly} label="Test sheet" footer={footer} formulaAnswers={answers} formulaKinds={kinds} openCell={openCell} />
   );
 }

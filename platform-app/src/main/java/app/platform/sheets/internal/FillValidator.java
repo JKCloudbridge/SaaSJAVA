@@ -173,6 +173,10 @@ final class FillValidator {
                     List<String> files = new ArrayList<>();
                     value.forEach(file -> files.add(file.asString()));
                     cells.put(cell.getKey(), files);
+                } else if (value.isObject()) {
+                    cells.put(cell.getKey(), new FillDoc.Choice(
+                            value.has("answer") ? value.path("answer").asBoolean() : null,
+                            value.has("reason") ? value.path("reason").asString() : null));
                 } else {
                     cells.put(cell.getKey(), value.isBoolean() ? (Object) value.asBoolean() : value.asString());
                 }
@@ -190,7 +194,9 @@ final class FillValidator {
         for (FillDoc.Row row : doc.rows()) {
             Map<String, Object> one = new TreeMap<>();
             one.put("id", row.id());
-            one.put("cells", new TreeMap<>(row.cells()));
+            Map<String, Object> cells = new TreeMap<>();
+            row.cells().forEach((column, value) -> cells.put(column, written(value)));
+            one.put("cells", cells);
             if (doc.formatVersion() == 2 && !row.styles().isEmpty()) {
                 Map<String, Object> styles = new TreeMap<>();
                 row.styles().forEach((column, style) -> styles.put(column, new TreeMap<>(style)));
@@ -207,6 +213,24 @@ final class FillValidator {
             root.put("rows", rows);
         }
         return WRITER.writeValueAsString(root);
+    }
+
+    /**
+     * A value as it is written: a choice as an object of the parts it has, keys in order (SH5.1); everything else as it
+     * is.
+     */
+    private static Object written(Object value) {
+        if (value instanceof FillDoc.Choice choice) {
+            Map<String, Object> out = new TreeMap<>();
+            if (choice.answer() != null) {
+                out.put("answer", choice.answer());
+            }
+            if (choice.reason() != null) {
+                out.put("reason", choice.reason());
+            }
+            return out;
+        }
+        return value;
     }
 
     /**
@@ -263,7 +287,7 @@ final class FillValidator {
             FillDoc.Row row = byId.get(rowId);
             for (Column column : structure.columns()) {
                 if (structure.isInput(rowId, column.id()) && asked(structure.effective(rowId, column.id()))
-                        && (row == null || !row.cells().containsKey(column.id()))) {
+                        && (row == null || !answered(row.cells().get(column.id())))) {
                     out.add(missing(ROOT + ".rows." + rowId + ".cells." + column.id()));
                 }
             }
@@ -275,7 +299,7 @@ final class FillValidator {
             }
             for (Column column : structure.columns()) {
                 if (structure.isInput(row.id(), column.id()) && asked(structure.effective(row.id(), column.id()))
-                        && !row.cells().containsKey(column.id())) {
+                        && !answered(row.cells().get(column.id()))) {
                     out.add(missing(ROOT + ".rows[" + i + "].cells." + column.id()));
                 }
             }
@@ -311,6 +335,14 @@ final class FillValidator {
             }
         }
         return out.size() > MOST_PROBLEMS ? out.subList(0, MOST_PROBLEMS) : out;
+    }
+
+    /**
+     * Whether a cell holds what a required cell needs: any value, except that a Yes/No cell with a reason needs its
+     * answer (SH5.1, ADR-0263): the reason is never compulsory and is not an answer.
+     */
+    private static boolean answered(Object value) {
+        return value != null && (!(value instanceof FillDoc.Choice choice) || choice.answer() != null);
     }
 
     /** The filler is asked for the cells of the filler's class; the reviewer's cells are the reviewer's to fill. */
@@ -459,6 +491,14 @@ final class FillValidator {
                     out.add(new Problem("shape", place + ".cells." + cell.getKey(),
                             "This has the wrong kind of value."));
                 }
+            } else if (version == FillDoc.FORMAT_THREE && value.isObject()) {
+                FillDoc.Choice choice = choiceOf(value);
+                if (choice != null) {
+                    values.put(cell.getKey(), choice);
+                } else {
+                    out.add(new Problem("shape", place + ".cells." + cell.getKey(),
+                            "This has the wrong kind of value."));
+                }
             } else {
                 out.add(new Problem("shape", place + ".cells." + cell.getKey(), "This has the wrong kind of value."));
             }
@@ -466,6 +506,27 @@ final class FillValidator {
         if (id.isString()) {
             rows.add(new RawRow(id.asString(), values, styles(row.path("styles"), place + ".styles", out)));
         }
+    }
+
+    /**
+     * The value of a Yes/No cell with a reason as it arrived (SH5.1, ADR-0263): an object with at most an
+     * {@code answer} that is yes or no and a {@code reason} that is text; anything else in it is the wrong shape. An
+     * empty reason is no reason, so one meaning has one form.
+     */
+    private static FillDoc.Choice choiceOf(JsonNode value) {
+        Boolean answer = null;
+        String reason = null;
+        for (Map.Entry<String, JsonNode> part : value.properties()) {
+            JsonNode given = part.getValue();
+            if ("answer".equals(part.getKey()) && given.isBoolean()) {
+                answer = given.asBoolean();
+            } else if ("reason".equals(part.getKey()) && given.isString()) {
+                reason = given.asString().isEmpty() ? null : given.asString();
+            } else if (!given.isNull() || !Set.of("answer", "reason").contains(part.getKey())) {
+                return null;
+            }
+        }
+        return new FillDoc.Choice(answer, reason);
     }
 
     /** Closed, non-executable style language. Unknown keys and their contents never enter a refusal. */
@@ -523,7 +584,7 @@ final class FillValidator {
         }
         for (int i = 0; i < rows.size(); i++) {
             for (Map.Entry<String, Object> cell : rows.get(i).cells().entrySet()) {
-                if (cell.getValue() instanceof String text && text.length() > maxCellChars) {
+                if (textOf(cell.getValue()) instanceof String text && text.length() > maxCellChars) {
                     out.add(new Problem("text_too_long", cellPlace(i, cell.getKey()), "A text is longer than the "
                             + "allowed " + maxCellChars + " characters."));
                 }
@@ -536,12 +597,20 @@ final class FillValidator {
         List<Problem> out = new ArrayList<>();
         for (int i = 0; i < rows.size(); i++) {
             for (Map.Entry<String, Object> cell : rows.get(i).cells().entrySet()) {
-                if (cell.getValue() instanceof String text && CellValues.unsafe(text)) {
+                if (textOf(cell.getValue()) instanceof String text && CellValues.unsafe(text)) {
                     out.add(new Problem("unsafe_text", cellPlace(i, cell.getKey()), CellValues.TEXT_UNSAFE));
                 }
             }
         }
         return out;
+    }
+
+    /** The text a value holds: the text itself, or the reason of a Yes/No cell with a reason; else null. */
+    private static String textOf(Object value) {
+        if (value instanceof FillDoc.Choice choice) {
+            return choice.reason();
+        }
+        return value instanceof String text ? text : null;
     }
 
     // ---- rows and cells ----
@@ -604,7 +673,8 @@ final class FillValidator {
 
     private static boolean isEmpty(Object value) {
         return value == null || value instanceof String text && text.isEmpty()
-                || value instanceof List<?> list && list.isEmpty();
+                || value instanceof List<?> list && list.isEmpty()
+                || value instanceof FillDoc.Choice choice && choice.isEmpty();
     }
 
     // ---- canonical form ----

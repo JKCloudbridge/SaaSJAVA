@@ -27,9 +27,18 @@ export interface CellDisplay {
   quiet: boolean;
   /** A cell with a list of values the author sees marked (yes/no and picklist input cells). */
   list: string | null;
+  /** An attachment cell: the grid draws a paperclip beside the count (SH5.1). */
+  attachment?: boolean;
 }
 
-export type InputType = "text" | "number" | "date" | "picklist" | "boolean" | "attachment";
+export type InputType = "text" | "number" | "date" | "picklist" | "boolean" | "boolean_reason" | "attachment";
+
+/** The prompt a Yes/No cell with a reason states (SH5.1, ADR-0263), or an empty text. */
+export function promptOf(doc: GridDoc, rowId: string, columnId: string): string {
+  const stated = doc.sheet?.inputs?.[`${rowId}:${columnId}`];
+  const prompt = typeof stated === "object" && stated !== null ? (stated as { prompt?: unknown }).prompt : undefined;
+  return typeof prompt === "string" ? prompt : "";
+}
 
 /** The words for a count of attachments. */
 export function attachmentWords(count: number): string {
@@ -44,7 +53,8 @@ export function typeOf(doc: GridDoc, rowId: string, columnId: string, zone: Zone
   const stated = doc.sheet?.inputs?.[`${rowId}:${columnId}`];
   const type = typeof stated === "object" && stated !== null ? (stated as { type?: unknown }).type : undefined;
   if (
-    type === "text" || type === "number" || type === "date" || type === "picklist" || type === "boolean" || type === "attachment"
+    type === "text" || type === "number" || type === "date" || type === "picklist" || type === "boolean"
+    || type === "boolean_reason" || type === "attachment"
   ) {
     return type;
   }
@@ -52,7 +62,7 @@ export function typeOf(doc: GridDoc, rowId: string, columnId: string, zone: Zone
 }
 
 function listOf(doc: GridDoc, rowId: string, columnId: string, type: InputType): string | null {
-  if (type === "boolean") return "List: Yes, No";
+  if (type === "boolean" || type === "boolean_reason") return "List: Yes, No";
   if (type !== "picklist") return null;
   const stated = doc.sheet?.inputs?.[`${rowId}:${columnId}`];
   const own = typeof stated === "object" && stated !== null ? (stated as { picklist?: { values?: unknown } }).picklist?.values : undefined;
@@ -90,9 +100,29 @@ export function displayOf(
     return plain(answer.text);
   }
   const value = cell?.value;
+  if (type === "boolean_reason") {
+    // The answer on the top line (a quiet "Yes / No" until there is one), then the prompt followed by the reason
+    // (SH5.1). A fill-in's grid hands the answer and the reason over as the answer, a line break, the reason
+    // (`choiceCellText`).
+    const prompt = promptOf(doc, rowId, columnId);
+    let answer = value === true ? "Yes" : value === false ? "No" : "";
+    let reason = "";
+    if (typeof value === "string" && value !== "") {
+      const at = value.indexOf("\n");
+      answer = at < 0 ? value : value.slice(0, at);
+      reason = at < 0 ? "" : value.slice(at + 1);
+    }
+    const below = [prompt, reason].filter((part) => part !== "").join(" ");
+    const top = answer === "" ? "Yes / No" : answer;
+    return { text: below === "" ? top : `${top}\n${below}`, number: null, quiet: answer === "" && below === "", list };
+  }
   if (value === true) return plain("Yes");
   if (value === false) return plain("No");
-  if (type === "attachment") return { text: attachmentWords(0), number: null, quiet: true, list };
+  if (type === "attachment") {
+    // A fill-in's grid draws the count of files in the cell as words ("(2 attachments)"); with none, a quiet placeholder.
+    const counted = typeof value === "string" && value !== "";
+    return { text: counted ? value : attachmentWords(0), number: null, quiet: !counted, list, attachment: true };
+  }
   if (typeof value === "string" && value !== "" && isPlainNumber(value) && (type === "number" || formatsNumbers(look.numberFormat))) {
     const n = Number(value);
     return { text: formatNumber(look.numberFormat, value), number: Number.isFinite(n) ? n : null, quiet: false, list };

@@ -9,6 +9,7 @@ import {
   kindOfFile,
   leftOut,
   placesWords,
+  unplacedBoxes,
   refusalBeforeSending,
   reportSummary,
   worksheetWords,
@@ -265,8 +266,19 @@ export function UploadSheet({
                 ) : null}
                 {(report.embeddedFilePlaces?.length ?? 0) > 0 ? (
                   <p data-testid="upload-embedded-places">
-                    Embedded files stood in these cells of the worksheet: {placesWords(report.embeddedFilePlaces ?? [])}. Set
-                    the type of those cells to an attachment when you edit the sheet.
+                    {report.formatTwo
+                      ? "Embedded files stood in these cells and could not become attachment cells (the cell holds text or a formula, or is not on the sheet): "
+                      : "Embedded files stood in these cells of the worksheet: "}
+                    {placesWords(report.embeddedFilePlaces ?? [])}.{" "}
+                    {report.formatTwo
+                      ? "If one of them should take files, choose the cell and set its kind to Attachment with Input cell when you edit the sheet."
+                      : "Files cannot be attached to a sheet in the earlier format."}
+                  </p>
+                ) : null}
+                {unplacedBoxes(report).length > 0 ? (
+                  <p data-testid="upload-unplaced-boxes">
+                    Check boxes stood in these cells of the worksheet and could not be made part of a cell:{" "}
+                    {placesWords(unplacedBoxes(report))}. Set those cells by hand with Input cell when you edit the sheet.
                   </p>
                 ) : null}
                 <p className="hint">Nothing is saved until you choose Save. The file itself is not kept.</p>

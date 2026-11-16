@@ -161,6 +161,111 @@ describe("a sheet in format version 2", () => {
   });
 });
 
+describe("letters, row numbers, grey and white and the paperclip (SH5.1)", () => {
+  it("heads the columns with letters and numbers the rows as the formula bar counts them, keeping the names as tooltips", () => {
+    render(<GridHost initial={looked()} />);
+
+    const headers = screen.getAllByRole("columnheader");
+    expect(headers.map((header) => header.textContent)).toEqual(["A", "B * (required)", "C"]);
+    expect(headers[0]).toHaveAttribute("title", "Item");
+    expect(headers[0]).toHaveAccessibleName("A, Item");
+    expect(headers[1]).toHaveAccessibleName("B, Amount (required)");
+    // two header rows, then the three named rows: 1 to 5, as toExcel writes them
+    expect(screen.getAllByRole("rowheader").map((cell) => cell.textContent)).toEqual(["1", "2", "3", "4", "5"]);
+    // the number rides with the row, in the layer that stays at the left edge
+    expect(screen.getAllByRole("rowheader")[2]?.closest(".sheet-pane-left")).not.toBeNull();
+  });
+
+  it("starts every column after the band of row numbers", () => {
+    render(<GridHost initial={looked()} />);
+
+    expect(cellAt(2, 0).style.left).toBe("44px");
+    expect(cellAt(2, 1).style.left).toBe("204px");
+  });
+
+  it("keeps named headings and no row numbers on a sheet in the earlier format", () => {
+    render(<GridHost initial={sampleDoc()} />);
+
+    expect(screen.getAllByRole("columnheader").map((header) => header.textContent)).toEqual([
+      "Item",
+      "Amount * (required)",
+      "Result",
+    ]);
+    expect(screen.queryAllByRole("rowheader")).toHaveLength(0);
+    expect(cellAt(2, 0).style.left).toBe("0px");
+  });
+
+  it("marks a fixed cell with no fill of its own for the grey, and leaves a cell with a fill or a rule's colour alone", () => {
+    const doc = looked({
+      cells: { "r2:c1": { look: { fill: "#ccffcc" } }, "r3:c1": { formula: "@{c2,r1}" } },
+      conditions: [{ from: "r3:c1", to: "r3:c1", operator: "LT", value: "100", fill: "#ffcccc" }],
+    });
+    render(<GridHost initial={doc} answers={{ "r3:c1": "7" }} kinds={{ "r3:c1": "number" }} />);
+
+    // "Fire exit": fixed text, no fill of its own: the grey applies (it is the class without a fill)
+    expect(cellAt(2, 0)).toHaveClass("sheet-cell-fixed");
+    expect(cellAt(2, 0)).not.toHaveClass("sheet-has-fill");
+    // a fixed cell with its own fill, and one a conditional colour paints, carry the fill and so are never grey
+    expect(cellAt(3, 0)).toHaveClass("sheet-has-fill");
+    expect(cellAt(4, 0)).toHaveClass("sheet-has-fill");
+    // a cell to fill stays white and still says so to a screen reader
+    expect(cellAt(2, 1)).toHaveClass("sheet-cell-input");
+    expect(within(cellAt(2, 1)).getByText("Input cell")).toHaveClass("visually-hidden");
+  });
+
+  it("keeps what was typed and selects the cell clicked while a cell is being typed into", () => {
+    let latest: Parameters<NonNullable<Parameters<typeof GridHost>[0]["onEditor"]>>[0] | undefined;
+    render(<GridHost initial={looked()} onEditor={(editor) => (latest = editor)} />);
+    const grid = screen.getByRole("grid");
+
+    fireEvent.mouseDown(cellAt(2, 1));
+    fireEvent.keyDown(grid, { key: "7" });
+    expect(screen.getByRole("textbox")).toBeInTheDocument();
+    fireEvent.mouseDown(cellAt(3, 2));
+
+    expect(screen.queryByRole("textbox")).toBeNull();
+    expect(latest?.doc.cells["r1:c2"]?.value).toBe("7");
+    const active = document.getElementById(grid.getAttribute("aria-activedescendant") ?? "");
+    expect(active).toHaveAttribute("data-r", "3");
+    expect(active).toHaveAttribute("data-c", "2");
+  });
+
+  it("counts a plain white fill as no fill, so fixed text the file painted white is grey too", () => {
+    const doc = looked({ cells: { "r1:c1": { look: { fill: "#FFFFFF" } }, "r2:c1": { look: { fill: "#ccffcc" } } } });
+    render(<GridHost initial={doc} />);
+
+    expect(cellAt(2, 0)).toHaveClass("sheet-cell-fixed", "sheet-fill-white");
+    expect(cellAt(3, 0)).not.toHaveClass("sheet-fill-white");
+  });
+
+  it("draws a paperclip on an attachment cell and opens its popup with one click or Enter, also in a read-only grid", () => {
+    const opened: string[] = [];
+    const doc = looked({ inputs: { "r1:c3": { type: "attachment" } } });
+    render(
+      <GridHost
+        initial={doc}
+        readOnly
+        openCell={(rowId, columnId) => {
+          opened.push(`${rowId}:${columnId}`);
+          return true;
+        }}
+      />,
+    );
+    const cell = cellAt(2, 2);
+
+    expect(cell.querySelector("svg.sheet-clip")).not.toBeNull();
+    expect(cell).toHaveTextContent("Attachment cell: (no attachments yet)");
+    expect(cellAt(2, 1).querySelector("svg.sheet-clip")).toBeNull();
+
+    fireEvent.mouseDown(cell);
+    fireEvent.click(cell);
+    expect(opened).toEqual(["r1:c3"]);
+
+    fireEvent.keyDown(screen.getByRole("grid"), { key: "Enter" });
+    expect(opened).toEqual(["r1:c3", "r1:c3"]);
+  });
+});
+
 describe("the frozen rows and columns", () => {
   it("draws the fixed rows in their own sticky layer, still named and counted for a screen reader", () => {
     render(<GridHost initial={looked({ freeze: { rows: 2, columns: 0 } })} />);

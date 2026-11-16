@@ -41,6 +41,8 @@ import tools.jackson.databind.JsonNode;
  *   <li>The sheet: the frozen panes, and the input cells that state their own type, requirement or class.</li>
  * </ol>
  *
+ * <p>A stated input cell may be a Yes/No cell with a reason (SH5.1, ADR-0263), which alone takes a prompt.
+ *
  * <p>The caller has already bounded the size and the nesting, parsed the text without a repeated key, and decided that
  * the switch of format version 2 is on. An accepted document is returned in its <em>canonical</em> form
  * ({@link SheetDocumentWriter}).
@@ -400,6 +402,28 @@ final class SheetDocumentValidator {
         }
         if (input.type() != null && cell != null && cell.value() != null) {
             out.add(new Problem("input_preset", at, "A cell with a stated type holds no preset value."));
+        }
+        promptProblems(input, at, out);
+    }
+
+    /**
+     * The prompt of a Yes/No cell with a reason (SH5.1, ADR-0263): only that kind takes one; it is fixed text of the
+     * author, so it is bounded like a fixed text and refused, never escaped, when it holds markup. The words never
+     * repeat it.
+     */
+    private void promptProblems(Input input, String at, List<Problem> out) {
+        String prompt = input.prompt();
+        if (prompt == null) {
+            return;
+        }
+        if (!SheetDocument.BOOLEAN_REASON.equals(input.type()) || prompt.isBlank()) {
+            out.add(new Problem("input_prompt", at + ".prompt", "Only a Yes/No cell with a reason takes a prompt, "
+                    + "and a prompt is not empty."));
+        } else if (prompt.length() > limits.maxFixedTextChars()) {
+            out.add(new Problem("text_too_long", at + ".prompt", "A prompt is longer than the allowed "
+                    + limits.maxFixedTextChars() + " characters."));
+        } else if (CellValues.unsafe(prompt)) {
+            out.add(new Problem("unsafe_text", at + ".prompt", CellValues.TEXT_UNSAFE));
         }
     }
 

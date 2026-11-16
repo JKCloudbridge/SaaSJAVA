@@ -28877,6 +28877,12 @@
             "type" : "integer",
             "format" : "int32"
           },
+          "unplacedBoxPlaces" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/SheetImportPlaceView"
+            }
+          },
           "worksheet" : {
             "type" : "integer",
             "format" : "int32"
@@ -28959,13 +28965,19 @@
             },
             "required" : [ "values" ]
           },
+          "prompt" : {
+            "type" : "string",
+            "description" : "The fixed text a boolean_reason cell shows above its answer (SH5.1, ADR-0263). Only that kind takes a prompt. It is the author's text: never logged.",
+            "maxLength" : 5000,
+            "minLength" : 1
+          },
           "required" : {
             "type" : "boolean"
           },
           "type" : {
             "type" : "string",
-            "description" : "Overrides the type of the column. An attachment cell holds a list of file identifiers of the fill-in (ADR-0254).",
-            "enum" : [ "text", "number", "date", "picklist", "boolean", "attachment" ]
+            "description" : "Overrides the type of the column. An attachment cell holds a list of file identifiers of the fill-in (ADR-0254). A boolean_reason cell holds a yes or no answer and an optional reason typed by the person filling in, under the prompt the cell states (SH5.1, ADR-0263).",
+            "enum" : [ "text", "number", "date", "picklist", "boolean", "boolean_reason", "attachment" ]
           }
         }
       },

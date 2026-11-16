@@ -129,6 +129,12 @@ class RealWorkbooksReportTest {
         out.append('\n');
     }
 
+    private static java.util.Map<SheetCalculator.Kind, Integer> kinds(SheetCalculator.Outcome outcome) {
+        java.util.Map<SheetCalculator.Kind, Integer> counts = new java.util.EnumMap<>(SheetCalculator.Kind.class);
+        outcome.cells().values().forEach(answer -> counts.merge(answer.kind(), 1, Integer::sum));
+        return counts;
+    }
+
     private static void collect(StyleBook.Format format, Set<String> fonts, Set<String> fills, Set<String> colours) {
         if (format == null || format.look() == null) {
             return;
@@ -156,6 +162,38 @@ class RealWorkbooksReportTest {
                     .append(tab.conditions().size()).append(" conditional colours, ")
                     .append(imported.checked().bytes()).append(" bytes; first row is a title: ")
                     .append(imported.report().firstRowIsTitle()).append('\n');
+            // SH5.1: the formulas calculated with no marks typed, then with the number 1 typed into every cell to fill that
+            // a formula reads; counts of answers only, never a value of the file
+            SheetCalculator.Outcome bare = SheetCalculator.calculate(tab, new SheetCalculator.Inputs(
+                    java.util.Map.of(), java.util.List.of()), app.platform.sheets.internal.formula.FormulaLimits.DEFAULTS);
+            java.util.Map<String, Object> ones = new java.util.HashMap<>();
+            tab.body().rows().forEach(line -> tab.body().columns().forEach(column -> {
+                String key = line.id() + ":" + column.id();
+                SheetGrid.Cell held = tab.body().cells().get(key);
+                if (held == null || held.value() == null) {
+                    ones.put(key, 1.0);
+                }
+            }));
+            SheetCalculator.Outcome typed = SheetCalculator.calculate(tab, new SheetCalculator.Inputs(ones,
+                    java.util.List.of()), app.platform.sheets.internal.formula.FormulaLimits.DEFAULTS);
+            out.append("    formulas: ").append(tab.formulas().size()).append("; answers with no marks typed: ")
+                    .append(kinds(bare)).append("; with a 1 typed in every empty cell: ").append(kinds(typed))
+                    .append("; answers that changed when the marks were typed: ")
+                    .append(bare.cells().entrySet().stream().filter(
+                            e -> !e.getValue().value().equals(typed.cells().get(e.getKey()).value())).count())
+                    .append('\n');
+            // SH5.1: the kinds of the input cells and where the embedded files went, as counts
+            java.util.Map<String, Integer> kinds = new java.util.TreeMap<>();
+            tab.inputs().values().forEach(input -> kinds.merge(String.valueOf(input.type()), 1, Integer::sum));
+            out.append("    input kinds: ").append(kinds).append("; places of embedded files not made into a cell: ")
+                    .append(imported.report().embeddedFilePlaces().size()).append(" (of which on a row of the sheet: ")
+                    .append(imported.report().embeddedFilePlaces().stream()
+                            .filter(place -> imported.report().sheetRow(place, imported.report().rows()) != null)
+                            .count())
+                    .append(")\n    report notes:");
+            imported.report().notes().forEach(entry -> out.append(' ').append(entry.note().code()).append('=')
+                    .append(entry.count()));
+            out.append('\n');
         } catch (ImportRefusal e) {
             out.append("    as a sheet: refused with code ").append(e.code()).append('\n');
         }

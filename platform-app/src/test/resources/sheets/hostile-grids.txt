@@ -244,3 +244,7 @@ formula_too_long	two	{"cells":{"r1:c2":{"formula":"1+1+1+1+1+1+1+1+1+1+1+1+1+1+1
 formula_too_complex	two	{"cells":{"r1:c2":{"formula":"1+1+1+1+1+1+1+1+1+1"}}}	a formula with more parts than a narrowed setting
 formula_too_many_formulas	two	{"cells":{"h1:c1":{"formula":"1"},"h1:c2":{"formula":"1"},"r1:c1":{"formula":"1","kind":"fixed"},"r1:c2":{"formula":"1","kind":"fixed"}}}	more formulas than a narrowed setting
 formula_chain_too_deep	two	{"cells":{"h1:c1":{"formula":"1"},"h1:c2":{"formula":"@{c1}"},"r1:c1":{"formula":"@{c2,h1}","kind":"fixed"}}}	formulas that depend on each other through more steps than a narrowed setting
+input_prompt	two	{"inputs":{"r1:c1":{"type":"boolean","prompt":"Asked?"}}}	a prompt on a cell that is not a Yes/No cell with a reason
+input_prompt	two	{"inputs":{"r1:c1":{"type":"boolean_reason","prompt":"   "}}}	a prompt of spaces only
+unsafe_text	two	{"inputs":{"r1:c1":{"type":"boolean_reason","prompt":"<b>HOSTILEMARK"}}}	markup in the prompt of a Yes/No cell with a reason
+input_preset	two	{"cells":{"r1:c1":{"value":"Asked?","kind":"input"}},"inputs":{"r1:c1":{"type":"boolean_reason","prompt":"Asked?"}}}	a Yes/No cell with a reason that also holds text of its own

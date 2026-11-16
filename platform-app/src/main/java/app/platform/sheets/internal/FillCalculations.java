@@ -44,8 +44,9 @@ class FillCalculations {
     }
 
     /**
-     * The values the calculator reads: a number as a number, a yes or no as a boolean, anything else as text; an
-     * attachment cell holds files and is never an operand. A sheet where the filler adds all the rows is given the rows
+     * The values the calculator reads: a number as a number, a yes or no as a boolean (also the answer of a Yes/No cell
+     * with a reason, whose reason is never read), anything else as text; an attachment cell holds files and is never an
+     * operand. A sheet where the filler adds all the rows is given the rows
      * in order, any other sheet the cells by their key.
      */
     static SheetCalculator.Inputs inputs(FillStructure structure, FillDoc doc) {
@@ -74,6 +75,10 @@ class FillCalculations {
         if (structure.column(column) == null || value instanceof List<?>) {
             return null;
         }
+        if (value instanceof FillDoc.Choice choice) {
+            // A formula reads the answer of a Yes/No cell with a reason, never the reason (SH5.1, ADR-0263).
+            return choice.answer();
+        }
         FillStructure.CellType type = structure.effective(rowId, column).type();
         if (type == FillStructure.CellType.NUMBER && value instanceof String text) {
             try {
@@ -82,7 +87,18 @@ class FillCalculations {
                 return null;
             }
         }
+        if (type == FillStructure.CellType.TEXT && value instanceof String text && isPlainNumber(text)) {
+            // A number typed into a cell is a number, as in a spreadsheet (SH5.1, ADR-0263): an uploaded form makes
+            // every column text, and SUM skips text, so "5" typed for a mark must count. A date or a word stays text.
+            return new BigDecimal(text.strip()).doubleValue();
+        }
         return value;
+    }
+
+    /** An optional sign, digits, an optional fraction: what a person types for a number; nothing else. */
+    static boolean isPlainNumber(String text) {
+        String t = text.strip();
+        return t.length() <= 40 && t.matches("[+-]?(\\d+(\\.\\d*)?|\\.\\d+)");
     }
 
     /** The answers as the screen reads them. */

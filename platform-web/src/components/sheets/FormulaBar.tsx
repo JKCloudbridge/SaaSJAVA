@@ -1,6 +1,7 @@
 "use client";
 
 import { useId, useState } from "react";
+import { cellAddress } from "@/lib/sheets/addresses";
 import type { SheetEditor } from "./useSheetEditor";
 
 export interface FormulaBarProps {
@@ -26,7 +27,8 @@ export function FormulaBar({ editor, answer }: FormulaBarProps) {
   const cellValue = row && column ? doc.cells[key]?.value : undefined;
   const current = formula !== "" ? formula : typeof cellValue === "string" ? cellValue : "";
   return <FormulaBarInput key={`${key}|${current}`} editor={editor} rowId={row?.id} columnId={column?.id} current={current}
-    editable={editable} answer={formula !== "" ? answer : undefined} />;
+    editable={editable} answer={formula !== "" ? answer : undefined}
+    address={row && column ? cellAddress(selection.fr, selection.fc) : ""} />;
 }
 
 function FormulaBarInput({
@@ -36,6 +38,7 @@ function FormulaBarInput({
   current,
   editable,
   answer,
+  address,
 }: {
   editor: SheetEditor;
   rowId: string | undefined;
@@ -43,6 +46,8 @@ function FormulaBarInput({
   current: string;
   editable: boolean;
   answer?: string;
+  /** The address of the selected cell as the formulas write it, such as C6 (SH5.1). */
+  address: string;
 }) {
   const id = useId();
   const [draft, setDraft] = useState(current);
@@ -53,47 +58,55 @@ function FormulaBarInput({
   };
   return (
     <div className="sheet-formula-bar" data-testid="formula-bar">
-      <label htmlFor={id}>
-        <span className="visually-hidden">Formula bar</span>
-        <span aria-hidden="true">fx</span>
-      </label>
-      <input
-        id={id}
-        type="text"
-        value={draft}
-        disabled={!editable}
-        autoComplete="off"
-        spellCheck={false}
-        aria-invalid={problem ? true : undefined}
-        aria-describedby={problem ? `${id}-problem` : undefined}
-        placeholder={editable ? "Type text, or = and a formula" : ""}
-        onChange={(event) => setDraft(event.target.value)}
-        onBlur={apply}
-        onKeyDown={(event) => {
-          if (event.key === "Enter") {
-            event.preventDefault();
-            apply();
-          } else if (event.key === "Escape") {
-            event.preventDefault();
-            setDraft(current);
-          }
-        }}
-      />
-      {answer !== undefined ? (
-        <span className="hint" data-testid="formula-answer">
-          Answer: {answer === "" ? "(empty)" : answer}
-        </span>
-      ) : null}
-      {rowId && columnId && editor.canMarkScore(rowId, columnId) ? (
-        <label className="hint" data-testid="score-mark">
-          <input
-            type="checkbox"
-            checked={editor.isScore(rowId, columnId)}
-            onChange={(event) => editor.markScore(rowId, columnId, event.target.checked)}
-          />{" "}
-          Use as the score
+      {/* One line that never wraps (SH5.1): choosing a formula cell adds its answer and the score box, and a line that
+          grew or wrapped moved the grid under the pointer and made the page shake. */}
+      <div className="sheet-formula-line">
+        {/* The cell chosen, before the formula, as a spreadsheet's name box (SH5.1): the same address the formulas use. */}
+        <output className="sheet-name-box" aria-label="Selected cell" data-testid="name-box">
+          {address}
+        </output>
+        <label htmlFor={id}>
+          <span className="visually-hidden">Formula bar</span>
+          <span aria-hidden="true">fx</span>
         </label>
-      ) : null}
+        <input
+          id={id}
+          type="text"
+          value={draft}
+          disabled={!editable}
+          autoComplete="off"
+          spellCheck={false}
+          aria-invalid={problem ? true : undefined}
+          aria-describedby={problem ? `${id}-problem` : undefined}
+          placeholder={editable ? "Type text, or = and a formula" : ""}
+          onChange={(event) => setDraft(event.target.value)}
+          onBlur={apply}
+          onKeyDown={(event) => {
+            if (event.key === "Enter") {
+              event.preventDefault();
+              apply();
+            } else if (event.key === "Escape") {
+              event.preventDefault();
+              setDraft(current);
+            }
+          }}
+        />
+        {answer !== undefined ? (
+          <span className="hint sheet-formula-answer" data-testid="formula-answer" title={answer}>
+            Answer: {answer === "" ? "(empty)" : answer}
+          </span>
+        ) : null}
+        {rowId && columnId && editor.canMarkScore(rowId, columnId) ? (
+          <label className="hint" data-testid="score-mark">
+            <input
+              type="checkbox"
+              checked={editor.isScore(rowId, columnId)}
+              onChange={(event) => editor.markScore(rowId, columnId, event.target.checked)}
+            />{" "}
+            Use as the score
+          </label>
+        ) : null}
+      </div>
       {problem ? (
         <p className="field-error" id={`${id}-problem`} role="alert">
           {problem}

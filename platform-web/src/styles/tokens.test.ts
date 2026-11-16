@@ -155,6 +155,21 @@ describe("design tokens", () => {
       }
     });
 
+    it("draws a fixed cell of a sheet light grey, a cell to fill white, and keeps both readable in either theme (SH5.1)", () => {
+      // The paper is defined once, never in the dark block: a sheet looks the same in both themes.
+      expect(dark).not.toContain("--sheet-paper-fixed:");
+      const grey = role(light, "--sheet-paper-fixed");
+      const white = role(light, "--sheet-paper-surface");
+      expect(white).toBe("#ffffff");
+      // the text of a sheet and its quieter words read at AA on the grey (the text at AAA)
+      expect(contrast(role(light, "--sheet-paper-text"), grey), "text on the grey").toBeGreaterThanOrEqual(7);
+      expect(contrast(role(light, "--sheet-paper-text-muted"), grey), "muted text on the grey").toBeGreaterThanOrEqual(4.5);
+      expect(contrast(role(light, "--sheet-paper-accent"), grey), "accent on the grey").toBeGreaterThanOrEqual(4.5);
+      // the grey is told apart from white, and is still light enough that the dark ink is the one chosen over it
+      expect(contrast(grey, white), "grey beside white").toBeGreaterThan(1.15);
+      expect(luminance(grey)).toBeGreaterThan(0.7);
+    });
+
     it("defines six series colours in both themes that read as marks (3 to 1) and, as words, at AA (FA9)", () => {
       const mix = (a: string, b: string, share: number): string => {
         const channels = [1, 3, 5].map((at) => {

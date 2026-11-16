@@ -38,6 +38,9 @@ export function layoutOf(doc: GridDoc, bodyRows: number): Layout {
   };
 }
 
+/** What a person writes for a number: a sign, digits, an optional fraction (the server reads the same). */
+const PLAIN_NUMBER = /^[+-]?(\d+(\.\d*)?|\.\d+)$/;
+
 const NOT_HERE = "Formulas need the new sheet format, which is not switched on here.";
 
 function extrasOf(doc: GridDoc): SheetExtras | null {
@@ -245,7 +248,9 @@ export function answerSet(doc: GridDoc, spec: FormulaSpec | null): AnswerSet {
       if (stored !== undefined) return calculate(`c:${key}`, row, stored);
       const cell = doc.cells[key];
       const value = cell?.value;
-      return typeof value === "string" || typeof value === "boolean" ? value : null;
+      // A number written in a fixed cell is a number, as the server reads it (SH5.1): SUM skips text.
+      if (typeof value === "string") return PLAIN_NUMBER.test(value.trim()) && value.trim().length <= 40 ? Number(value.trim()) : value;
+      return typeof value === "boolean" ? value : null;
     },
     range(fromColumn, fromRow, toColumn, toRow) {
       const c0 = columnAt.get(fromColumn);

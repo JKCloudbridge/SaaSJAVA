@@ -25,9 +25,18 @@ class FillFormatThreeCorpusTest {
             "sheet_unknown", "unsafe_text", "duplicate_row", "row_id_reserved", "rows_fixed", "cell_unknown",
             "cell_not_input", "value_type", "too_deep");
 
-    /** The sheet of the unit test, with a formula in r3:c1 so that a typed value there is refused. */
+    /**
+     * The sheet of the unit test, with a formula in r3:c1 so that a typed value there is refused, and a third column
+     * whose cell r1:c3 is a Yes/No cell with a reason (SH5.1).
+     */
+    @SuppressWarnings("unchecked") // the test documents are maps and lists built by GridDocs
     private static Map<String, Object> sheet() {
-        return FormulaDocs.withCell(FillFormatThreeTest.sheet(), "r3:c1", "SUM(@{c2,r1}:@{c2,r2})");
+        Map<String, Object> document = FormulaDocs.withCell(FillFormatThreeTest.sheet(), "r3:c1",
+                "SUM(@{c2,r1}:@{c2,r2})");
+        ((List<Object>) TwoDocs.sheet(document).get("columns")).add(GridDocs.column("c3", "Asked", "text"));
+        ((Map<String, Object>) TwoDocs.sheet(document).get("inputs")).put("r1:c3",
+                GridDocs.map("type", "boolean_reason", "prompt", "Asked?"));
+        return document;
     }
 
     private record Line(String code, String reason, String document) {

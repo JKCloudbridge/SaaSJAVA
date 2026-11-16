@@ -160,13 +160,21 @@ record SheetDocument(List<Tab> sheets) {
     /**
      * What the author states about one input cell. Whatever is null or false is as its column says.
      *
-     * @param type the type that overrides the column's: text, number, date, picklist, boolean or attachment
-     * @param required whether the filler must fill it
+     * @param type the type that overrides the column's: text, number, date, picklist, boolean, boolean_reason or
+     *        attachment
+     * @param required whether the filler must fill it (for a boolean_reason cell: the answer, never the reason)
      * @param cls who fills it
      * @param picklist the values of a picklist cell
      * @param maxFiles the most files of an attachment cell (5 when absent)
+     * @param prompt the fixed text a boolean_reason cell shows above its answer, or null (SH5.1, ADR-0263)
      */
-    record Input(String type, boolean required, InputClass cls, List<String> picklist, Integer maxFiles) {
+    record Input(String type, boolean required, InputClass cls, List<String> picklist, Integer maxFiles,
+            String prompt) {
+
+        /** A statement with no prompt (every kind but boolean_reason). */
+        Input(String type, boolean required, InputClass cls, List<String> picklist, Integer maxFiles) {
+            this(type, required, cls, picklist, maxFiles, null);
+        }
 
         Input {
             picklist = picklist == null ? null : List.copyOf(picklist);
@@ -180,6 +188,9 @@ record SheetDocument(List<Tab> sheets) {
 
     /** The files an attachment cell holds when it states no limit. */
     static final int DEFAULT_MAX_FILES = 5;
+
+    /** The stated type of a cell that holds a yes or no answer and an optional reason (SH5.1, ADR-0263). */
+    static final String BOOLEAN_REASON = "boolean_reason";
 
     /** Prints a marker, never the content. */
     @Override

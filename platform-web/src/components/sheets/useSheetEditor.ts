@@ -41,6 +41,7 @@ import {
   type SelectionState,
 } from "@/lib/sheets/gridModel";
 import * as hist from "@/lib/sheets/history";
+import { setInputs, type InputSettings } from "@/lib/sheets/inputs";
 import { canMarkScore, isScore, setScore } from "@/lib/sheets/score";
 import type { Alignment, TextColour } from "@/lib/sheets/types";
 import type { CellKind, DisplayRow, FontSize, GridDoc, GridLine, OpResult, Rect, RowsMode, Selection, SheetLimits } from "@/lib/sheets/types";
@@ -161,6 +162,11 @@ export interface SheetEditor {
   colour(colour: TextColour): void;
   size(size: FontSize): void;
   kind(rowId: string, columnId: string, kind: CellKind): void;
+  /**
+   * Makes the selected cells input cells with these settings (SH5.1, ADR-0263): their kind, whether they are required,
+   * who fills them. One step of the history; returns the reason in words when it is refused, otherwise null.
+   */
+  setInputs(settings: InputSettings): string | null;
   merge(): void;
   unmerge(): void;
   addColumn(afterId: string | null): void;
@@ -315,6 +321,12 @@ export function useSheetEditor(initial: GridDoc, limits: SheetLimits): SheetEdit
     colour: (next) => run((d) => setTextColour(d, keys, next)),
     size: (next) => run((d) => setFontSize(d, keys, next)),
     kind: (rowId, columnId, next) => run((d) => setCellKind(d, rowId, columnId, next)),
+    setInputs: (settings) => {
+      const op = (d: GridDoc): OpResult => setInputs(d, keys, settings, limits.maxPicklistValues);
+      const result = op(doc);
+      dispatch({ type: "run", op });
+      return result.ok ? null : result.error;
+    },
     merge: () => run((d) => mergeRect(d, displayRows(d), rect, limits), "Merged."),
     unmerge: () => {
       const anchor = rowAt(selection.fr) ? { row: selection.fr, column: selection.fc } : { row: 0, column: 0 };

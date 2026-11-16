@@ -29,9 +29,12 @@ import tools.jackson.databind.JsonNode;
  */
 final class FillStructure {
 
-    /** What a cell holds (SH5): the kinds of a column, and the attachment a cell may state for itself. */
+    /**
+     * What a cell holds (SH5): the kinds of a column, and the kinds a cell may state for itself: an attachment, and a
+     * yes or no answer with an optional reason (SH5.1, ADR-0263).
+     */
     enum CellType {
-        TEXT, NUMBER, DATE, PICKLIST, BOOLEAN, ATTACHMENT
+        TEXT, NUMBER, DATE, PICKLIST, BOOLEAN, ATTACHMENT, BOOLEAN_REASON
     }
 
     /**

@@ -72,12 +72,31 @@ export function worksheetWords(worksheet: ImportWorksheet): string {
   return name + size;
 }
 
-/** "B12, C14": cells of the file by their row number and column letters, as a person reads them in the program. */
+/**
+ * "B12, C14": cells of the file by their row number and column letters, as a person reads them in the program. When rows
+ * above the table did not become rows of the sheet, the sheet's own address differs from the file's (SH5.1, ADR-0263): the
+ * place is then given both ways: "B12 in the file (B10 on the sheet)". A place that is no row of the sheet (above the
+ * table, or a sheet whose filler adds the rows) has only the file's address. The column letter is always the same in both.
+ */
 export function placesWords(places: ImportPlace[]): string {
-  return places.map((place) => `${place.column}${place.row}`).join(", ");
+  return places
+    .map((place) => {
+      const file = `${place.column}${place.row}`;
+      const sheetRow = place.sheetRow ?? null;
+      return sheetRow === null || sheetRow === place.row ? file : `${file} in the file (${place.column}${sheetRow} on the sheet)`;
+    })
+    .join(", ");
 }
 
 /** What the file held that did not come in, in the server's own words. */
+/**
+ * The cells where a check box stood that could not be made part of a cell (SH5.1), for the author to set by hand; an
+ * older server does not send the list.
+ */
+export function unplacedBoxes(report: ImportReport): ImportPlace[] {
+  return report.unplacedBoxPlaces ?? [];
+}
+
 export function leftOut(report: ImportReport): ImportNote[] {
   return report.notes.filter((note) => note.leftOut);
 }

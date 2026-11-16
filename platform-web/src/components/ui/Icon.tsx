@@ -44,6 +44,9 @@ const PATHS = {
   refresh: "M21 12a9 9 0 1 1-3-6.7L21 8M21 3v5h-5",
   table: "M3 5h18v14H3ZM3 10h18M9 5v14",
   clock: "M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18ZM12 7v5l3 2",
+  // An attachment cell of a sheet (SH5.1).
+  paperclip:
+    "m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l8.57-8.57A4 4 0 1 1 18 8.84l-8.59 8.57a2 2 0 0 1-2.83-2.83l8.49-8.48",
 } as const;
 
 /** The icon keys an application may carry (the API passes the key, the browser knows how to draw these). */

@@ -70,7 +70,7 @@ class SheetHostileCorpusTest {
             "format_two_off", "too_many_sheets", "duplicate_sheet_key", "title_invalid", "width_range",
             "height_range", "look_conflict", "link_invalid", "link_target", "freeze_range", "inputs_need_named_rows",
             "inputs_on_info_sheet", "input_unknown_cell", "input_not_an_input_cell", "input_picklist",
-            "input_max_files", "input_preset",
+            "input_max_files", "input_preset", "input_prompt",
             // Conditional colours (SH1B, ADR-0255):
             "condition_unknown_cell", "condition_range", "condition_operand", "condition_paint",
             // Formulas (SH2, ADR-0252): every reason of FormulaWords that the validator can answer with.

@@ -15,6 +15,7 @@ import {
   explainFillPlace,
   fromApiFill,
   hasFormulas,
+  isInputCell,
   problemsByCell,
   reapplyFill,
   toApiFill,
@@ -23,6 +24,11 @@ import { fillStatusTag, fillStatusWords, versionWords } from "@/lib/sheets/fillT
 import type { FillDoc } from "@/lib/sheets/fillTypes";
 import { problemsFromFields } from "@/lib/sheets/hints";
 import type { GridDoc, Problem } from "@/lib/sheets/types";
+import { promptOf } from "@/lib/sheets/look/display";
+import { ChoiceDialog } from "./ChoiceField";
+import { AttachmentDialog } from "./AttachmentDialog";
+import { cellAddress } from "@/lib/sheets/addresses";
+import type { FillValue } from "@/lib/sheets/fillTypes";
 import { FillForm } from "./FillForm";
 import { SheetGrid } from "./SheetGrid";
 import { SheetPrintView } from "./SheetPrintView";
@@ -32,7 +38,12 @@ import { useNarrowScreen } from "./useNarrowScreen";
 import { FillToolbar } from "./FillToolbar";
 import { useFillAutosave } from "./useFillAutosave";
 import { useSaveBeforeLeave } from "./useSaveBeforeLeave";
-import { revisionWords } from "@/lib/sheets/revision";
+import { revisionWords, submittedLine, withSubmittedLine } from "@/lib/sheets/revision";
+
+/** The file identifiers an attachment cell names now (an empty list when it names none). */
+function filesIn(value: FillValue | undefined): string[] {
+  return Array.isArray(value) ? value.filter((one): one is string => typeof one === "string") : [];
+}
 
 export interface FillWorkspaceProps {
   /** The header record the fill-in belongs to. */
@@ -179,6 +190,8 @@ function FillPane({
   const [sendNote, setSendNote] = useState<{ error: boolean; text: string } | null>(null);
   const [leaving, setLeaving] = useState(false);
   const [viewing, setViewing] = useState(false);
+  // The cell whose own popup is open in the grid (SH5.1): a Yes/No cell with a reason, or an attachment cell.
+  const [popup, setPopup] = useState<{ rowId: string; columnId: string; kind: "choice" | "files" } | null>(null);
   const [refused, setRefused] = useState<{ sent: FillDoc; problems: Problem[]; message: string; stale: boolean } | null>(
     null,
   );
@@ -473,7 +486,42 @@ function FillPane({
               formulaAnswers={answers?.text}
               formulaKinds={answers?.kinds}
               label={`${label}, ${revisionWords(summary.versionNo).toLowerCase()}`}
+              openCell={(rowId, columnId) => {
+                if (!isInputCell(grid, rowId, columnId)) return false;
+                const type = editor.spec(rowId, columnId).type;
+                if (type !== "boolean_reason" && type !== "attachment") return false;
+                setPopup({ rowId, columnId, kind: type === "attachment" ? "files" : "choice" });
+                return true;
+              }}
             />
+            {popup?.kind === "files" ? (
+              <AttachmentDialog
+                object={owner.object}
+                recordId={owner.id}
+                place={cellAddress(
+                  Math.max(0, editor.rows.findIndex((row) => row.id === popup.rowId)),
+                  Math.max(0, grid.columns.findIndex((column) => column.id === popup.columnId)),
+                )}
+                value={filesIn(editor.fill.rows.find((row) => row.id === popup.rowId)?.cells[popup.columnId])}
+                maxFiles={editor.spec(popup.rowId, popup.columnId).maxFiles}
+                required={editor.spec(popup.rowId, popup.columnId).required}
+                readOnly={readOnly || narrow || !!summary.archivedAt || !editor.canEditCell(popup.rowId, popup.columnId)}
+                onChange={(files) => editor.setFiles(popup.rowId, popup.columnId, files)}
+                beforeRemove={() => autosave.flush(true)}
+                afterRemove={afterRemove}
+                onClose={() => setPopup(null)}
+              />
+            ) : null}
+            {popup?.kind === "choice" ? (
+              <ChoiceDialog
+                prompt={promptOf(editor.grid, popup.rowId, popup.columnId)}
+                value={editor.fill.rows.find((row) => row.id === popup.rowId)?.cells[popup.columnId]}
+                required={editor.spec(popup.rowId, popup.columnId).required}
+                readOnly={readOnly || narrow || !editor.canEditCell(popup.rowId, popup.columnId)}
+                onApply={(choice) => editor.setChoice(popup.rowId, popup.columnId, choice)}
+                onClose={() => setPopup(null)}
+              />
+            ) : null}
             <p className="hint">
               {readOnly
                 ? "Arrow keys move; Ctrl+C copies."
@@ -488,7 +536,11 @@ function FillPane({
           showInput
           answers={answers ?? undefined}
           label={label}
-          footer={(typeof footer === "function" ? footer(summary.versionNo) : footer) ?? ""}
+          footer={withSubmittedLine(
+            (typeof footer === "function" ? footer(summary.versionNo) : footer) ?? "",
+            // Who sent it and when, below the number and the Revision (SH5.1): the server names the person.
+            submittedLine(summary.submittedBy, summary.submittedAt),
+          )}
           onClose={() => setViewing(false)}
         />
       ) : null}

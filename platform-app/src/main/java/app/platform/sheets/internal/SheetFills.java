@@ -1,6 +1,7 @@
 package app.platform.sheets.internal;
 
 import app.platform.sharedkernel.approval.RecordLocks;
+import app.platform.sharedkernel.directory.ReferenceLabels;
 import app.platform.sharedkernel.files.RecordFileDirectory;
 import app.platform.sharedkernel.solution.FillCorrections;
 import app.platform.sheets.FillStatus;
@@ -59,13 +60,15 @@ class SheetFills {
     private final FillCalculations calculations;
     private final RecordFileDirectory directory;
     private final List<FillCorrections> corrections;
+    private final List<ReferenceLabels> people;
     private final JsonMapper json = JsonMapper.builder().build();
 
     SheetFills(FillOwners owners, SheetFillStore store, SheetVersionStore versions, FillValidator validator,
             FillChanges changes, FillProperties properties, SheetProperties sheetProperties, RecordLocks locks,
             FillValueStore valueStore, FillArchive archive, FillCalculations calculations,
-            RecordFileDirectory directory, List<FillCorrections> corrections) {
+            RecordFileDirectory directory, List<FillCorrections> corrections, List<ReferenceLabels> people) {
         this.corrections = List.copyOf(corrections);
+        this.people = List.copyOf(people);
         this.owners = owners;
         this.store = store;
         this.versions = versions;
@@ -117,7 +120,8 @@ class SheetFills {
             canEdit = true;
             editAs = "REVIEWER";
         }
-        return new SheetFillView(summary(row, pinned.row().status()), json.readValue(pinned.grid(), DOCUMENT),
+        return new SheetFillView(summary(row, pinned.row().status(), submitter(row)),
+                json.readValue(pinned.grid(), DOCUMENT),
                 json.readValue(cells, DOCUMENT), canEdit, correction, limits(), editAs);
     }
 
@@ -343,9 +347,27 @@ class SheetFills {
     }
 
     static SheetFillSummaryView summary(SheetFillStore.Row row, String versionStatus) {
+        return summary(row, versionStatus, null);
+    }
+
+    private static SheetFillSummaryView summary(SheetFillStore.Row row, String versionStatus, String submittedBy) {
         return new SheetFillSummaryView(row.fillId(), row.ownerObject(), row.ownerId(), row.versionNo(),
                 versionStatus, row.status(), row.version(), row.rowCount(), row.cellsBytes(), row.cellsHash(),
                 row.corrections(), row.createdAt(), row.updatedAt(), row.submittedAt(), row.decidedAt(),
-                row.archivedAt());
+                row.archivedAt(), submittedBy);
+    }
+
+    /**
+     * The display name of the person who sent the fill-in, for the footer of the View page (SH5.1, ADR-0263): its
+     * filler, because only the person who started a fill-in may send it. Null until it is sent, and for a person who
+     * is no longer an active member (the directory names active members only).
+     */
+    private String submitter(SheetFillStore.Row row) {
+        if (row.submittedAt() == null || row.createdBy() == null) {
+            return null;
+        }
+        return people.stream().filter(directory -> "User".equals(directory.object())).findFirst()
+                .map(directory -> directory.labels(java.util.Set.of(row.createdBy())).get(row.createdBy()))
+                .orElse(null);
     }
 }

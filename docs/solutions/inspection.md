@@ -685,3 +685,31 @@ linked by `parentFill`, and is reviewed by the reviewers of the fill-in it answe
 plants dialog (`ActionPlanForms`, table `inspection_action_plan_link`, `GET` and `PUT /api/v1/templates/{id}/plants/action-plan-form`). The notice kind
 `ACTION_PLAN_NEEDED` (category Documents, mail template of the same name) carries facts only: no score, no limit, no plant. A plant head of one of a
 document's plants who cannot change the document cannot ask for a change (`ChangeRequests.onlyAPlantHead`). Decision: ADR-0261.
+
+## The kind of a cell, Yes/No with a reason, attachment cells, letters and grey (SH5.1)
+
+These notes apply to a template whose sheet is in format version 2.
+
+- **The author chooses the kind of an input cell.** In the Sheet tab, choose a cell (or a block of cells) and press **Input cell…**: Text, Number,
+  Date, Yes/No, **Yes/No with a reason**, List (with its values), **Attachment** (1 to 5 files); Required; who fills it (the person filling in, or
+  the reviewer). The kind of the cell where the focus is is shown beside the button. The server checks the sheet again on save.
+- **Yes/No with a reason.** One cell holds a prompt (the text the cell had, for example "If not represented, give reason:-"), the answer Yes or
+  No, and a reason the person filling in may type. The reason is never compulsory; Required means the answer is needed at Submit. A formula and
+  the report see the answer only, never the reason.
+- **The upload.** Check boxes on a cell that holds text make that cell a Yes/No cell with a reason, its text the prompt; boxes on an empty cell
+  make a plain Yes/No cell. The cell where an embedded file stood becomes an attachment cell (up to 5 files, not required) when it is empty;
+  otherwise the place is listed. The file itself is never kept. A place is given as the file's address, and also as the sheet's when they
+  differ: "B12 in the file (B10 on the sheet)".
+- **In the fill-in grid** an attachment cell shows a paperclip and "(n attachments)"; one click, Enter or a double click opens the files of the
+  cell: attach, download, take one off. A person who may not change the cell only sees and downloads.
+- **Letters and row numbers.** The grid is headed A, B, C… with row numbers 1, 2, 3… at the left, the same addresses the formula bar uses. The
+  column's own name shows when the pointer rests on the letter, and in the form view and the report.
+- **Grey and white.** Fixed text with no colour of its own (a plain white fill counts as none) is light grey; a cell to fill
+  is white. Any other colour the author gave a cell, or a conditional colour, always wins. There is no corner mark.
+- **Numbers typed into text cells count in formulas** (an uploaded form makes every column text), so `SUM` of typed marks
+  works. **View and print** of a sheet in the new format have no band of column headings. **A sent fill-in's footer** says
+  "Submitted by <name> on <day>" below the number and Revision. **A Yes/No cell with a reason** shows the answer on top and
+  the prompt with the reason below.
+- **Contributors:** the kind is `boolean_reason` (`SheetDocument.BOOLEAN_REASON`, `FillDoc.Choice`), the attachment step is
+  `SheetImportBuilder.attachments`, the addresses are `lib/sheets/addresses.ts` (never count rows or letters anywhere else), the popup is
+  `AttachmentDialog`, the grey is the token `--sheet-paper-fixed`. Decision: ADR-0263.
