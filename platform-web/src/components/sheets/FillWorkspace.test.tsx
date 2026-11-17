@@ -65,8 +65,10 @@ describe("a fill-in that can be filled in", () => {
     draw();
 
     expect(await screen.findByRole("grid", { name: "Fire checks, revision 02" })).toBeInTheDocument();
-    expect(screen.getByText(/revision 02 of the template/)).toBeInTheDocument();
-    expect(screen.getByTestId("fill-status-note")).toHaveTextContent("This fill-in is a draft");
+    expect(screen.getByTestId("fill-status-tag")).toHaveAttribute("title", expect.stringContaining("Revision 02 of the template"));
+    expect(screen.getByTestId("fill-status-tag")).toHaveTextContent("Draft");
+    expect(screen.getByTestId("fill-status-tag")).toHaveAttribute("title", expect.stringContaining("This fill-in is a draft"));
+    expect(screen.queryByTestId("fill-status-note")).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Save" })).toBeDisabled();
     expect(screen.queryByTestId("fill-version-note")).not.toBeInTheDocument();
   });
@@ -83,7 +85,7 @@ describe("a fill-in that can be filled in", () => {
     const box = within(screen.getAllByTestId("fill-row")[0] as HTMLElement).getByRole("textbox", { name: /Amount/ });
     fireEvent.change(box, { target: { value: "12.5" } });
     fireEvent.blur(box);
-    expect(screen.getByText("There are changes that are not saved.")).toBeInTheDocument();
+    expect(screen.getByText("Unsaved changes")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Save" }));
 
     await screen.findByText("Saved");
@@ -146,7 +148,7 @@ describe("a fill-in that can be filled in", () => {
     expect(alert).toHaveTextContent("The request is not valid.");
     expect(alert).toHaveTextContent("First, Amount:");
     expect(alert).toHaveTextContent("A number column holds digits");
-    expect(screen.getByText("There are changes that are not saved.")).toBeInTheDocument();
+    expect(screen.getByText("Unsaved changes")).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Reload this fill-in" })).not.toBeInTheDocument();
   });
 
@@ -187,10 +189,9 @@ describe("the grid view", () => {
     fireEvent.change(screen.getByRole("combobox", { name: "Text colour" }), { target: { value: "ACCENT" } });
     expect(container.querySelector('[data-r="2"][data-c="1"]'))
       .toHaveClass("sheet-underline", "sheet-align-center", "sheet-colour-accent");
-    expect(screen.getByRole("button", { name: "Merge" })).toBeDisabled();
-    expect(screen.getByRole("button", { name: "Merge" })).toHaveAttribute("title", "The published template fixes this structure.");
-    expect(screen.getByRole("button", { name: "Fixed text" })).toBeDisabled();
-    expect(screen.getByRole("button", { name: "Add column" })).toBeDisabled();
+    for (const gone of ["Merge", "Unmerge", "Fixed text", "Input cell", "Add column", "Column width", "Row height"]) {
+      expect(screen.queryByRole("button", { name: gone })).not.toBeInTheDocument();
+    }
     fireEvent.click(screen.getByRole("button", { name: "Save" }));
     await screen.findByText("Saved");
     expect(bodyOf(calls, `PUT ${URL_OF}/cells`)).toEqual({
@@ -229,7 +230,7 @@ describe("the grid view", () => {
     fireEvent.change(input, { target: { value: "42" } });
     fireEvent.keyDown(input, { key: "Enter" });
 
-    await screen.findByText("There are changes that are not saved.");
+    await screen.findByText("Unsaved changes");
     expect(container.querySelector('[data-r="2"][data-c="1"]')).toHaveTextContent("42");
   });
 
@@ -244,7 +245,7 @@ describe("the grid view", () => {
     fireEvent.keyDown(input, { key: "Enter" });
 
     expect(await screen.findByText(/A number column holds digits/)).toBeInTheDocument();
-    expect(screen.queryByText("There are changes that are not saved.")).not.toBeInTheDocument();
+    expect(screen.queryByText("Unsaved changes")).not.toBeInTheDocument();
   });
 
   it("adds a row for a sheet whose filler adds the rows and draws it below the header", async () => {
@@ -255,7 +256,7 @@ describe("the grid view", () => {
     fireEvent.click(screen.getByRole("button", { name: "Add row" }));
 
     await screen.findByText("Row added.");
-    expect(screen.getByText("There are changes that are not saved.")).toBeInTheDocument();
+    expect(screen.getByText("Unsaved changes")).toBeInTheDocument();
   });
 
   it("shows a disabled add row where the sheet fixes its rows", async () => {
@@ -278,7 +279,9 @@ describe("a fill-in that cannot be changed", () => {
     });
     draw();
 
-    expect(await screen.findByTestId("fill-status-note")).toHaveTextContent("sent for review");
+    expect(await screen.findByTestId("fill-status-tag")).toHaveTextContent("Sent for review");
+    expect(screen.getByTestId("fill-status-tag")).toHaveAttribute("title", expect.stringContaining("waits for the decision"));
+    expect(screen.queryByTestId("fill-status-note")).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Save" })).not.toBeInTheDocument();
     expect(screen.getByRole("toolbar")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Bold" })).toBeDisabled();
@@ -309,8 +312,9 @@ describe("a fill-in that cannot be changed", () => {
     });
     draw();
 
-    expect(await screen.findByTestId("fill-correction-note")).toHaveTextContent("recorded in the audit trail");
-    expect(screen.getByText(/corrected 2 times after it was sent/)).toBeInTheDocument();
+    expect(await screen.findByTestId("fill-status-tag")).toHaveAttribute("title", expect.stringContaining("recorded in the audit trail"));
+    expect(screen.queryByTestId("fill-correction-note")).not.toBeInTheDocument();
+    expect(screen.getByTestId("fill-status-tag")).toHaveAttribute("title", expect.stringContaining("Corrected 2 times after it was sent"));
     expect(screen.getByRole("button", { name: "Save" })).toBeInTheDocument();
   });
 });
@@ -337,7 +341,7 @@ describe("a fill-in that cannot be opened", () => {
 
     rerender(<FillWorkspace owner={OWNER} label="Fire checks" refreshToken={1} />);
 
-    await waitFor(() => expect(screen.getByTestId("fill-status-note")).toHaveTextContent("sent for review"));
+    await waitFor(() => expect(screen.getByTestId("fill-status-tag")).toHaveTextContent("Sent for review"));
     expect(reads).toBe(2);
   });
 });

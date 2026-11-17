@@ -7,7 +7,7 @@ package app.platform.inspection.internal;
  */
 final class TemplateSheetTexts {
 
-    private static final String DATE_LABEL = "Date: ";
+    private static final String DATE_LABEL = "Publish date: ";
     private static final java.time.format.DateTimeFormatter DAY = java.time.format.DateTimeFormatter
             .ofPattern("dd-MMM-yyyy", java.util.Locale.ENGLISH);
 
@@ -29,7 +29,7 @@ final class TemplateSheetTexts {
 
     /**
      * The footer of an application whose footer carries the day (MC1, ADR-0257): the first line is that of
-     * {@link #footer(String, int)}, the second, below it, is {@code Date: 13-Nov-2026}. Blank until the template has
+     * {@link #footer(String, int)}, the second, below it, is {@code Publish date: 13-Nov-2026}. Blank until the template has
      * a number; without a day (the Revision is not the one in use, or none was ever published) it is the first line
      * alone.
      * Written the same way in the browser ({@code lib/sheets/revision.ts}) with the cases of

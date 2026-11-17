@@ -716,6 +716,8 @@ These notes apply to a template whose sheet is in format version 2.
 
 **An attachment cell with a prompt (SH5.1, added).** A file over a cell that holds text makes an attachment cell whose prompt is that text (note `attachment_prompts`); `SheetDocument.takesPrompt` is the one rule for the kinds that take a prompt; the prompt is drawn before the paperclip and the count and is never logged. Tests: `AttachmentCellsFromUploadTest`, `YesNoReasonTest`, `YesNoReasonLogsAreCleanIT`, `InputCellDialog.test.tsx`, `FillFormAttachmentPrompt.test.tsx`, `yesNoReason.test.ts`.
 
+**A reviewer's score recalculates and a decision does not lose unsaved cells (SH5.1, added).** While cells are typed and not saved, the fill-in page shows a preview of the formulas' answers (`previewAnswers` in `lib/sheets/fillModel.ts`, the browser's evaluator, the server's table of functions from `limits.formulas`) and says "Answers are a preview until you save"; the server's answers replace it after each save. Approve, Reject and Withdraw on the fill-in page first save the unsaved cells through the queue of the Save button (`registerBeforeDecision`, `BeforeDecision`), one counted review edit at most, and send nothing if the save is refused. The reviewer's autosave stays off. Tests: `FillWorkspaceReviewer.test.tsx`, `FillInDecision.test.tsx`, `fillPreview.test.ts`, `ApprovalActionFormBeforeDecision.test.tsx`, `FormulaLimitsViewTest`.
+
 ## The fill-in page: Details and Sheet tabs, the approval flow, the upload report (SH_UI)
 
 - A fill-in record has two tabs, Details and Sheet; the tab is `?tab=sheet` in the address (none means Details). The sheet is drawn
@@ -724,3 +726,22 @@ These notes apply to a template whose sheet is in format version 2.
   with no history the card draws its own steps. Buttons, lock message and the lock behaviour are unchanged.
 - The long "changes not saved" message is gone; the short status beside the sheet stays, its tooltip says Submit and Cancel save first.
 - `UploadSheet` shows its report only behind "More information"; a line counts the things to check; a refusal is never hidden.
+
+### The room for the sheet: one strip, fewer sentences, one approval button (SH_UI, part 5)
+
+- **The Sheet tab's buttons are one strip in the row of the tabs.** `FillWorkspace` draws Form view, Grid view, View, Save, Submit, Cancel and the saved state
+  (`fill-strip`) through its prop `toolbarSlot`; `FillInDetail` puts a `detail-tabs-tools` place at the right of its tab row (as the template page has for
+  "Ask for a change") and passes it only while the Sheet tab is open. With no slot (a person who may read the cells but not the header) the strip is drawn
+  above the sheet as before. The formatting toolbar is one line; the tools for merges, cell kinds, columns and sizes are not drawn on a fill-in at all (the
+  author's grid keeps them).
+- **The sentences that took the room are gone** (status words, "already sent", "preview", "the published template fixes…", the lock sentence of the fill-in page and
+  of the approval card). What they said is the hover text of the status tag (`fill-status-tag`). Kept, because a person acts on them: refusals and conflicts,
+  "could not be saved", the archived note, the reviewer note and the note about an old revision. The saved state is one word (`fill-saved-state`: Saved, Saving…,
+  Unsaved changes). Edit and Delete stay disabled while a record is locked and the server's refusal `record_locked` is shown as before.
+- **One approval button at a time** (`ApprovalHeaderActions`): Submit for approval while it can be used, otherwise Approve and Reject (the page's words) for a person
+  who holds a task, otherwise nothing; a template that cannot be sent draws no greyed Submit (`submitButton={view.canSubmit !== false}`). The server's `canSubmit`,
+  `canApprove` and `canReject` are the only source; the hook and `TemplateSendRule` still judge every send.
+- **Tests:** `FillInsPage.test.tsx` (the strip is in the tab row, the removed sentences are gone), `FillWorkspace.test.tsx`, `FillWorkspaceReviewer.test.tsx`,
+  `ApprovalPanel.test.tsx`, `TemplatesPage.test.tsx`.
+
+**The stamp of a fill-in (SH5.2).** The grid view, the form view and View of a fill-in close with the number and Revision, `Publish date:` (only for the Revision in use, where the application's footer carries it) and, once sent, `Submitted by <name> on <day>`; `FillWorkspace` draws it, `usePublishDay` in `FillInDetail.tsx` reads the day from the template's lifecycle, `lib/sheets/revision.ts` writes it. The template's footer line is `Publish date:` now. Tests: `FillWorkspaceStamp.test.tsx`, `FillInStamp.test.tsx`, `revision.test.ts`, `TemplateSheetTextsTest`.

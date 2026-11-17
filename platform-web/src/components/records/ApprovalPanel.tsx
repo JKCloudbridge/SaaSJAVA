@@ -3,7 +3,11 @@
 import { ActionNotice } from "@/components/ui/ActionNotice";
 
 import { useCallback, useEffect, useState, type ReactNode } from "react";
-import { ApprovalActionForm, type ApprovalActionKind } from "@/components/approvals/ApprovalActionForm";
+import {
+  ApprovalActionForm,
+  type ApprovalActionKind,
+  type BeforeDecision,
+} from "@/components/approvals/ApprovalActionForm";
 import { ActionMenu, type ActionMenuItem } from "@/components/ui/ActionMenu";
 import { Modal } from "@/components/ui/Modal";
 import { api } from "@/lib/api/client";
@@ -41,6 +45,7 @@ export function useRecordApproval({
   onChanged,
   onDecided,
   labels,
+  beforeDecision,
 }: {
   objectApiName: string;
   recordId: string;
@@ -53,6 +58,11 @@ export function useRecordApproval({
   onDecided?: (kind: ApprovalActionKind) => void;
   /** Other words for approving and rejecting (Accept and Decline for a change request). */
   labels?: Partial<Record<ApprovalActionKind, string>>;
+  /**
+   * What the page does before it sends an approval, a rejection or a withdrawal (the fill-in page saves the cells typed
+   * and not yet saved, SH5.1). A page that has nothing to save passes nothing.
+   */
+  beforeDecision?: BeforeDecision;
 }) {
   const [panel, setPanel] = useState<PanelView | undefined>();
   const [failure, setFailure] = useState<string | undefined>();
@@ -122,7 +132,7 @@ export function useRecordApproval({
   };
 
   return { panel, failure, notice, noticeKey, acting, setActing, process, setProcess, comment, setComment, busy,
-    submit, done, labels };
+    submit, done, labels, beforeDecision };
 }
 
 export type RecordApproval = ReturnType<typeof useRecordApproval>;
@@ -172,7 +182,7 @@ export function ApprovalPanel({
 }
 
 /**
- * The card: locked note, the request with its steps, the history. With `actions` (the default) it also holds the buttons and
+ * The card: the request with its steps, the history. With `actions` (the default) it also holds the buttons and
  * the forms of the actions; the template page leaves them out because they are in its header.
  */
 export function ApprovalCard({
@@ -209,12 +219,6 @@ export function ApprovalCard({
         {summary ? <span className="badge">{humanize(summary.status)}</span> : null}
       </div>
 
-      {panel.locked ? (
-        <p role="status" className="hint" data-testid="approval-locked">
-          This record is locked while it is being approved. It cannot be changed or removed until the approval ends
-          {actions.canCancel ? ", except by you, who may override the lock" : ""}.
-        </p>
-      ) : null}
       {notice ? (
         <ActionNotice key={notice} text={notice} testId="approval-notice" occurrence={approval.noticeKey} />
       ) : null}
@@ -401,6 +405,7 @@ function ApprovalForms({ approval, recordVersion }: { approval: RecordApproval; 
           lastStep={summary.currentStep !== undefined && summary.currentStep !== null && summary.currentStep === summary.stepCount}
           objectApiName={summary.objectApiName}
           recordId={summary.recordId}
+          beforeDecision={approval.beforeDecision}
           onClose={() => setActing(undefined)}
           onDone={done}
         />
@@ -445,9 +450,13 @@ export function ApprovalHeaderActions({
     ...(actions?.canCancel ? [{ label: "End the request", onSelect: () => setActing("cancel"), danger: true }] : []),
     ...extra,
   ];
+  // One thing in this place at a time (SH_UI): a usable Submit for approval, or the decision (Approve and Reject) for a person
+  // who holds a task. A creation is sent once, so the place is never taken by a button nobody can use.
+  const drawSubmit = submitButton && actions?.canSubmit === true;
+  const decide = !(drawSubmit && submitDisabled === undefined);
   return (
     <>
-      {submitButton && actions?.canSubmit ? (
+      {drawSubmit ? (
         <button
           type="button"
           className="button"
@@ -459,12 +468,12 @@ export function ApprovalHeaderActions({
           Submit for approval
         </button>
       ) : null}
-      {actions?.canApprove ? (
+      {decide && actions?.canApprove ? (
         <button type="button" className="button" onClick={() => setActing("approve")} data-testid="approval-approve">
           {approval.labels?.approve ?? "Approve"}
         </button>
       ) : null}
-      {actions?.canReject ? (
+      {decide && actions?.canReject ? (
         <button type="button" className="button button-danger" onClick={() => setActing("reject")}>
           {approval.labels?.reject ?? "Reject"}
         </button>

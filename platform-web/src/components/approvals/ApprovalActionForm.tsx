@@ -10,6 +10,16 @@ import { PersonPicker } from "./PersonPicker";
 /** What a person can do with a request; the server says which of these are open to them (`actions`). */
 export type ApprovalActionKind = "approve" | "reject" | "reassign" | "assign" | "recall" | "cancel";
 
+/**
+ * What a page may do before a decision is sent (SH5.1): save what the person typed on the same page, so that the decision
+ * judges what they see. It says whether that worked; when it did not, `message` says why in words to show, and the
+ * decision is not sent.
+ */
+export type BeforeDecision = () => Promise<{ ok: boolean; message?: string }>;
+
+/** The decisions that end or withdraw a request: the page saves first. Handing a task on or ending a request asks nothing of the cells. */
+const SAVES_FIRST: ReadonlySet<ApprovalActionKind> = new Set(["approve", "reject", "recall"]);
+
 /** What each action asks of the person: a comment (required or not) and, for a hand-over, a person. */
 const ASKS: Record<ApprovalActionKind, { comment: "required" | "optional"; person: boolean; button: string; danger: boolean }> = {
   approve: { comment: "optional", person: false, button: "Approve", danger: false },
@@ -33,6 +43,8 @@ const ASKS: Record<ApprovalActionKind, { comment: "required" | "optional"; perso
  *        of its own (FA8)
  * @param objectApiName the object of the record, to find the form that asks for the choice
  * @param recordId the record the approval is about
+ * @param beforeDecision what the page does first for an approval, a rejection or a withdrawal (it saves the cells typed on
+ *        the same page); nothing is sent when it says no, and its words are shown
  */
 export function ApprovalActionForm({
   kind,
@@ -44,6 +56,7 @@ export function ApprovalActionForm({
   lastStep = false,
   objectApiName,
   recordId,
+  beforeDecision,
   onDone,
   onClose,
 }: {
@@ -57,6 +70,7 @@ export function ApprovalActionForm({
   lastStep?: boolean;
   objectApiName?: string;
   recordId?: string;
+  beforeDecision?: BeforeDecision;
   onDone: (text: string) => void;
   onClose: () => void;
 }) {
@@ -83,6 +97,14 @@ export function ApprovalActionForm({
   async function go() {
     setBusy(true);
     setFailure(undefined);
+    if (beforeDecision && SAVES_FIRST.has(kind)) {
+      const first = await beforeDecision();
+      if (!first.ok) {
+        setBusy(false);
+        setFailure(first.message ?? "What you typed could not be saved, so nothing was decided.");
+        return;
+      }
+    }
     const path = { params: { path: { id: requestId } } };
     const note = comment.trim() === "" ? undefined : comment.trim();
     const outcome = await call(() => {

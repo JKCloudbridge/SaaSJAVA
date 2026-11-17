@@ -30,7 +30,7 @@ document button**, and who may read what is still decided by the record store (t
 ## What is particular to it (all of it data in the solution file)
 
 - `routedByNumber: "true"`: its documents come from Document Management and are chosen by the number.
-- `footerDate: "true"`: a document that belongs to Management Core carries, below `number  Rev No.'00'`, the line `Date: 13-Nov-2026`, the day
+- `footerDate: "true"`: a document that belongs to Management Core carries, below `number  Rev No.'00'`, the line `Publish date: 13-Nov-2026`, the day
   the Revision in use was published, **wherever the document is shown** (also in Document Management's view of it): the screen, the print and
   the downloaded file. The screen and the print use the reader's time zone; the file uses `platform.inspection.footer.zone` (default `UTC`).
   A document of any other application has no date line.

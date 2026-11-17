@@ -260,7 +260,7 @@ describe("one fill-in", () => {
     expect(screen.queryByText("Details")).not.toBeInTheDocument();
   });
 
-  it("says there are changes not saved yet while they wait to be saved", async () => {
+  it("says there are unsaved changes while they wait to be saved", async () => {
     setUrl(`/apps/inspection/s-fill-ins?open=${FILL}&tab=sheet`);
     fakeApi(answers());
     render(<FillInsPage />);
@@ -272,7 +272,7 @@ describe("one fill-in", () => {
     fireEvent.change(box, { target: { value: "5" } });
     fireEvent.blur(box);
 
-    await waitFor(() => expect(screen.getByRole("status")).toHaveTextContent(/not saved|Saving|Saved/));
+    await waitFor(() => expect(screen.getByTestId("fill-saved-state")).toHaveTextContent(/Unsaved|Saving|Saved/));
   });
 
   it("sends a fill-in for good with Submit when no approval process applies, and reads it again as stored", async () => {
@@ -493,5 +493,32 @@ describe("one fill-in", () => {
 
     expect(screen.queryByTestId("unsaved-note")).not.toBeInTheDocument();
     expect(screen.queryByText(/They save after a short pause/)).not.toBeInTheDocument();
+  });
+
+  it("draws the Sheet tab buttons in the row of the tabs and none of the sentences that took the room above the sheet (SH_UI)", async () => {
+    setUrl(`/apps/inspection/s-fill-ins?open=${FILL}&tab=sheet`);
+    fakeApi(answers());
+    render(<FillInsPage />);
+
+    const strip = await screen.findByTestId("fill-strip");
+    const row = strip.closest(".detail-tabs-row") as HTMLElement;
+    expect(row).not.toBeNull();
+    expect(within(row).getByRole("tab", { name: "Details" })).toBeInTheDocument();
+    for (const name of ["Form view", "Grid view"]) {
+      expect(within(row).getByRole("tab", { name })).toBeInTheDocument();
+    }
+    for (const name of ["View", "Save"]) {
+      expect(within(row).getByRole("button", { name })).toBeInTheDocument();
+    }
+    for (const gone of [
+      /waits for the decision/,
+      /Answers are a preview/,
+      /already sent. You can correct/,
+      /fixes merges, cell kinds/,
+      /They save after a short pause/,
+    ]) {
+      expect(screen.queryByText(gone)).not.toBeInTheDocument();
+    }
+    expect(screen.queryByRole("button", { name: "Merge" })).not.toBeInTheDocument();
   });
 });

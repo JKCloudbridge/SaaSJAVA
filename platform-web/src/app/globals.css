@@ -2511,6 +2511,15 @@ form + .detail-section {
   gap: var(--space-2);
 }
 
+/* The Sheet tab's buttons, drawn in the row of the page's tabs (SH_UI): one line, wrapping only when the width runs out. */
+.sheet-strip {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--space-2);
+}
+
 .sheet-confirm {
   border-color: var(--color-danger);
 }

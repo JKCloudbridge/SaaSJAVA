@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   ApprovalCard,
   ApprovalDialogs,
@@ -10,6 +10,7 @@ import {
   useRecordApproval,
   type ApprovalState,
 } from "@/components/records/ApprovalPanel";
+import type { BeforeDecision } from "@/components/approvals/ApprovalActionForm";
 import { ApprovalHistoryList, type ApprovalHistoryEntry } from "@/components/records/ApprovalHistoryList";
 import { useApprovalHistory } from "@/lib/approvals/history";
 import { RecordFiles } from "@/components/records/RecordFiles";
@@ -18,8 +19,9 @@ import { FillWorkspace } from "@/components/sheets/FillWorkspace";
 import { DetailGrid, DetailItem, DetailPage, DetailSection } from "@/components/ui/lists/DetailPage";
 import { Tag } from "@/components/ui/lists/Tag";
 import { fillStatusTag } from "@/lib/sheets/fillTags";
-import { footerText } from "@/lib/sheets/revision";
+import { footerTextWithDay, revisionNumber } from "@/lib/sheets/revision";
 import type { FillSummary } from "@/lib/sheets/fillApi";
+import { getLifecycle } from "./api";
 import { submitFillIn } from "./fillIns";
 import { useRecordObjects } from "./objects";
 import { useApplication } from "./application";
@@ -53,6 +55,10 @@ export function FillInDetail({ id, onBack }: { id: string; onBack: () => void })
   const objects = useRecordObjects();
   const beforeLeave = useRef<(next: () => void) => Promise<void>>(async (next) => next());
   const registerLeave = useCallback((leave: (next: () => void) => Promise<void>) => { beforeLeave.current = leave; }, []);
+  // A decision (approve, reject, withdraw) first saves what was typed on the sheet, through the sheet's own queue (SH5.1). The
+  // sheet registers how; until it is drawn there is nothing typed, so there is nothing to save.
+  const beforeDecision = useRef<BeforeDecision>(async () => ({ ok: true }));
+  const registerBeforeDecision = useCallback((save: BeforeDecision) => { beforeDecision.current = save; }, []);
   const [refresh, setRefresh] = useState(0);
   const record = useRecord(objects.fill, id, refresh);
   const [approval, setApproval] = useState<ApprovalState>({ locked: false, mayOverride: false, mayApprove: false });
@@ -77,6 +83,8 @@ export function FillInDetail({ id, onBack }: { id: string; onBack: () => void })
     const search = query.toString();
     router.replace(search ? `${pathname}?${search}` : pathname);
   };
+  // The row of the tabs has a place at its right for the Sheet tab's buttons (as the template page has for "Ask for a change").
+  const [toolbarSlot, setToolbarSlot] = useState<HTMLElement | null>(null);
   const [archived, setArchived] = useState(false);
   const onLoaded = useCallback((summary: FillSummary) => setArchived(Boolean(summary.archivedAt)), []);
   const decisions = useRecordApproval({
@@ -85,6 +93,7 @@ export function FillInDetail({ id, onBack }: { id: string; onBack: () => void })
     refresh,
     onState: setApproval,
     onChanged: () => setRefresh((now) => now + 1),
+    beforeDecision: () => beforeDecision.current(),
   });
 
   // The approvals of this fill-in as a history by day, the same list the template page draws (ADR-0205). A person who may not
@@ -108,7 +117,15 @@ export function FillInDetail({ id, onBack }: { id: string; onBack: () => void })
   // The footer of the View page: the template's number and the revision the fill-in was made on (as the Sheet tab writes it).
   const templateRecord = useRecord(objects.template, templateId || undefined, refresh);
   const templateNumber = templateRecord.status === "ready" ? text(templateRecord.record.fields.number) : "";
-  const footer = (versionNo: number) => footerText(templateNumber, versionNo);
+  // The publish day is drawn only when the server says the application's footer carries it and the fill-in is on the Revision
+  // in use (the day is kept for that one Revision); otherwise the line is left out (SH5.2).
+  const published = usePublishDay(templateId, refresh);
+  const footer = (versionNo: number) =>
+    footerTextWithDay(
+      templateNumber,
+      revisionNumber(versionNo),
+      published && published.activeVersion === versionNo ? published.at : undefined,
+    );
   // Only a hint for the buttons: a draft or returned fill-in takes files from the person who started it, a sent or approved
   // one from a person who may correct it, and an archived one from nobody. The server decides on every call.
   const sendable = status === "DRAFT" || status === "RETURNED";
@@ -164,6 +181,7 @@ export function FillInDetail({ id, onBack }: { id: string; onBack: () => void })
               </button>
             ))}
           </div>
+          <div className="detail-tabs-tools" ref={setToolbarSlot} />
         </div>
       ) : null}
 
@@ -197,12 +215,6 @@ export function FillInDetail({ id, onBack }: { id: string; onBack: () => void })
                     </DetailItem>
                   ) : null}
                 </DetailGrid>
-                {approval.locked ? (
-                  <p className="hint" role="note">
-                    This fill-in is waiting for a decision, so it is locked. The people who may correct a fill-in after it is sent
-                    can still correct it.
-                  </p>
-                ) : null}
               </DetailSection>
 
               <ApprovalCard approval={decisions} recordVersion={header.version} actions={false} steps={flowEntries.length === 0} />
@@ -242,7 +254,9 @@ export function FillInDetail({ id, onBack }: { id: string; onBack: () => void })
             submit={header && sendable ? submit : undefined}
             onCancel={sendable ? onBack : undefined}
             registerLeave={registerLeave}
+            registerBeforeDecision={registerBeforeDecision}
             footer={footer}
+            toolbarSlot={header ? (tab === "sheet" ? toolbarSlot : null) : undefined}
           />
         </div>
       ) : null}
@@ -255,4 +269,32 @@ function TemplateNumber({ id, refresh }: { id: string; refresh: number }) {
   const objects = useRecordObjects();
   const template = useRecord(objects.template, id, refresh);
   return <DetailItem label="Template number">{template.status === "ready" ? text(template.record.fields.number) || "—" : "—"}</DetailItem>;
+}
+
+/**
+ * What the template says about the publish day of the Revision in use: the day, the Revision it belongs to, and nothing at
+ * all when the application's footer does not carry it or the person may not read the template's lifecycle (SH5.2). The
+ * server decides all three; a failure only leaves the line out.
+ */
+function usePublishDay(templateId: string, refresh: number): { at: string; activeVersion: number } | undefined {
+  const [found, setFound] = useState<{ key: string; day?: { at: string; activeVersion: number } } | null>(null);
+  const key = `${templateId}|${refresh}`;
+  useEffect(() => {
+    if (!templateId) return;
+    let live = true;
+    void getLifecycle(templateId).then((outcome) => {
+      if (!live) return;
+      const view = outcome.ok ? outcome.data : undefined;
+      setFound({
+        key,
+        day: view?.footerDate && view.lastRevisedAt && view.lifecycle.activeVersion > 0
+          ? { at: view.lastRevisedAt, activeVersion: view.lifecycle.activeVersion }
+          : undefined,
+      });
+    });
+    return () => {
+      live = false;
+    };
+  }, [templateId, key]);
+  return found?.key === key ? found.day : undefined;
 }
