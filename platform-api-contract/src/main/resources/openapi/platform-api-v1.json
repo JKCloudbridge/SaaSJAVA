@@ -28554,6 +28554,9 @@
       "SheetFillLimitsView" : {
         "type" : "object",
         "properties" : {
+          "formulas" : {
+            "$ref" : "#/components/schemas/SheetFormulaLimitsView"
+          },
           "maxBytes" : {
             "type" : "integer",
             "format" : "int32"
@@ -28567,7 +28570,7 @@
             "format" : "int32"
           }
         },
-        "required" : [ "maxBytes", "maxCellChars", "maxRows" ]
+        "required" : [ "formulas", "maxBytes", "maxCellChars", "maxRows" ]
       },
       "SheetFillSummaryView" : {
         "type" : "object",

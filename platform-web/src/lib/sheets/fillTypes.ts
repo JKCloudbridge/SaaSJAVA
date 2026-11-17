@@ -48,6 +48,8 @@ export interface FillLimits {
   maxBytes: number;
   maxRows: number;
   maxCellChars: number;
+  /** The server's table of functions and bounds of the formulas, for the preview of answers while a person types (SH5.1). */
+  formulas?: import("./types").FormulaLimitsWire;
 }
 
 export type FillStatus = "DRAFT" | "SUBMITTED" | "RETURNED" | "APPROVED";

@@ -342,7 +342,7 @@ describe("one template", () => {
     expect(screen.queryByTestId("no-approval-note")).toBeNull();
   });
 
-  it("greys Submit for approval out, with a short hover sentence, when the template cannot be sent (FA10)", async () => {
+  it("draws no Submit for approval when the template cannot be sent (SH_UI): the place is not taken by a greyed button", async () => {
     setUrl(OPEN);
     fakeApi({
       ...listAnswers(),
@@ -356,12 +356,8 @@ describe("one template", () => {
         ),
     });
     render(<TemplatesPage />);
-await waitFor(() => expect(screen.getByTestId("approval-submit")).toBeDisabled());    const submit = screen.getByTestId("approval-submit");
-    expect(submit).toBeDisabled();
-    expect(submit).toHaveAttribute("title", "A published template changes only through a change request.");
-    expect(submit).not.toHaveAttribute("aria-describedby");
-    fireEvent.click(submit);
-    expect(screen.queryByRole("dialog")).toBeNull();
+    await screen.findByTestId("template-edit");
+    await waitFor(() => expect(screen.queryByTestId("approval-submit")).toBeNull());
   });
 
   it("offers Submit for approval as before when the template can be sent, or when the server says nothing (FA10)", async () => {
@@ -381,7 +377,7 @@ await waitFor(() => expect(screen.getByTestId("approval-submit")).toBeDisabled()
     expect(await screen.findByTestId("approval-submit")).toBeEnabled();
   });
 
-  it("does not grey out Approve or Reject when Submit cannot be used (FA10)", async () => {
+  it("shows Approve and Reject in the place of Submit when Submit cannot be used, one at a time (SH_UI)", async () => {
     setUrl(OPEN);
     fakeApi({
       ...listAnswers(),
@@ -391,9 +387,9 @@ await waitFor(() => expect(screen.getByTestId("approval-submit")).toBeDisabled()
     });
     render(<TemplatesPage />);
 
-    await screen.findByTestId("approval-submit");
-    expect(screen.getByTestId("approval-approve")).toBeEnabled();
+    expect(await screen.findByTestId("approval-approve")).toBeEnabled();
     expect(screen.getByRole("button", { name: "Reject" })).toBeEnabled();
+    expect(screen.queryByTestId("approval-submit")).toBeNull();
   });
 
   it("keeps the open tab in the address and offers Edit on the Details tab only", async () => {

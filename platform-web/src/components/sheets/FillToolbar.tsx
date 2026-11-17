@@ -5,7 +5,10 @@ import type { FontSize } from "@/lib/sheets/types";
 import type { FillEditor } from "./useFillEditor";
 import { TextStyleControls } from "./TextStyleControls";
 
-/** The template strip remains recognisable; structure belongs to the published template. */
+/**
+ * One line of formatting for a fill-in. Merges, cell kinds, columns and sizes belong to the published template, so the tools
+ * for them are not drawn here at all (the author's grid has them); only input cells can be formatted.
+ */
 export function FillToolbar({ editor, readOnly }: { editor: FillEditor; readOnly: boolean }) {
   const row = editor.rows[editor.selection.fr];
   const column = editor.doc.columns[editor.selection.fc];
@@ -34,19 +37,12 @@ export function FillToolbar({ editor, readOnly }: { editor: FillEditor; readOnly
         onAlignment={(alignment) => editor.format({ alignment })} onColour={(colour) => editor.format({ colour })} />
       <button type="button" className="button button-secondary" disabled={unavailable}
         title={unavailable ? reason : "Use the template's formatting"} onClick={() => editor.format(null)}>Reset formatting</button>
-      {["Merge", "Unmerge", "Fixed text", "Input cell"].map((tool) =>
-        <button key={tool} type="button" className="button button-secondary" disabled title={structure}
-          aria-describedby="fill-structure-reason">{tool}</button>)}
       <button type="button" className="button button-secondary" disabled={readOnly || !editor.canUndo} onClick={editor.undo}>Undo</button>
       <button type="button" className="button button-secondary" disabled={readOnly || !editor.canRedo} onClick={editor.redo}>Redo</button>
       <button type="button" className="button button-secondary" disabled={!adds}
         title={!adds ? structure : "Add a fill-in row"} onClick={editor.addRow}>Add row</button>
       <button type="button" className="button button-secondary" disabled={!adds || !row || row.zone !== "body" || editor.grid.rows.some((line) => line.id === row.id)}
         title={structure} onClick={() => row && editor.removeRow(row.id)}>Remove row</button>
-      {["Add column", "Column width", "Row height"].map((tool) =>
-        <button key={tool} type="button" className="button button-secondary" disabled title={structure}
-          aria-describedby="fill-structure-reason">{tool}</button>)}
     </div>
-    <p id="fill-structure-reason" className="hint">The published template fixes merges, cell kinds, columns and sizes. Only input cells can be formatted.</p>
   </>;
 }

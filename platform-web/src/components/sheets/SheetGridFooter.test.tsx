@@ -20,10 +20,10 @@ describe("the footer row of the grid", () => {
   });
 
   it("is two rows when the application's footer carries the day below the number (MC1)", () => {
-    render(<GridHost footer={"F/MR/16  Rev No.'00'\nDate: 13-Nov-2026"} />);
+    render(<GridHost footer={"F/MR/16  Rev No.'00'\nPublish date: 13-Nov-2026"} />);
 
     expect(screen.getByTestId("sheet-footer").textContent).toBe("F/MR/16  Rev No.'00'");
-    expect(screen.getByTestId("sheet-footer-2").textContent).toBe("Date: 13-Nov-2026");
+    expect(screen.getByTestId("sheet-footer-2").textContent).toBe("Publish date: 13-Nov-2026");
     expect(screen.getByRole("grid")).toHaveAttribute("aria-rowcount", "8");
     expect(screen.getByTestId("sheet-footer-2")).toHaveAttribute("aria-rowindex", "8");
   });

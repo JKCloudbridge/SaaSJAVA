@@ -10059,6 +10059,7 @@ export interface components {
             sheets: components["schemas"]["SheetTab"][];
         };
         SheetFillLimitsView: {
+            formulas: components["schemas"]["SheetFormulaLimitsView"];
             /** Format: int32 */
             maxBytes: number;
             /** Format: int32 */

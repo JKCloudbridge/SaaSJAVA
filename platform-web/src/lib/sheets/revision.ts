@@ -108,7 +108,7 @@ export function footerDay(instant: string, timeZone?: string): string | undefine
 
 /**
  * The footer of an application whose footer carries the day (MC1): the line of {@link footerTextFor}, then below it
- * `Date: 13-Nov-2026`. Without a day, or before the template has a number, it is the first line alone (or nothing).
+ * `Publish date: 13-Nov-2026`. Without a day, or before the template has a number, it is the first line alone (or nothing).
  */
 export function footerTextWithDay(
   number: string | null | undefined,
@@ -121,7 +121,7 @@ export function footerTextWithDay(
     return first;
   }
   const day = footerDay(publishedAt, timeZone);
-  return day === undefined ? first : `${first}\nDate: ${day}`;
+  return day === undefined ? first : `${first}\nPublish date: ${day}`;
 }
 
 /**

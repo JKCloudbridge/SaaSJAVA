@@ -58,6 +58,7 @@ class SheetFills {
     private final FillValueStore valueStore;
     private final FillArchive archive;
     private final FillCalculations calculations;
+    private final FormulaProperties formulas;
     private final RecordFileDirectory directory;
     private final List<FillCorrections> corrections;
     private final List<ReferenceLabels> people;
@@ -65,7 +66,7 @@ class SheetFills {
 
     SheetFills(FillOwners owners, SheetFillStore store, SheetVersionStore versions, FillValidator validator,
             FillChanges changes, FillProperties properties, SheetProperties sheetProperties, RecordLocks locks,
-            FillValueStore valueStore, FillArchive archive, FillCalculations calculations,
+            FillValueStore valueStore, FillArchive archive, FillCalculations calculations, FormulaProperties formulas,
             RecordFileDirectory directory, List<FillCorrections> corrections, List<ReferenceLabels> people) {
         this.corrections = List.copyOf(corrections);
         this.people = List.copyOf(people);
@@ -80,6 +81,7 @@ class SheetFills {
         this.valueStore = valueStore;
         this.archive = archive;
         this.calculations = calculations;
+        this.formulas = formulas;
         this.directory = directory;
     }
 
@@ -334,7 +336,7 @@ class SheetFills {
 
     private SheetFillLimitsView limits() {
         return new SheetFillLimitsView(properties.maxBytes(), properties.maxRows(),
-                sheetProperties.limits().maxCellChars());
+                sheetProperties.limits().maxCellChars(), formulas.view());
     }
 
     /** The problems of the first stage that found any, as places with the words for each. */

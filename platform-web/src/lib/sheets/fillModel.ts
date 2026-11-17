@@ -1,6 +1,8 @@
 import { isChoice, type FillChoice, type FillDisplayRow, type FillDoc, type FillLimits, type FillOp, type FillRow,
   type FillStyle, type FillValue } from "./fillTypes";
 import { at, cellKey, cellKind, DEFAULT_ROW_HEIGHT, indexesOf, mergeRects, splitKey } from "./geometry";
+import { answerSet, plainNumber } from "./formula/edit";
+import type { FormulaSpec, Value as FormulaValue } from "./formula/types";
 import { newId } from "./ids";
 import type { ColumnType, DisplayRow, GridCell, GridColumn, GridDoc, GridLine } from "./types";
 import { ALIGNMENTS, COLUMN_TYPES, TEXT_COLOURS } from "./types";
@@ -783,6 +785,73 @@ export function answersByCell(
       if (rowId !== undefined) {
         text[cellKey(rowId, column.column)] = answer.value;
         kinds[cellKey(rowId, column.column)] = answer.kind;
+      }
+    });
+  }
+  return { text, kinds };
+}
+
+/**
+ * What a formula reads of a value typed into a cell of a fill-in, or undefined when it reads nothing there. These are the
+ * server's rules (`FillCalculations.operand`), the same ones, so that a preview and the server's answer agree: a number
+ * column holds a number, a plain number typed into a text cell is a number too (SH5.1, ADR-0263: SUM skips text, and an
+ * uploaded form makes every column text), a yes or no is a boolean, the answer of a Yes/No cell with a reason is its
+ * answer and never its reason, and the files of an attachment cell are never an operand.
+ */
+function operandOf(grid: GridDoc, rowId: string, columnId: string, value: FillValue): FormulaValue | undefined {
+  if (Array.isArray(value)) {
+    return undefined;
+  }
+  if (isChoice(value)) {
+    return value.answer;
+  }
+  if (typeof value === "boolean") {
+    return value;
+  }
+  const type = cellSpec(grid, rowId, columnId).type;
+  if (type === "number") {
+    const number = Number(value.trim());
+    return value.trim() !== "" && Number.isFinite(number) ? number : undefined;
+  }
+  return type === "text" ? (plainNumber(value) ?? value) : value;
+}
+
+/**
+ * The answers of the sheet's formulas for the cells as they are now, saved or not (SH5.1): the fill-in's cells laid over
+ * the sheet and calculated by the browser's own evaluator, one answer for each row of a calculated column. It is a
+ * preview only, drawn while there are unsaved changes; the server calculates again when they are saved and its answers
+ * replace this one. The formulas are the sheet's (a person never types one), the function table and the bounds are the
+ * server's (`spec`), and there is no rule here that the server does not have. Null when there is nothing to show: a sheet
+ * with no formula, a sheet in the first format, or no table of functions from the server.
+ */
+export function previewAnswers(grid: GridDoc, fill: FillDoc, spec: FormulaSpec | null): FillAnswers | null {
+  if (spec === null || grid.formatVersion !== 2 || !hasFormulas(grid)) {
+    return null;
+  }
+  const rows = toApiFill(grid, fill).rows;
+  const byRow = grid.dimension === 1;
+  const cells: Record<string, FormulaValue> = {};
+  const lines: Record<string, FormulaValue>[] = [];
+  for (const row of rows) {
+    const mine: Record<string, FormulaValue> = {};
+    for (const [columnId, value] of Object.entries(row.cells)) {
+      const operand = isInputCell(grid, row.id, columnId) ? operandOf(grid, row.id, columnId, value) : undefined;
+      if (operand !== undefined) {
+        mine[columnId] = operand;
+        cells[cellKey(row.id, columnId)] = operand;
+      }
+    }
+    lines.push(mine);
+  }
+  const set = answerSet(grid, spec, { cells: byRow ? {} : cells, rows: byRow ? lines : [] });
+  const text: Record<string, string> = { ...set.cells };
+  const kinds: Record<string, string> = { ...set.kinds.cells };
+  for (const [column, answers] of Object.entries(set.rows ?? {})) {
+    answers.forEach((answer, index) => {
+      const rowId = rows[index]?.id;
+      if (rowId !== undefined) {
+        text[cellKey(rowId, column)] = answer.text;
+        kinds[cellKey(rowId, column)] = answer.kind;
       }
     });
   }

@@ -1,6 +1,9 @@
 package app.platform.sheets.internal;
 
+import app.platform.sheets.internal.formula.FormulaFunctions;
 import app.platform.sheets.internal.formula.FormulaLimits;
+import app.platformapi.SheetFormulaFunctionView;
+import app.platformapi.SheetFormulaLimitsView;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.boot.context.properties.bind.DefaultValue;
 
@@ -39,6 +42,18 @@ record FormulaProperties(@DefaultValue("4000") int maxChars, @DefaultValue("32")
     FormulaLimits limits() {
         return new FormulaLimits(maxChars, maxDepth, maxNodes, maxSteps, maxTextChars, maxCalculationMillis,
                 maxChainDepth, maxFormulas);
+    }
+
+    /**
+     * What the formulas of a sheet may be, and the functions they may call, from the server's own table, as the screens
+     * read it: the list of versions of a sheet, and the fill-in (SH5.1), whose page shows a preview of the answers
+     * while a person types and holds no list or number of its own.
+     */
+    SheetFormulaLimitsView view() {
+        return new SheetFormulaLimitsView(maxChars, maxDepth, maxNodes, maxSteps, maxTextChars, maxChainDepth,
+                maxFormulas, FormulaFunctions.all().stream().map(function -> new SheetFormulaFunctionView(
+                        function.name(), function.least(), function.most())).toList(),
+                FormulaFunctions.TEXT_FORMAT_LIST);
     }
 
     private static void range(String name, int value, int least, int most) {

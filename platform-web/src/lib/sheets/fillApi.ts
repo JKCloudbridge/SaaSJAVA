@@ -83,8 +83,14 @@ export function saveFillCells(
 /**
  * The server's answers of a fill-in's formulas, asked for again whenever the saved fill-in changes (`stamp`). Nothing is
  * asked for a sheet with no formula (`wanted` false); a failure shows nothing, and the page never claims more than it has.
+ * `pending` is true from the moment the saved fill-in changed until the server has answered (or failed), so that a screen
+ * can keep showing its own preview for that moment instead of a blank.
  */
-export function useFillCalculation(owner: FillOwner, stamp: number, wanted: boolean): FillCalculation | null {
+export function useFillCalculation(
+  owner: FillOwner,
+  stamp: number,
+  wanted: boolean,
+): { answer: FillCalculation | null; pending: boolean } {
   const [loaded, setLoaded] = useState<{ key: string; answer: FillCalculation | null } | null>(null);
   const key = `${owner.object}|${owner.id}|${stamp}`;
   useEffect(() => {
@@ -101,7 +107,8 @@ export function useFillCalculation(owner: FillOwner, stamp: number, wanted: bool
       live = false;
     };
   }, [key, owner, wanted]);
-  return wanted && loaded?.key === key ? loaded.answer : null;
+  const answered = wanted && loaded?.key === key;
+  return { answer: answered ? (loaded?.answer ?? null) : null, pending: wanted && !answered };
 }
 
 /** What a fill-in came to, with a way to ask again. */

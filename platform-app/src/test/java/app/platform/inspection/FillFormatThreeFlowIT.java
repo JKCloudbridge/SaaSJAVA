@@ -91,6 +91,9 @@ class FillFormatThreeFlowIT extends FillSupport {
         assertThat(view.status()).as(view.body()).isEqualTo(200);
         assertThat(JsonPath.<Integer>read(view.body(), "$.data.cells.formatVersion")).isEqualTo(3);
         assertThat(JsonPath.<String>read(view.body(), "$.data.editAs")).isEqualTo("FILLER");
+        // The page previews the answers of the formulas while a person types, with the server's own table (SH5.1).
+        assertThat(JsonPath.<Integer>read(view.body(), "$.data.limits.formulas.maxChars")).isPositive();
+        assertThat(JsonPath.<Integer>read(view.body(), "$.data.limits.formulas.functions.length()")).isPositive();
 
         String one = attach(filler, flow.fill(), "one.zip", 500);
         String two = attach(filler, flow.fill(), "two.zip", 600);

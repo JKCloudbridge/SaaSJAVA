@@ -173,3 +173,11 @@ A prompt, a reason, a cell, a file name or a file identifier is never in a log, 
   corrections, the archive and the report (an attachment cell is still not reportable). A formula never sees the prompt: it lives
   in the sheet's `inputs`, not in a cell value. It is never logged, audited or put in an event or an error
   (`YesNoReasonLogsAreCleanIT`). No migration, setting, endpoint or module edge.
+
+## Note: a reviewer's answers are previewed and a decision saves first (added to SH5.1, 2026-11-17)
+
+- A reviewer (autosave off on purpose: every save is one counted, audited edit) saw the formulas only after Save, and Approve or Reject sent the decision without the cells typed and not yet saved, so the score, which is worked out at approval from the saved cells (ADR-0261), came from the old cells. Now the fill-in page shows a preview of the answers while there are unsaved changes (the browser's evaluator with the server's own table of functions, carried by the new `formulas` of the fill-in's limits, one additive field) with the line "Answers are a preview until you save", the server's answers replace it after every save, and Approve, Reject and Withdraw first save unsaved cells through the queue of the Save button (one counted edit at most) and send nothing when that save is refused. The score on the header, the limit, the Action plan, the endpoints, the settings, the abilities and the module edges are unchanged.
+
+## Note: the stamp that closes a fill-in's sheet (SH5.2, 2026-11-17)
+
+- Everyone who sees a fill-in's sheet sees the same read-only stamp in the grid, the form view and View: the number and Revision, the publish day (only when the application's footer carries it and the fill-in is on the Revision in use, otherwise the line is left out), and, once it is sent, `Submitted by <name> on <day>` (the day alone when the person has left). It is made at show time and is never a cell. The template's `Date:` line is now `Publish date:` (ADR-0257 wrote `Date:`). No migration, endpoint or setting.

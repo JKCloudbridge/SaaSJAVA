@@ -134,6 +134,8 @@ export interface FillFormProps {
   problems: ReadonlyMap<string, readonly string[]>;
   /** The server's answers of the formulas by cell key: shown as plain text, never typed (SH5). */
   answers?: FillAnswers | null;
+  /** The stamp that closes the sheet (number and Revision, the publish day, who sent it and when), read only (SH5.2). */
+  footer?: string;
   /**
    * What an attachment cell needs from the page (SH5, ADR-0254): the header record whose files they are, and the two
    * moments around taking a file off, when the stored cells change on the server.
@@ -152,7 +154,7 @@ export interface FillFormProps {
  * fixes is shown as text, never as a box. It uses the editor of the grid view, so the two views are one fill-in, and it
  * decides nothing: the types, the choices and the required marks are the sheet's, and the server checks again on a save.
  */
-export function FillForm({ editor, readOnly, problems, answers, attach }: FillFormProps) {
+export function FillForm({ editor, readOnly, problems, answers, attach, footer }: FillFormProps) {
   const { grid, fill } = editor;
   const rows = fillDisplayRows(grid, fill);
   const missing = missingRequired(grid, fill);
@@ -271,6 +273,11 @@ export function FillForm({ editor, readOnly, problems, answers, attach }: FillFo
             Add a row
           </button>
         </div>
+      ) : null}
+      {footer ? (
+        <p className="hint sheet-footer-note" data-testid="form-footer">
+          {footer}
+        </p>
       ) : null}
     </div>
   );

@@ -84,10 +84,11 @@ describe("ApprovalPanel", () => {
     expect(screen.queryByTestId("approval-panel")).not.toBeInTheDocument();
   });
 
-  it("says the record is locked, lists the steps with the people asked and tells the page", async () => {
+  it("draws no lock sentence, lists the steps with the people asked and tells the page", async () => {
     const { onState } = open(pending());
 
-    expect(await screen.findByTestId("approval-locked")).toHaveTextContent("locked while it is being approved");
+    expect(await screen.findByTestId("approval-panel")).toBeInTheDocument();
+    expect(screen.queryByTestId("approval-locked")).not.toBeInTheDocument();
     const steps = screen.getByTestId("approval-steps");
     expect(steps).toHaveTextContent("Manager");
     expect(steps).toHaveTextContent("User B");
@@ -95,10 +96,11 @@ describe("ApprovalPanel", () => {
     expect(onState).toHaveBeenCalledWith({ locked: true, mayApprove: false, mayOverride: false });
   });
 
-  it("tells a member who may override the lock so, and tells the page", async () => {
+  it("draws no lock sentence for a member who may override the lock either, and tells the page", async () => {
     const { onState } = open(pending({ ...NO_ACTIONS, canCancel: true }));
 
-    expect(await screen.findByTestId("approval-locked")).toHaveTextContent("who may override the lock");
+    expect(await screen.findByTestId("approval-panel")).toBeInTheDocument();
+    expect(screen.queryByTestId("approval-locked")).not.toBeInTheDocument();
     expect(onState).toHaveBeenCalledWith({ locked: true, mayApprove: false, mayOverride: true });
     expect(screen.getByRole("button", { name: "End the request" })).toBeInTheDocument();
   });

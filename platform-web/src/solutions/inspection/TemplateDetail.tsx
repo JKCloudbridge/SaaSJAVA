@@ -274,7 +274,7 @@ export function TemplateDetail({ id, onBack }: { id: string; onBack: () => void 
       <ApprovalHeaderActions
         approval={decisions}
         extra={more}
-        submitDisabled={view?.canSubmit === false ? { title: view.submitNote ?? undefined } : undefined}
+        submitButton={view?.canSubmit !== false}
       >
         {view?.canSetOptions ? (
           <button

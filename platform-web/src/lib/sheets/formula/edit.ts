@@ -41,6 +41,16 @@ export function layoutOf(doc: GridDoc, bodyRows: number): Layout {
 /** What a person writes for a number: a sign, digits, an optional fraction (the server reads the same). */
 const PLAIN_NUMBER = /^[+-]?(\d+(\.\d*)?|\.\d+)$/;
 
+/**
+ * A text a person typed, as the number it is to a formula, or null when it is anything else (SH5.1, ADR-0263): a mark
+ * typed into a text cell is a number, as in a spreadsheet, because an uploaded form makes every column text and SUM skips
+ * text. The server reads the same rule (`FillCalculations.isPlainNumber`); a word, a date and a very long text stay text.
+ */
+export function plainNumber(text: string): number | null {
+  const trimmed = text.trim();
+  return trimmed.length <= 40 && PLAIN_NUMBER.test(trimmed) ? Number(trimmed) : null;
+}
+
 const NOT_HERE = "Formulas need the new sheet format, which is not switched on here.";
 
 function extrasOf(doc: GridDoc): SheetExtras | null {
@@ -205,16 +215,36 @@ export interface AnswerSet {
   cells: Record<string, string>;
   columns: Record<string, string>;
   kinds: { cells: Record<string, AnswerKindName>; columns: Record<string, AnswerKindName> };
+  /** The answer of a calculated column for each row, in order; only when the values of a fill-in were given (SH5.1). */
+  rows?: Record<string, { text: string; kind: AnswerKindName }[]>;
 }
 
-export function answerSet(doc: GridDoc, spec: FormulaSpec | null): AnswerSet {
+/**
+ * What a person typed into the input cells of a fill-in, as the values a formula reads (SH5.1): a number as a number, a
+ * yes or no as a boolean, anything else as text, and nothing for a cell that holds files or no value. The caller makes
+ * these from the cells (`previewAnswers` in `fillModel`); the formulas are those of the sheet, never of the fill-in.
+ */
+export interface FilledValues {
+  /** For a sheet that names its rows: the value of an input cell, by cell key. */
+  cells: Readonly<Record<string, Value>>;
+  /** For a sheet where the filler adds all the rows: the values of each row, by column identifier, in order. */
+  rows: readonly Readonly<Record<string, Value>>[];
+}
+
+/**
+ * The answers of every formula of the sheet. With no `filled` every input cell is empty and a sheet where the filler adds
+ * the rows is drawn for one row (the author's preview); with the values of a fill-in the sheet is calculated for them, one
+ * row for each row the filler added, as the server calculates a fill-in.
+ */
+export function answerSet(doc: GridDoc, spec: FormulaSpec | null, filled?: FilledValues): AnswerSet {
   const out: AnswerSet = { cells: {}, columns: {}, kinds: { cells: {}, columns: {} } };
   const extras = extrasOf(doc);
   if (extras === null || spec === null) return out;
   const bounds = { maxSteps: spec.maxSteps, maxTextChars: spec.maxTextChars };
   const columnIds = new Set(doc.columns.map((column) => column.id));
   const order = [...doc.headerRows, ...(doc.dimension === 2 ? doc.rows : [])].map((line) => line.id);
-  if (doc.dimension === 1) order.push("#0");
+  const growing = doc.dimension === 1 ? Array.from({ length: filled ? filled.rows.length : 1 }, (_, i) => `#${i}`) : [];
+  order.push(...growing);
   const rowAt = new Map(order.map((id, i) => [id, i]));
   const columnAt = new Map(doc.columns.map((column, i) => [column.id, i]));
   const memo = new Map<string, Value>();
@@ -241,15 +271,19 @@ export function answerSet(doc: GridDoc, spec: FormulaSpec | null): AnswerSet {
       if (!columnIds.has(column)) return new XlError("#REF!");
       if (row.startsWith("#")) {
         const stored = columnFormulaOf(doc, column);
-        return stored === undefined ? null : calculate(`k:${column}`, row, stored);
+        if (stored !== undefined) return calculate(`k:${column}${row}`, row, stored);
+        return filled?.rows[Number(row.slice(1))]?.[column] ?? null;
       }
       const key = `${row}:${column}`;
       const stored = formulaText(key);
       if (stored !== undefined) return calculate(`c:${key}`, row, stored);
+      // What the person typed comes before what the sheet holds, as on the server; only an input cell can have a value.
+      const typed = filled?.cells[key];
+      if (typed !== undefined) return typed;
       const cell = doc.cells[key];
       const value = cell?.value;
       // A number written in a fixed cell is a number, as the server reads it (SH5.1): SUM skips text.
-      if (typeof value === "string") return PLAIN_NUMBER.test(value.trim()) && value.trim().length <= 40 ? Number(value.trim()) : value;
+      if (typeof value === "string") return plainNumber(value) ?? value;
       return typeof value === "boolean" ? value : null;
     },
     range(fromColumn, fromRow, toColumn, toRow) {
@@ -267,7 +301,7 @@ export function answerSet(doc: GridDoc, spec: FormulaSpec | null): AnswerSet {
       return values;
     },
     bodyRows() {
-      return doc.dimension === 1 ? ["#0"] : [];
+      return growing;
     },
   };
   for (const [key, extra] of Object.entries(extras.cells)) {
@@ -279,9 +313,16 @@ export function answerSet(doc: GridDoc, spec: FormulaSpec | null): AnswerSet {
   }
   if (doc.dimension === 1) {
     for (const [column, stored] of Object.entries(extras.columnFormulas ?? {})) {
-      const value = calculate(`k:${column}`, "#0", stored);
-      out.columns[column] = show(value);
-      out.kinds.columns[column] = kindOf(value);
+      // `columns` is the answer of the first row; a fill-in also gets one answer for each row, in order.
+      const answered = growing.map((row) => calculate(`k:${column}${row}`, row, stored));
+      const first = answered[0];
+      if (first !== undefined) {
+        out.columns[column] = show(first);
+        out.kinds.columns[column] = kindOf(first);
+      }
+      if (filled) {
+        (out.rows ??= {})[column] = answered.map((value) => ({ text: show(value), kind: kindOf(value) }));
+      }
     }
   }
   return out;

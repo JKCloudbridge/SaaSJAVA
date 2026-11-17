@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useId, useMemo, useState } from "react";
+import { useEffect, useId, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { fromApi } from "@/lib/sheets/adapter";
 import {
   getFill,
@@ -16,10 +17,12 @@ import {
   fromApiFill,
   hasFormulas,
   isInputCell,
+  previewAnswers,
   problemsByCell,
   reapplyFill,
   toApiFill,
 } from "@/lib/sheets/fillModel";
+import { specOf } from "@/lib/sheets/formula/edit";
 import { fillStatusTag, fillStatusWords, versionWords } from "@/lib/sheets/fillTags";
 import type { FillDoc } from "@/lib/sheets/fillTypes";
 import { problemsFromFields } from "@/lib/sheets/hints";
@@ -70,10 +73,21 @@ export interface FillWorkspaceProps {
   onCancel?(): void;
   registerLeave?(leave: (next: () => void) => Promise<void>): void;
   /**
+   * Lets the page save what was typed before it sends a decision on the fill-in (SH5.1): the page keeps the function and
+   * calls it first. It saves through the same queue as the Save button and answers whether the cells are saved now; when
+   * they are not (the server refused), `message` says why in the server's words and nothing may be sent.
+   */
+  registerBeforeDecision?(save: () => Promise<{ ok: boolean; message?: string }>): void;
+  /**
    * The text at the right of the footer row of the View page: the caller's words (the template number and the revision the
    * fill-in was made on). A function is asked for the stored number of that revision. Empty leaves the row blank.
    */
   footer?: string | ((versionNo: number) => string);
+  /**
+   * Where the one strip of buttons (the two views, View, Save, Submit, Cancel and the saved state) is drawn: the row of the
+   * page's tabs. Without it the strip is drawn above the sheet; `null` draws it nowhere (the sheet's tab is not open).
+   */
+  toolbarSlot?: HTMLElement | null;
 }
 
 /**
@@ -95,7 +109,9 @@ export function FillWorkspace({
   submit,
   onCancel,
   registerLeave,
+  registerBeforeDecision,
   footer,
+  toolbarSlot,
 }: FillWorkspaceProps) {
   const owner = useMemo<FillOwner>(() => ({ object: given.object, id: given.id }), [given.object, given.id]);
   const [dirty, setDirty] = useState(false);
@@ -149,7 +165,9 @@ export function FillWorkspace({
       submit={submit}
       onCancel={onCancel}
       registerLeave={registerLeave}
+      registerBeforeDecision={registerBeforeDecision}
       footer={footer}
+      toolbarSlot={toolbarSlot}
       onReload={() => setRefresh((n) => n + 1)}
     />
   );
@@ -166,9 +184,12 @@ function FillPane({
   onCancel,
   onReload,
   registerLeave,
+  registerBeforeDecision,
   footer,
+  toolbarSlot,
 }: {
   footer: FillWorkspaceProps["footer"];
+  toolbarSlot: FillWorkspaceProps["toolbarSlot"];
   owner: FillOwner;
   label: string;
   view: FillView;
@@ -179,6 +200,7 @@ function FillPane({
   onCancel: FillWorkspaceProps["onCancel"];
   onReload(): void;
   registerLeave: FillWorkspaceProps["registerLeave"];
+  registerBeforeDecision: FillWorkspaceProps["registerBeforeDecision"];
 }) {
   const grid = useMemo<GridDoc>(() => fromApi(view.grid), [view.grid]);
   const initial = useMemo<FillDoc>(() => fromApiFill(view.cells), [view.cells]);
@@ -219,6 +241,8 @@ function FillPane({
     return () => window.removeEventListener("beforeunload", warn);
   }, [dirty]);
 
+  // The words of the last refusal of a save, for the page's decision to say why nothing was sent (SH5.1).
+  const refusedWords = useRef("");
   const showing = refused;
   const targets = useMemo(
     () => (showing ? problemsByCell(grid, showing.sent, showing.problems) : null),
@@ -234,16 +258,19 @@ function FillPane({
       setRefused(null);
       onSaved?.(result);
     },
-    refused: (sent, failure) => setRefused({
-      sent,
-      problems: problemsFromFields(failure.fields), message: failure.message,
-      stale: failure.code === "CONCURRENT_MODIFICATION" || failure.code === "CONFLICT",
-    }),
+    refused: (sent, failure) => {
+      refusedWords.current = failure.message;
+      setRefused({
+        sent,
+        problems: problemsFromFields(failure.fields), message: failure.message,
+        stale: failure.code === "CONCURRENT_MODIFICATION" || failure.code === "CONFLICT",
+      });
+    },
   });
   const { saving, saved } = autosave;
   // The server's answers of the formulas (SH5): asked for again after every save. The row an answer belongs to is read
   // from the cells as they were saved, because that is the document the server calculated.
-  const calculation = useFillCalculation(owner, summary.version, hasFormulas(grid));
+  const { answer: calculation, pending } = useFillCalculation(owner, summary.version, hasFormulas(grid));
   const answers = useMemo(
     () =>
       calculation
@@ -252,6 +279,15 @@ function FillPane({
     // eslint-disable-next-line react-hooks/exhaustive-deps -- the baseline is a ref read once when an answer arrives
     [calculation, grid],
   );
+  // While there are changes that are not saved, and while the server's answers for what was just saved are on their way,
+  // the browser's own answers are drawn (SH5.1). They come from the cells as they are and the server's table of functions,
+  // and they are only a preview: the server calculates again at every save and its answers replace them.
+  const spec = useMemo(() => specOf(editor.limits.formulas), [editor.limits.formulas]);
+  const preview = useMemo(
+    () => (dirty || pending ? previewAnswers(grid, editor.fill, spec) : null),
+    [dirty, pending, grid, editor.fill, spec],
+  );
+  const shown = dirty || pending ? preview : answers;
   // Taking a file off changes the stored cells on the server, so the page reads the fill-in again afterwards; what was
   // typed before was saved first (`beforeRemove`), so nothing is lost.
   const afterRemove = async () => {
@@ -271,6 +307,17 @@ function FillPane({
   };
   useSaveBeforeLeave(dirty, () => autosave.flush());
   useEffect(() => { registerLeave?.(leave); });
+  // A decision on the fill-in saves what was typed first, through the queue of the Save button (SH5.1): the score is worked
+  // out at approval from the cells that are saved. One decision is at most one save, and a refused save sends nothing.
+  const beforeDecision = async (): Promise<{ ok: boolean; message?: string }> => {
+    if (!dirty || await autosave.flush(true)) return { ok: true };
+    return {
+      ok: false,
+      message: `Your entries could not be saved, so nothing was decided. ${refusedWords.current} `
+        + "They are kept on the Sheet tab.",
+    };
+  };
+  useEffect(() => { registerBeforeDecision?.(beforeDecision); });
 
   const reloadAndReapply = async () => {
     const answer = await getFill(owner);
@@ -321,49 +368,99 @@ function FillPane({
     onCancel?.();
   };
 
-  const narrowNote = narrow && !readOnly ? "On a narrow screen the grid is for reading. Fill in the form view." : undefined;
+  // The stamp that closes the sheet in the grid, the form and View (SH5.2): the number and Revision (and the publish day when
+  // the caller knows it), then who sent it and when once it was sent. Made at show time; never a cell, never stored.
+  const stamp = withSubmittedLine(
+    (typeof footer === "function" ? footer(summary.versionNo) : footer) ?? "",
+    submittedLine(summary.submittedBy, summary.submittedAt),
+  );
+
+  const narrowNote =narrow && !readOnly ? "On a narrow screen the grid is for reading. Fill in the form view." : undefined;
+
+  // What the removed sentences said stays one hover away on the status, so nothing a person may need is lost with the lines.
+  const hover = [
+    fillStatusWords(summary.status),
+    summary.corrections > 0
+      ? `Corrected ${summary.corrections === 1 ? "once" : `${summary.corrections} times`} after it was sent.`
+      : "",
+    view.correction && !readOnly
+      ? "You may correct a fill-in after it is sent. Every correction is recorded in the audit trail, with its size and a fingerprint, never its content."
+      : "",
+    dirty && preview ? "Answers are a preview until you save." : "",
+    `${revisionWords(summary.versionNo)} of the template, ${summary.rowCount} ${summary.rowCount === 1 ? "row" : "rows"}.`,
+    readOnly ? "" : "Changes save after a short pause. Submit and Cancel save them first.",
+  ]
+    .filter(Boolean)
+    .join(" ");
+  const savedWord = saving ? "Saving…" : saved && !dirty ? "Saved" : dirty ? "Unsaved changes" : "";
+
+  // One strip: the two views, View, Save, Submit, Cancel and the saved state. It is drawn in the row of the page's tabs, so
+  // nothing above the sheet takes room.
+  const strip = (
+    <div className="sheet-strip" data-testid="fill-strip">
+      <span className="badge" title={hover} data-testid="fill-status-tag">
+        {tag.text}
+      </span>
+      {readOnly ? null : (
+        <span className="hint" role="status" title={hover} data-testid="fill-saved-state">
+          {savedWord}
+        </span>
+      )}
+      <div role="tablist" aria-label="Views of the fill-in" className="sheet-tabs">
+        <button
+          type="button"
+          role="tab"
+          id={`${tabs}-form-tab`}
+          aria-selected={tab === "form"}
+          aria-controls={`${tabs}-form`}
+          className={tab === "form" ? "button" : "button button-secondary"}
+          onClick={() => setTab("form")}
+        >
+          Form view
+        </button>
+        <button
+          type="button"
+          role="tab"
+          id={`${tabs}-grid-tab`}
+          aria-selected={tab === "grid"}
+          aria-controls={`${tabs}-grid`}
+          className={tab === "grid" ? "button" : "button button-secondary"}
+          onClick={() => setTab("grid")}
+        >
+          Grid view
+        </button>
+      </div>
+      <button type="button" className="button button-secondary" data-testid="fill-view" onClick={() => setViewing(true)}>
+        View
+      </button>
+      {readOnly ? null : (
+        <>
+          <button
+            type="button"
+            className="button button-secondary"
+            onClick={() => void save()}
+            disabled={saving || sending || !dirty}
+          >
+            {saving ? "Saving…" : "Save"}
+          </button>
+          {submit ? (
+            <button type="button" className="button" onClick={() => void send()} disabled={saving || sending}>
+              {sending ? "Submitting…" : "Submit"}
+            </button>
+          ) : null}
+          {onCancel ? (
+            <button type="button" className="button button-secondary" onClick={() => void cancel()} disabled={sending || saving}>
+              {leaving ? "Leave without saving" : "Cancel"}
+            </button>
+          ) : null}
+        </>
+      )}
+    </div>
+  );
 
   return (
     <div className="stack sheet-editor" data-testid="fill-editor">
-      <div className="sheet-bar">
-        <p className="sheet-bar-title">
-          <strong>{tag.text}</strong> · {revisionWords(summary.versionNo).toLowerCase()} of the template · {summary.rowCount}{" "}
-          {summary.rowCount === 1 ? "row" : "rows"}
-          {summary.corrections > 0
-            ? ` · corrected ${summary.corrections === 1 ? "once" : `${summary.corrections} times`} after it was sent`
-            : ""}
-        </p>
-        <div className="sheet-bar-actions">
-          <button type="button" className="button button-secondary" data-testid="fill-view" onClick={() => setViewing(true)}>
-            View
-          </button>
-        </div>
-        {readOnly ? null : (
-          <div className="sheet-bar-actions">
-            <button
-              type="button"
-              className="button button-secondary"
-              onClick={() => void save()}
-              disabled={saving || sending || !dirty}
-            >
-              {saving ? "Saving…" : "Save"}
-            </button>
-            {submit ? (
-              <button type="button" className="button" onClick={() => void send()} disabled={saving || sending}>
-                {sending ? "Submitting…" : "Submit"}
-              </button>
-            ) : null}
-            {onCancel ? (
-              <button type="button" className="button button-secondary" onClick={() => void cancel()} disabled={sending || saving}>
-                {leaving ? "Leave without saving" : "Cancel"}
-              </button>
-            ) : null}
-            <span className="hint" role="status" title="Changes save after a short pause. Submit and Cancel save them first.">
-              {saving ? "Saving…" : saved && !dirty ? "Saved" : dirty ? "There are changes that are not saved." : ""}
-            </span>
-          </div>
-        )}
-      </div>
+      {toolbarSlot === undefined ? strip : toolbarSlot ? createPortal(strip, toolbarSlot) : null}
       {sendNote ? (
         <p
           className={sendNote.error ? "form-message" : "hint"}
@@ -378,9 +475,6 @@ function FillPane({
           The changes could not be saved. Press Cancel again to leave without them, or press Save to try again.
         </p>
       ) : null}
-      <p className="hint" role="note" data-testid="fill-status-note">
-        {fillStatusWords(summary.status)}
-      </p>
       {summary.archivedAt ? (
         <p className="hint" role="note" data-testid="fill-archived-note">
           This fill-in is archived. It is kept exactly as it was, read back when you open it, and it cannot be changed.
@@ -391,17 +485,11 @@ function FillPane({
           {sheetWords}
         </p>
       ) : null}
-      {view.correction && !readOnly ? (
-        <p className="hint" role="note" data-testid="fill-correction-note">
-          This fill-in was already sent. You can correct it because you may edit a fill-in after it is sent. Every
-          correction is recorded in the audit trail, with its size and a fingerprint, never its content.
-        </p>
-      ) : null}
       {view.editAs === "REVIEWER" && !readOnly ? (
         <p className="hint" role="note" data-testid="fill-review-note">
           You are asked to review this fill-in. You can fill the cells meant for the reviewer; everything else is read
-          only. Every change you save is recorded in the audit trail, with its size and a fingerprint, never its
-          content.
+          only. Your entries are kept when you press Save, and a decision saves them first. Every change you save is
+          recorded in the audit trail, with its size and a fingerprint, never its content.
         </p>
       ) : null}
       {showing ? (
@@ -430,37 +518,14 @@ function FillPane({
         </div>
       ) : null}
 
-      <div role="tablist" aria-label="Views of the fill-in" className="sheet-tabs">
-        <button
-          type="button"
-          role="tab"
-          id={`${tabs}-form-tab`}
-          aria-selected={tab === "form"}
-          aria-controls={`${tabs}-form`}
-          className={tab === "form" ? "button" : "button button-secondary"}
-          onClick={() => setTab("form")}
-        >
-          Form view
-        </button>
-        <button
-          type="button"
-          role="tab"
-          id={`${tabs}-grid-tab`}
-          aria-selected={tab === "grid"}
-          aria-controls={`${tabs}-grid`}
-          className={tab === "grid" ? "button" : "button button-secondary"}
-          onClick={() => setTab("grid")}
-        >
-          Grid view
-        </button>
-      </div>
       {tab === "form" ? (
         <div role="tabpanel" id={`${tabs}-form`} aria-labelledby={`${tabs}-form-tab`}>
           <FillForm
             editor={editor}
             readOnly={readOnly}
             problems={targets?.cells ?? new Map()}
-            answers={answers}
+            answers={shown}
+            footer={stamp}
             attach={{
               object: owner.object,
               recordId: owner.id,
@@ -483,8 +548,9 @@ function FillPane({
               editor={editor}
               readOnly={readOnly || narrow}
               canEditCell={editor.canEditCell}
-              formulaAnswers={answers?.text}
-              formulaKinds={answers?.kinds}
+              formulaAnswers={shown?.text}
+              formulaKinds={shown?.kinds}
+              footer={stamp === "" ? undefined : stamp}
               label={`${label}, ${revisionWords(summary.versionNo).toLowerCase()}`}
               openCell={(rowId, columnId) => {
                 if (!isInputCell(grid, rowId, columnId)) return false;
@@ -534,13 +600,9 @@ function FillPane({
         <SheetPrintView
           doc={editor.doc}
           showInput
-          answers={answers ?? undefined}
+          answers={shown ?? undefined}
           label={label}
-          footer={withSubmittedLine(
-            (typeof footer === "function" ? footer(summary.versionNo) : footer) ?? "",
-            // Who sent it and when, below the number and the Revision (SH5.1): the server names the person.
-            submittedLine(summary.submittedBy, summary.submittedAt),
-          )}
+          footer={stamp}
           onClose={() => setViewing(false)}
         />
       ) : null}
