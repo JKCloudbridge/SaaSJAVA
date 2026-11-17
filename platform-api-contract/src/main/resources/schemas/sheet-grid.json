@@ -627,7 +627,7 @@
           "type": "string",
           "minLength": 1,
           "maxLength": 5000,
-          "description": "The fixed text a boolean_reason cell shows above its answer (SH5.1, ADR-0263). Only that kind takes a prompt. It is the author's text: never logged."
+          "description": "The fixed text a boolean_reason cell or an attachment cell shows with its answer or its files (SH5.1, ADR-0263). Only those two kinds take a prompt. It is the author's text: never logged."
         },
         "required": {
           "type": "boolean"

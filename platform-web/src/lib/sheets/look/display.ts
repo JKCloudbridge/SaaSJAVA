@@ -120,8 +120,17 @@ export function displayOf(
   if (value === false) return plain("No");
   if (type === "attachment") {
     // A fill-in's grid draws the count of files in the cell as words ("(2 attachments)"); with none, a quiet placeholder.
+    // With a prompt (SH5.1) the author's text stands before the count; the cell is then no placeholder.
     const counted = typeof value === "string" && value !== "";
-    return { text: counted ? value : attachmentWords(0), number: null, quiet: !counted, list, attachment: true };
+    const prompt = promptOf(doc, rowId, columnId);
+    const count = counted ? value : attachmentWords(0);
+    return {
+      text: prompt === "" ? count : `${prompt} ${count}`,
+      number: null,
+      quiet: !counted && prompt === "",
+      list,
+      attachment: true,
+    };
   }
   if (typeof value === "string" && value !== "" && isPlainNumber(value) && (type === "number" || formatsNumbers(look.numberFormat))) {
     const n = Number(value);

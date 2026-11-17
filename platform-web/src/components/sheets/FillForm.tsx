@@ -194,7 +194,7 @@ export function FillForm({ editor, readOnly, problems, answers, attach }: FillFo
                 return (
                   <div key={column.id} className="field">
                     <span>
-                      {column.label || "Untitled column"}
+                      {promptOf(grid, row.id, column.id) || column.label || "Untitled column"}
                       {spec.required ? <span aria-hidden="true"> *</span> : null}
                       {spec.required ? <span className="visually-hidden"> (required)</span> : null}
                     </span>
@@ -246,7 +246,8 @@ export function FillForm({ editor, readOnly, problems, answers, attach }: FillFo
                   />
                 );
               }
-              const prompt = spec.type === "boolean_reason" ? promptOf(grid, row.id, column.id) : "";
+              const prompt = spec.type === "boolean_reason" || spec.type === "attachment"
+                ? promptOf(grid, row.id, column.id) : "";
               return (
                 <p key={column.id}>
                   <strong>{column.label || "Untitled column"}</strong> {prompt ? `${prompt} ` : ""}

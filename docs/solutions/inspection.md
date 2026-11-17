@@ -56,7 +56,7 @@ A template now goes through its whole life.
 
 1. **Draft.** A person who holds the **Author** policy makes a template (name, category, sub-category; for a control plan, a process flow chart or a failure mode analysis also the **part code**; for a business plan the **plan year**), starts its first version and builds the sheet. Only the author (and the people who approve) can see it: **a template is private**, and no setting changes that.
 2. **Submit.** The author presses **Submit for approval** on the template's page. The approval process is the one the organization's administrator built for Template in the approval setup, with each step naming its approvers (by role, group or person). A draft that is still empty, a template without a category, a number that cannot be made yet, or a number somebody else already has, is refused in plain words before anything starts.
-3. **Approve, and the number.** Each approver presses **Approve** on their task. **The first approval gives the template its number** (for example `WI/PRD/01`), once; a template rejected at the first step takes none, and a number is never given again. The approver sees "Approving this gives it its number, WI/PRD/…" while the approval is theirs.
+3. **Approve, and the number.** Each approver presses **Approve** on their task. **The first approval gives the template its number** (for example `WI/PRD/01`), once; a template rejected at the first step takes none, and a number is never given again. The approver sees "Approving this gives it its number, WI/PRD/â€¦" while the approval is theirs.
 4. **Approving is not publishing.** An approved version waits. Only the people who approve and the author can see it.
 5. **Publish.** A person who holds the **Approver** policy presses **Publish**, chooses a **Location** and then a **Department** (the departments narrow to the location), adds as many as needed, and publishes. The template becomes visible to **the people of those departments** (the group the administrator set up for each) in the Templates list, and to nobody else. Publishing again shows the audience it has and keeps it unless you change it.
 6. **Unpublish, a new version, retire.** An approver can take a template back from the people (**Unpublish**). The author starts a **new version** from the one in use; while it is in review the version in use stays readable and in use, and approving the new one does not publish it: publishing it replaces the old one at once. **Retire** ends a template for good: it is kept, its number is never given again, and the people who had it still read it. It cannot be retired while a version waits for approval.
@@ -148,7 +148,7 @@ Frontend only; the decisions are in the UI3 entry of `docs/delivery-plan.md`.
 
 The decision is ADR-0194. One API addition (two `POST` queries), no migration.
 
-- **The title row of a list** is `view name ▾ | New | search | settings icon`, then the table. `ListPage` takes `titleControl` (the view menu, standing where the title was; the title still names the page for assistive technology) and `remote` (the search text and the order are the screen's, the rows come back already searched and ordered). A list that gives neither keeps the old client-side behaviour.
+- **The title row of a list** is `view name â–¾ | New | search | settings icon`, then the table. `ListPage` takes `titleControl` (the view menu, standing where the title was; the title still names the page for assistive technology) and `remote` (the search text and the order are the screen's, the rows come back already searched and ordered). A list that gives neither keeps the old client-side behaviour.
 - **`useListViews`** (`components/ui/lists`) is what a screen uses: the object's saved views (`/objects/{object}/views`), the field description of the object (`useObjectForm`), the person's choice of columns, the filter, the order and the search text as one `ListRequest`, the view menu, and the popups behind the settings menu (`FieldPicker`, `FilterBuilder` in a `Modal`, `SaveViewPanel` for saving and `Remove this view`). It decides nothing: fields and comparisons are the server's list (`filterOperators`, `sortable`), and the server answers again every question.
 - **A new list of this application** passes `objectApiName`, the fields its rows carry (`displayable`), the fields shown before a view is chosen (`defaults`), the field of the first column (`primaryField`) and the name of the list with no view (`allLabel`); it asks the server with `views.request` and starts again when `views.requestKey` changes. A column that is a field has its `key` equal to the field API name and a `sort`; a column that comes from somewhere else (the versions, the fill-in row) has neither, so its header is not a button.
 - **The server side:** `POST /api/v1/templates/query` (`TemplateList.query`) and `POST /api/v1/fill-ins/query` (`FillIns.query`) take `search`, `filter`, `sort` and the cursor (a template also a `state`, a fill-in a `templateId` and `status`). They go through `Records.query`: record security, field security and the scan limit apply as for any list. `QueryFilterNodes` (the root of `data`) turns the API's filter into the store's. A typed text is never logged (`TemplateQueryIT`).
@@ -690,7 +690,7 @@ document's plants who cannot change the document cannot ask for a change (`Chang
 
 These notes apply to a template whose sheet is in format version 2.
 
-- **The author chooses the kind of an input cell.** In the Sheet tab, choose a cell (or a block of cells) and press **Input cell…**: Text, Number,
+- **The author chooses the kind of an input cell.** In the Sheet tab, choose a cell (or a block of cells) and press **Input cellâ€¦**: Text, Number,
   Date, Yes/No, **Yes/No with a reason**, List (with its values), **Attachment** (1 to 5 files); Required; who fills it (the person filling in, or
   the reviewer). The kind of the cell where the focus is is shown beside the button. The server checks the sheet again on save.
 - **Yes/No with a reason.** One cell holds a prompt (the text the cell had, for example "If not represented, give reason:-"), the answer Yes or
@@ -702,7 +702,7 @@ These notes apply to a template whose sheet is in format version 2.
   differ: "B12 in the file (B10 on the sheet)".
 - **In the fill-in grid** an attachment cell shows a paperclip and "(n attachments)"; one click, Enter or a double click opens the files of the
   cell: attach, download, take one off. A person who may not change the cell only sees and downloads.
-- **Letters and row numbers.** The grid is headed A, B, C… with row numbers 1, 2, 3… at the left, the same addresses the formula bar uses. The
+- **Letters and row numbers.** The grid is headed A, B, Câ€¦ with row numbers 1, 2, 3â€¦ at the left, the same addresses the formula bar uses. The
   column's own name shows when the pointer rests on the letter, and in the form view and the report.
 - **Grey and white.** Fixed text with no colour of its own (a plain white fill counts as none) is light grey; a cell to fill
   is white. Any other colour the author gave a cell, or a conditional colour, always wins. There is no corner mark.
@@ -713,3 +713,14 @@ These notes apply to a template whose sheet is in format version 2.
 - **Contributors:** the kind is `boolean_reason` (`SheetDocument.BOOLEAN_REASON`, `FillDoc.Choice`), the attachment step is
   `SheetImportBuilder.attachments`, the addresses are `lib/sheets/addresses.ts` (never count rows or letters anywhere else), the popup is
   `AttachmentDialog`, the grey is the token `--sheet-paper-fixed`. Decision: ADR-0263.
+
+**An attachment cell with a prompt (SH5.1, added).** A file over a cell that holds text makes an attachment cell whose prompt is that text (note `attachment_prompts`); `SheetDocument.takesPrompt` is the one rule for the kinds that take a prompt; the prompt is drawn before the paperclip and the count and is never logged. Tests: `AttachmentCellsFromUploadTest`, `YesNoReasonTest`, `YesNoReasonLogsAreCleanIT`, `InputCellDialog.test.tsx`, `FillFormAttachmentPrompt.test.tsx`, `yesNoReason.test.ts`.
+
+## The fill-in page: Details and Sheet tabs, the approval flow, the upload report (SH_UI)
+
+- A fill-in record has two tabs, Details and Sheet; the tab is `?tab=sheet` in the address (none means Details). The sheet is drawn
+  when its tab is first opened and kept (hidden) afterwards so unsaved cells and the autosave queue survive a look at Details.
+- The approval is the template's day-grouped flow (`ApprovalHistoryList` over `useApprovalHistory`), step names from the process;
+  with no history the card draws its own steps. Buttons, lock message and the lock behaviour are unchanged.
+- The long "changes not saved" message is gone; the short status beside the sheet stays, its tooltip says Submit and Cancel save first.
+- `UploadSheet` shows its report only behind "More information"; a line counts the things to check; a refusal is never hidden.

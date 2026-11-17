@@ -480,6 +480,11 @@ ol {
   width: 100%;
 }
 
+/* A part that is hidden (a closed report, the tab that is not open) must stay hidden: the grid below would override it. */
+.stack[hidden] {
+  display: none;
+}
+
 .stack {
   display: grid;
   /* One column that may shrink: without it the column grows to its widest child (a table) and the page scrolls sideways. */

@@ -152,3 +152,24 @@ A prompt, a reason, a cell, a file name or a file identifier is never in a log, 
   way. Words and dates stay text. A test that had written down the old answer (0) was changed to expect 6.
 - **The address of the selected cell before the formula bar**, as a spreadsheet's name box (`C6`), from the same
   `lib/sheets/addresses.ts` the headings and the formulas use.
+
+## Note: an attachment cell carries a prompt too (added to SH5.1 after the walkthrough)
+
+- **Why.** In the Plant activity form a box holds a question and an embedded file icon together. The upload made an attachment cell
+  only where an empty cell held the file and listed the place when the box also held text.
+- **One rule for who takes a prompt.** `SheetDocument.takesPrompt(type)` is true for `boolean_reason` and `attachment`; the validator,
+  the importer, the file out and (as `takesPrompt` in `lib/sheets/inputs.ts`) the browser all ask it. The checks of the prompt
+  (not empty, at most the length of a fixed text, no markup, never repeated in a message) are still written once, in
+  `promptProblems`. Every other kind still answers `input_prompt`.
+- **Upload.** A file over a cell that holds text makes that cell an attachment cell (5 files, not required, filler) and the text
+  becomes the prompt; the text leaves the body cell (a stated cell holds no preset value) and the cell keeps no link. A file over
+  merged text uses the area's top left cell. A file over an empty cell works as before. Still listed (`files_not_placed`): a place
+  outside the table, a formula, and a cell another statement already took. The new note `attachment_prompts` counts the cells
+  made this way; `attachment_cells` counts only the empty ones.
+- **Screens and file.** The prompt is drawn before the paperclip and the count in the grid, as the label of the attach control in the
+  form view, and in view and print; the dialog and `FillAttachments` are unchanged. The template file shows the prompt and never a
+  file name.
+- **Not changed.** Fill format 3 values and hashes, the file removal path, `FillFileRules`, Submit on required attachment cells, the
+  corrections, the archive and the report (an attachment cell is still not reportable). A formula never sees the prompt: it lives
+  in the sheet's `inputs`, not in a cell value. It is never logged, audited or put in an event or an error
+  (`YesNoReasonLogsAreCleanIT`). No migration, setting, endpoint or module edge.

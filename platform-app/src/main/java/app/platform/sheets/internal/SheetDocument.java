@@ -192,6 +192,18 @@ record SheetDocument(List<Tab> sheets) {
     /** The stated type of a cell that holds a yes or no answer and an optional reason (SH5.1, ADR-0263). */
     static final String BOOLEAN_REASON = "boolean_reason";
 
+    /** The stated type of a cell the person fills in by attaching files (ADR-0254). */
+    static final String ATTACHMENT = "attachment";
+
+    /**
+     * Whether a cell of this stated type may carry a prompt, the author's fixed text shown with the cell (SH5.1,
+     * ADR-0263). The one place that says which kinds do: the validator, the importer, the file out and the screens all
+     * ask it, so the rule is not written twice.
+     */
+    static boolean takesPrompt(String type) {
+        return BOOLEAN_REASON.equals(type) || ATTACHMENT.equals(type);
+    }
+
     /** Prints a marker, never the content. */
     @Override
     public String toString() {

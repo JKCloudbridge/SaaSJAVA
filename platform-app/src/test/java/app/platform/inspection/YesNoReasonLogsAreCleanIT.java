@@ -40,13 +40,15 @@ class YesNoReasonLogsAreCleanIT extends FillSupport {
         return what + "-" + UUID.randomUUID().toString().replace("-", "").substring(0, 12);
     }
 
-    private static String sheet(String prompt) {
+    private static String sheet(String prompt, String attachmentPrompt) {
         return "{\"formatVersion\":2,\"sheets\":[{\"key\":\"main\",\"dimension\":2,"
                 + "\"rowsMode\":\"FIXED\",\"columns\":[{\"id\":\"c1\",\"label\":\"Item\",\"type\":\"text\"},"
                 + "{\"id\":\"c2\",\"label\":\"Amount\",\"type\":\"number\"}],\"headerRows\":[{\"id\":\"h1\"}],"
                 + "\"rows\":[{\"id\":\"r1\",\"label\":\"First\"},{\"id\":\"r2\",\"label\":\"Second\"}],"
                 + "\"cells\":{\"h1:c1\":{\"value\":\"Plant\"}},\"merges\":[],\"inputs\":{"
-                + "\"r1:c1\":{\"type\":\"boolean_reason\",\"required\":true,\"prompt\":\"" + prompt + "\"}}}]}";
+                + "\"r1:c1\":{\"type\":\"boolean_reason\",\"required\":true,\"prompt\":\"" + prompt + "\"},"
+                // SH5.1: an attachment cell carries a prompt too, and it is as private as the other
+                + "\"r2:c1\":{\"type\":\"attachment\",\"prompt\":\"" + attachmentPrompt + "\"}}}]}";
     }
 
     private static String three(String cells) {
@@ -57,6 +59,7 @@ class YesNoReasonLogsAreCleanIT extends FillSupport {
     @Test
     void thePromptAndTheReasonAreKeptForThePeopleWhoReadThemAndNeverLoggedOrEchoed() throws IOException {
         String prompt = typed("prompt-of-the-author");
+        String attachmentPrompt = typed("attach-prompt-of-the-author");
         String reason = typed("reason-of-the-filler");
         String markup = typed("markup-in-a-reason");
         Setting setting = setting();
@@ -68,7 +71,7 @@ class YesNoReasonLogsAreCleanIT extends FillSupport {
         department(setting.admin(), "PLANT1", "PRD", group(setting.admin(), "dept-" + System.nanoTime(), filler));
         String template = template(author.browser(), "WI", "PRD");
         int number = firstVersion(author.browser(), template);
-        saveSheet(author.browser(), template, number, sheet(prompt));
+        saveSheet(author.browser(), template, number, sheet(prompt, attachmentPrompt));
         assertThat(approve(approver.browser(), submitted(author.browser(), template, templateProcess)).status())
                 .isEqualTo(200);
         assertThat(publish(approver.browser(), template, null, "PLANT1/PRD").status()).isEqualTo(200);
@@ -98,7 +101,7 @@ class YesNoReasonLogsAreCleanIT extends FillSupport {
                 setting.organization().id().value()));
         String notices = String.join(" ", owner("select facts::text from notification where tenant_id = ?",
                 setting.organization().id().value()));
-        for (String text : List.of(prompt, reason, markup)) {
+        for (String text : List.of(prompt, attachmentPrompt, reason, markup)) {
             assertThat(log).as("not logged: " + text).doesNotContain(text);
             assertThat(trail).as("not in the audit trail: " + text).doesNotContain(text);
             assertThat(events).as("not in an event: " + text).doesNotContain(text);

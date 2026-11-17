@@ -162,10 +162,11 @@ class RealWorkbooksReportTest {
                     .append(tab.conditions().size()).append(" conditional colours, ")
                     .append(imported.checked().bytes()).append(" bytes; first row is a title: ")
                     .append(imported.report().firstRowIsTitle()).append('\n');
-            // SH5.1: the formulas calculated with no marks typed, then with the number 1 typed into every cell to fill that
-            // a formula reads; counts of answers only, never a value of the file
-            SheetCalculator.Outcome bare = SheetCalculator.calculate(tab, new SheetCalculator.Inputs(
-                    java.util.Map.of(), java.util.List.of()), app.platform.sheets.internal.formula.FormulaLimits.DEFAULTS);
+            // SH5.1: the formulas calculated with no marks typed, then with the number 1 typed into every cell to
+            // fill that a formula reads; counts of answers only, never a value of the file
+            SheetCalculator.Outcome bare = SheetCalculator.calculate(tab,
+                    new SheetCalculator.Inputs(java.util.Map.of(), java.util.List.of()),
+                    app.platform.sheets.internal.formula.FormulaLimits.DEFAULTS);
             java.util.Map<String, Object> ones = new java.util.HashMap<>();
             tab.body().rows().forEach(line -> tab.body().columns().forEach(column -> {
                 String key = line.id() + ":" + column.id();

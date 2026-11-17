@@ -36,8 +36,8 @@ enum ImportNote {
     BOXES_NOT_PLACED(true, "check box", "check boxes",
             "left out (it stood outside the table or on a cell that holds a formula; the cells are listed below)"),
     FILES_NOT_PLACED(true, "place of an embedded file", "places of embedded files",
-            "not made into an attachment cell (the cell holds text or a formula, or lies outside the table; the "
-                    + "cells are listed below)"),
+            "not made into an attachment cell (the cell holds a formula or other content that is not text, or lies "
+                    + "outside the table; the cells are listed below)"),
     ERROR_CELLS(true, "cell that held an error", "cells that held an error", "left empty"),
     MERGES_LEFT_OUT(true, "merged area", "merged areas",
             "left out (outside the part that was read, or touching the first row, or overlapping another)"),
@@ -54,6 +54,9 @@ enum ImportNote {
             "turned into one yes/no cell each"),
     ATTACHMENT_CELLS(false, "cell where an embedded file stood", "cells where an embedded file stood",
             "made into an attachment cell (the person who fills it in attaches up to 5 files there)"),
+    ATTACHMENT_PROMPTS(false, "cell that holds text and an embedded file", "cells that hold text and an embedded file",
+            "made into an attachment cell with the text as its prompt (the person who fills it in attaches up to 5 "
+                    + "files there)"),
     NUMBER_FORMAT_UNKNOWN(false, "cell with a number format the sheet does not have", "cells with a number format "
             + "the sheet does not have", "kept as plain numbers"),
     FONT_FALLBACK(false, "font the sheet does not have", "fonts the sheet does not have",

@@ -201,6 +201,16 @@ const LEVEL_OF = {
   "plant-qms-1@example.test": { group: "Level 3", role: "Plant QMS" },
   "plant-qms-2@example.test": { group: "Level 3", role: "Plant QMS" },
 };
+// Real addresses never live in the repository: DEMO_EMAIL_OVERRIDES is a JSON object that maps a demo address to the one
+// to use on this machine, for example {"plant-qms-1@example.test":"someone@company.example"}.
+const OVERRIDES = JSON.parse(process.env.DEMO_EMAIL_OVERRIDES ?? "{}");
+for (const person of [...PEOPLE, ...MANAGEMENT_PEOPLE]) person.email = OVERRIDES[person.email] ?? person.email;
+for (const [from, to] of Object.entries(OVERRIDES)) {
+  if (LEVEL_OF[from]) {
+    LEVEL_OF[to] = LEVEL_OF[from];
+    delete LEVEL_OF[from];
+  }
+}
 const LEVEL_GROUP_POLICIES = {
   "Level 1": ["Filler", "Reader"],
   "Level 2": ["Author", "Filler", "Reader"],

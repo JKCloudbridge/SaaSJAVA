@@ -65,6 +65,32 @@ describe("the author sets the kind of a cell", () => {
     expect(readInput(doc, "r1", "c1").prompt).toBe("If not represented, give reason");
   });
 
+  it("makes a cell with text an attachment cell whose prompt is that text, and draws the prompt with the count", () => {
+    const made = setInputs(sheet(), ["r1:c1"], settings({ kind: "attachment", maxFiles: 3 }), 100);
+    if (!made.ok) throw new Error(made.error);
+
+    expect(made.doc.cells["r1:c1"]).toBeUndefined();
+    expect(made.doc.sheet?.inputs?.["r1:c1"]).toEqual({
+      type: "attachment",
+      maxFiles: 3,
+      prompt: "If not represented, give reason",
+    });
+    const quiet = displayOf(made.doc, "r1", "c1", "body", undefined, NO_LOOK, undefined, false);
+    expect(quiet).toMatchObject({ text: "If not represented, give reason (no attachments yet)", quiet: false, attachment: true });
+    const counted = displayOf(made.doc, "r1", "c1", "body", { value: "(2 attachments)", kind: "input" }, NO_LOOK, undefined, false);
+    expect(counted.text).toBe("If not represented, give reason (2 attachments)");
+  });
+
+  it("keeps a plain attachment cell with no prompt as it was, and gives a prompt to no other kind", () => {
+    const plain = setInputs(sheet(), ["r2:c2"], settings({ kind: "attachment" }), 100);
+    const text = setInputs(sheet(), ["r1:c1"], settings({ kind: "text", prompt: "Ignored" }), 100);
+
+    expect(plain.ok && plain.doc.sheet?.inputs?.["r2:c2"]).toEqual({ type: "attachment" });
+    if (!plain.ok || !text.ok) throw new Error("refused");
+    expect(displayOf(plain.doc, "r2", "c2", "body", undefined, NO_LOOK, undefined, false).text).toBe("(no attachments yet)");
+    expect(text.doc.sheet?.inputs?.["r1:c1"]).toEqual({ type: "text" });
+  });
+
   it("keeps the prompt when the settings are applied again, and writes only what differs from the column", () => {
     const again = setInputs(authored(), ["r1:c1"], settings({ kind: "boolean_reason" }), 100);
     const plain = setInputs(authored(), ["r1:c1"], settings({}), 100);

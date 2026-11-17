@@ -18,7 +18,7 @@ Management, which shows every document of every application.
 Management Core is therefore a **view of Document Management's records, narrowed to the ones that carry its name**: its tabs (Home, Document
 Control, Change requests, Record Control, Report) list only the documents, change requests and fill-ins of Management Core, it has **no New
 document button**, and who may read what is still decided by the record store (the narrowing chooses, it never grants). The three announced tabs
-(KPI management, Management Review, Plantwise Review) and the Department group entry are as before.
+(KPI management, Management Review) and the Department group entry are as before.
 
 | Part | What |
 |---|---|
@@ -183,3 +183,7 @@ its slice from the address (`addressSlice.ts`) and the server filter `waiting` o
 `ApprovalDecisions.pendingSteps`. Tests: `ManagementNumbersTest`, `ManagementHomeNarrowingTest`, `RecordSetsTest`, `SolutionLoaderTest`,
 `ApplicationSettingOrderTest`; real PostgreSQL: `ManagementHomeIT`, `ManagementHomeLogsAreCleanIT`, `ManagementHomeCostIT`; frontend `model.test.ts`,
 `ManagementHome.test.tsx`, `HomePage.test.tsx`, `addressSlice.test.ts`.
+
+## The tabs (SH_UI)
+
+The strip reads: Home, Plant Review, KPI management (coming soon), Management Review (coming soon), Record Control, Change requests, Report, Department group. Plant Review opens the documents page (page key `templates`, so every link, notice and tile still works); Document Control and Plantwise Review no longer exist here. A page's heading and breadcrumb follow the label of the tab that opened it (`useEntryLabel`); the other applications keep Document Control.

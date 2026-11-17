@@ -146,6 +146,44 @@ class YesNoReasonTest {
         assertThat(values).extracting(FillValues.Value::text).containsOnlyNulls();
     }
 
+    private static List<String> promptCodes(Map<String, Object> statement) {
+        Map<String, Object> document = FormulaDocs.named();
+        TwoDocs.sheet(document).put("inputs", GridDocs.map("r1:c1", statement));
+        return FormulaDocs.VALIDATOR.check(GridDocs.bytes(document)).problems().stream()
+                .map(SheetGridValidator.Problem::code).toList();
+    }
+
+    @Test
+    void anAttachmentCellTakesAPromptAndEveryOtherPlainKindRefusesIt() {
+        // SH5.1: the prompt rule is one (SheetDocument.takesPrompt); an attachment cell is the second kind to take it
+        assertThat(promptCodes(GridDocs.map("type", "attachment", "prompt", PROMPT))).isEmpty();
+        assertThat(promptCodes(GridDocs.map("type", "attachment", "maxFiles", 2, "prompt", PROMPT))).isEmpty();
+        for (String type : List.of("text", "number", "date", "boolean")) {
+            assertThat(promptCodes(GridDocs.map("type", type, "prompt", PROMPT))).as(type)
+                    .containsExactly("input_prompt");
+        }
+        assertThat(promptCodes(GridDocs.map("type", "picklist", "picklist", GridDocs.map("values",
+                new ArrayList<>(List.of("a", "b"))), "prompt", PROMPT))).containsExactly("input_prompt");
+        assertThat(promptCodes(GridDocs.map("type", "attachment", "prompt", "   "))).containsExactly("input_prompt");
+        assertThat(promptCodes(GridDocs.map("type", "attachment", "prompt", "<b>x"))).containsExactly("unsafe_text");
+    }
+
+    @Test
+    void anAttachmentPromptIsKeptInTheOneFormAndIsNeverAnOperandOrAReportedValue() {
+        Map<String, Object> document = FormulaDocs.named();
+        TwoDocs.sheet(document).put("inputs", GridDocs.map("r1:c2",
+                GridDocs.map("type", "attachment", "prompt", PROMPT)));
+        Tab tab = FormulaDocs.accepted(document);
+
+        assertThat(tab.inputs().get("r1:c2").prompt()).isEqualTo(PROMPT);
+        assertThat(SheetDocumentWriter.write(new SheetDocument(List.of(tab))))
+                .contains("\"r1:c2\":{\"prompt\":\"" + PROMPT + "\",\"type\":\"attachment\"}");
+        FillStructure structure = new FillStructure(tab.body(), tab);
+        SheetCalculator.Inputs inputs = FillCalculations.inputs(structure, new FillDoc(3, "main", List.of()));
+        assertThat(inputs.cells().values()).doesNotContain(PROMPT);
+        assertThat(structure.effective("r1", "c2").type()).isEqualTo(FillStructure.CellType.ATTACHMENT);
+    }
+
     @Test
     void aPromptIsOnlyForThisKindAndIsBoundedAndClean() {
         Map<String, Object> wrongKind = FormulaDocs.named();

@@ -43,6 +43,19 @@ type Phase =
   | { step: "failed"; message: string };
 
 /**
+ * How many things the person is asked to look at: what was left out, what changed on the way in, and the cells where an
+ * embedded file or a check box stood and could not be placed. It only counts what the server's report already says.
+ */
+function toCheck(report: ImportReport): number {
+  return (
+    leftOut(report).length +
+    changedOnTheWay(report).length +
+    (report.embeddedFilePlaces?.length ?? 0) +
+    unplacedBoxes(report).length
+  );
+}
+
+/**
  * Starts a new draft version from a spreadsheet file (UI3B, ADR-0195). The person chooses a file, the server reads it and
  * says what it would give (columns, rows, merged areas, what is left out) without saving anything, and only the person's
  * Save makes the draft. The file is sent as it is and kept nowhere. It draws the server's own words, in the place the
@@ -65,6 +78,9 @@ export function UploadSheet({
   const [firstRowLabels, setFirstRowLabels] = useState(true);
   const [worksheet, setWorksheet] = useState<number | undefined>(undefined);
   const [phase, setPhase] = useState<Phase>({ step: "reading" });
+  // The report is read on request (SH_UI); a new file starts closed.
+  const [moreOpen, setMoreOpen] = useState(false);
+  const reportId = useId();
 
   /**
    * `labels` undefined is the first look at a file, or a new worksheet: the server says whether the first row names the
@@ -107,6 +123,7 @@ export function UploadSheet({
     const kind = kindOfFile(blob.name);
     setFirstRowLabels(true);
     setWorksheet(undefined);
+    setMoreOpen(false);
     if (problem || kind === null) {
       setFile({ blob, kind: kind ?? "csv" });
       setPhase({ step: "failed", message: problem ?? "Choose a spreadsheet saved as .xlsx, or a text file saved as .csv." });
@@ -233,7 +250,25 @@ export function UploadSheet({
               </p>
             ) : null}
             {report ? (
-              <div className="stack" data-testid="upload-report">
+              <div className="split" data-testid="upload-more">
+                <button
+                  type="button"
+                  className="link-button"
+                  aria-expanded={moreOpen}
+                  aria-controls={reportId}
+                  onClick={() => setMoreOpen((now) => !now)}
+                >
+                  More information
+                </button>
+                {toCheck(report) > 0 ? (
+                  <span className="hint" role="status" data-testid="upload-to-check">
+                    {toCheck(report) === 1 ? "1 thing to check" : `${toCheck(report)} things to check`}
+                  </span>
+                ) : null}
+              </div>
+            ) : null}
+            {report ? (
+              <div className="stack" id={reportId} hidden={!moreOpen} data-testid="upload-report">
                 <p role="status">
                   The file gives {reportSummary(report)}.{" "}
                   {firstVersion

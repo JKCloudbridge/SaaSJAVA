@@ -42,6 +42,7 @@ import { SheetOptionsDialog } from "./SheetOptionsDialog";
 import { TemplateApprovals } from "./TemplateApprovals";
 import { text } from "./template";
 import { useRecordObjects } from "./objects";
+import { useEntryLabel } from "./application";
 import { PartField, NumberField } from "./TemplateNumberFields";
 import { detailDisplay, templateSections } from "./templateDetails";
 import { hiddenIdentityFields, identityOf, sameIdentity, useNumberingInfo, type IdentityValues } from "./numbering";
@@ -73,6 +74,7 @@ const recordHref = (object: string, id: string) => `/records/${object}/${id}`;
  */
 export function TemplateDetail({ id, onBack }: { id: string; onBack: () => void }) {
   const objects = useRecordObjects();
+  const listLabel = useEntryLabel("templates", "Document Control");
   const router = useRouter();
   const pathname = usePathname() ?? "";
   const params = useSearchParams();
@@ -163,7 +165,7 @@ export function TemplateDetail({ id, onBack }: { id: string; onBack: () => void 
   if (record.status === "failed") {
     return (
       <MissingDetail
-        listLabel="Document Control"
+        listLabel={listLabel}
         onBack={onBack}
         what="This template is not available. It may have been removed, or it may not be part of your access."
       />
@@ -307,7 +309,7 @@ export function TemplateDetail({ id, onBack }: { id: string; onBack: () => void 
 
   return (
     <DetailPage
-      listLabel="Document Control"
+      listLabel={listLabel}
       onBack={onBack}
       noBreadcrumb
       title={name}

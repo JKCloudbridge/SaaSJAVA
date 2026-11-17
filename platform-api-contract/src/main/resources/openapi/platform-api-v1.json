@@ -28617,6 +28617,9 @@
             "type" : "string",
             "format" : "date-time"
           },
+          "submittedBy" : {
+            "type" : "string"
+          },
           "updatedAt" : {
             "type" : "string",
             "format" : "date-time"
@@ -28837,6 +28840,10 @@
           "row" : {
             "type" : "integer",
             "format" : "int32"
+          },
+          "sheetRow" : {
+            "type" : "integer",
+            "format" : "int32"
           }
         },
         "required" : [ "column", "row" ]
@@ -28967,7 +28974,7 @@
           },
           "prompt" : {
             "type" : "string",
-            "description" : "The fixed text a boolean_reason cell shows above its answer (SH5.1, ADR-0263). Only that kind takes a prompt. It is the author's text: never logged.",
+            "description" : "The fixed text a boolean_reason cell or an attachment cell shows with its answer or its files (SH5.1, ADR-0263). Only those two kinds take a prompt. It is the author's text: never logged.",
             "maxLength" : 5000,
             "minLength" : 1
           },

@@ -17,3 +17,17 @@ export function useApplication(): string {
   const named = params?.application;
   return named ? decodeURIComponent(named) : DEFAULT_APPLICATION;
 }
+
+/**
+ * The label of the tab that opens a page, as the member's application list gives it (an application names its own tabs in
+ * its bundle), or the given words when the list does not know it (a test, a stand-alone render). The heading and the
+ * breadcrumb of a page follow the tab, so one page can carry a different name in a different application.
+ */
+export function useEntryLabel(pageKey: string, fallback: string): string {
+  const api = useOptionalApplications();
+  const application = useApplication();
+  const entry = api?.state.applications
+    .find((candidate) => candidate.apiName === application)
+    ?.items.find((item) => item.type === "PLATFORM" && item.pageKey === pageKey);
+  return entry?.label ?? fallback;
+}

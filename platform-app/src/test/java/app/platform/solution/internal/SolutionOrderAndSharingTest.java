@@ -113,15 +113,16 @@ class SolutionOrderAndSharingTest {
         assertThat(real("audit-management").application().entries()).hasSize(1);
         assertThat(supplier.application().entries()).extracting(SolutionBundle.Entry::label)
                 .containsExactly("Home", "Supplier Performance Monitoring", "Supplier Portal");
-        // Management Core is a real application since MC1 (ADR-0257): five working tabs, three announced ones.
+        // Management Core is a real application since MC1 (ADR-0257): five working tabs, two announced ones
+        // (tab names and order: SH_UI).
         assertThat(core.application().entries().stream()
                 .filter(entry -> entry.kind() == ShippedEntryView.Kind.PLATFORM))
                 .extracting(SolutionBundle.Entry::label).containsExactly("Home",
-                        "Document Control", "Change requests", "Record Control", "Report", "KPI management",
-                        "Management Review", "Plantwise Review");
+                        "Plant Review", "KPI management", "Management Review", "Record Control", "Change requests",
+                        "Report");
         assertThat(core.application().entries().stream().filter(SolutionBundle.Entry::placeholder))
                 .extracting(SolutionBundle.Entry::label)
-                .containsExactly("KPI management", "Management Review", "Plantwise Review");
+                .containsExactly("KPI management", "Management Review");
         // Its documents are Document Management's, chosen by their number (MC1.1, ADR-0259): it brings no object of
         // its own, uses the shared ones, and says so in the one option the generic code reads.
         assertThat(core.objects()).isEmpty();
