@@ -91,6 +91,14 @@ export function kindWords(doc: GridDoc, rowId: string, columnId: string): string
   return `Input cell: ${KIND_WORDS[stated ?? column?.type ?? "text"]}`;
 }
 
+/**
+ * Whether a kind takes a prompt, the author's fixed text shown with the cell: a Yes/No cell with a reason and an
+ * attachment cell (the server's `SheetDocument.takesPrompt`; the one place the browser says it).
+ */
+export function takesPrompt(kind: InputKind | null): boolean {
+  return kind === "boolean_reason" || kind === "attachment";
+}
+
 /** The statement as it is stored: only what differs from what its absence says (the server's one form). */
 function statementOf(settings: InputSettings, prompt: string | null): Record<string, unknown> | null {
   const out: Record<string, unknown> = {};
@@ -99,7 +107,7 @@ function statementOf(settings: InputSettings, prompt: string | null): Record<str
   if (settings.cls === "reviewer") out.class = "reviewer";
   if (settings.kind === "picklist") out.picklist = { values: [...settings.values] };
   if (settings.kind === "attachment" && settings.maxFiles !== MOST_FILES) out.maxFiles = settings.maxFiles;
-  if (settings.kind === "boolean_reason" && prompt) out.prompt = prompt;
+  if (takesPrompt(settings.kind) && prompt) out.prompt = prompt;
   return Object.keys(out).length > 0 ? out : null;
 }
 
@@ -117,7 +125,7 @@ export function settingsProblem(settings: InputSettings, maxPicklistValues: numb
   if (settings.kind === "attachment" && (!Number.isInteger(settings.maxFiles) || settings.maxFiles < 1 || settings.maxFiles > MOST_FILES)) {
     return `An attachment cell holds 1 to ${MOST_FILES} files.`;
   }
-  if (settings.kind === "boolean_reason" && settings.prompt !== null) {
+  if (takesPrompt(settings.kind) && settings.prompt !== null) {
     if (settings.prompt.length > MOST_PROMPT_CHARS) return `A prompt is longer than the allowed ${MOST_PROMPT_CHARS} characters.`;
     if (unsafeText(settings.prompt)) return TEXT_UNSAFE;
   }
@@ -126,7 +134,7 @@ export function settingsProblem(settings: InputSettings, maxPicklistValues: numb
 
 /**
  * Makes each of the cells an input cell with these settings. A cell that holds text and becomes a Yes/No cell with a
- * reason keeps its text as the prompt (unless a prompt is given); its bold, italic and underline go, because an input
+ * reason or an attachment cell keeps its text as the prompt (unless a prompt is given); its bold, italic and underline go, because an input
  * cell has no style of its own in the format, while its look (font, size, colours, borders) stays. A header cell, a cell
  * under a merged area and a cell that holds a formula are left as they are and counted in the note; when none is left
  * the change is refused.
@@ -155,7 +163,7 @@ export function setInputs(doc: GridDoc, keys: readonly string[], settings: Input
       continue;
     }
     next = made.doc;
-    const prompt = settings.kind !== "boolean_reason" ? null
+    const prompt = !takesPrompt(settings.kind) ? null
       : settings.prompt !== null && keys.length === 1 ? settings.prompt
         : typeof held === "string" && held.trim() !== "" ? held : stated;
     const statement = statementOf(settings, prompt);

@@ -248,3 +248,8 @@ input_prompt	two	{"inputs":{"r1:c1":{"type":"boolean","prompt":"Asked?"}}}	a pro
 input_prompt	two	{"inputs":{"r1:c1":{"type":"boolean_reason","prompt":"   "}}}	a prompt of spaces only
 unsafe_text	two	{"inputs":{"r1:c1":{"type":"boolean_reason","prompt":"<b>HOSTILEMARK"}}}	markup in the prompt of a Yes/No cell with a reason
 input_preset	two	{"cells":{"r1:c1":{"value":"Asked?","kind":"input"}},"inputs":{"r1:c1":{"type":"boolean_reason","prompt":"Asked?"}}}	a Yes/No cell with a reason that also holds text of its own
+input_prompt	two	{"inputs":{"r1:c1":{"type":"text","prompt":"Asked?"}}}	a prompt on a text cell
+input_prompt	two	{"inputs":{"r1:c1":{"type":"number","prompt":"Asked?"}}}	a prompt on a number cell
+input_prompt	two	{"inputs":{"r1:c1":{"type":"attachment","prompt":"  "}}}	a prompt of spaces only on an attachment cell
+unsafe_text	two	{"inputs":{"r1:c1":{"type":"attachment","prompt":"<b>HOSTILEMARK"}}}	markup in the prompt of an attachment cell
+input_preset	two	{"cells":{"r1:c1":{"value":"Attach it","kind":"input"}},"inputs":{"r1:c1":{"type":"attachment","prompt":"Attach it"}}}	an attachment cell with a prompt that also holds text of its own

@@ -641,12 +641,14 @@ final class SheetImportBuilder {
      * there, so the person who fills it in attaches one. The file itself is never kept. A file on a cell under a merged
      * area stands on the area's top left cell. The cell must be inside the table and hold nothing: no text, no formula,
      * no other fixed content and no cell to fill of another kind (a check box on the same cell wins, because it says
-     * more). Two files on one cell make one attachment cell. Every other place is listed for the author. The cell
-     * takes the defaults of an attachment cell: up to 5 files, not required, filled by the filler.
+     * more). Two files on one cell make one attachment cell. A cell that holds text becomes an attachment cell too and
+     * its text becomes the prompt (the text and the file shared one box). Every other place is listed for the author.
+     * The cell takes the defaults of an attachment cell: up to 5 files, not required, filled by the filler.
      */
     private static void attachments(Context context, Map<String, Input> inputs) {
         RawSheet raw = context.raw();
         Set<String> made = new HashSet<>();
+        int withPrompt = 0;
         int notPlaced = 0;
         for (RawSheet.Place place : raw.embeddedAt) {
             int[] at = anchorOf(context.areas(), place.row(), place.column());
@@ -655,7 +657,9 @@ final class SheetImportBuilder {
                 continue;
             }
             Cell found = cellKey == null ? null : context.cells().get(cellKey);
-            boolean holds = found != null && (found.value() != null || found.kind() == Kind.FIXED);
+            // Text and a file in one box: the text is the prompt of the attachment cell (SH5.1, ADR-0263).
+            String text = found != null && found.value() instanceof String held && !held.isBlank() ? held : null;
+            boolean holds = found != null && text == null && (found.value() != null || found.kind() == Kind.FIXED);
             boolean formula = cellKey != null && context.formulas().positions().contains(key(at[0], at[1]));
             if (cellKey == null || holds || formula || inputs.containsKey(cellKey)
                     || context.prompted().contains(cellKey)) {
@@ -663,10 +667,17 @@ final class SheetImportBuilder {
                 context.filesNotPlaced().add(place);
                 continue;
             }
-            inputs.put(cellKey, new Input(ATTACHMENT, false, InputClass.FILLER, null, null));
+            if (text != null) {
+                inputs.put(cellKey, new Input(ATTACHMENT, false, InputClass.FILLER, null, null, text));
+                context.prompted().add(cellKey);
+                withPrompt++;
+            } else {
+                inputs.put(cellKey, new Input(ATTACHMENT, false, InputClass.FILLER, null, null));
+            }
             made.add(cellKey);
         }
-        raw.notes.add(ImportNote.ATTACHMENT_CELLS, made.size());
+        raw.notes.add(ImportNote.ATTACHMENT_CELLS, made.size() - withPrompt);
+        raw.notes.add(ImportNote.ATTACHMENT_PROMPTS, withPrompt);
         raw.notes.add(ImportNote.FILES_NOT_PLACED, notPlaced);
     }
 

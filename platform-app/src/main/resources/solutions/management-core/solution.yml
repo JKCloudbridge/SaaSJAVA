@@ -13,6 +13,8 @@
 # Management's, made available with this application by their own files (`alsoAvailableWith`).
 #
 # What is particular to this application, all of it data:
+#   * Tabs (SH_UI): Home, Plant Review (the documents page, page key templates), KPI management and Management Review (coming
+#     soon), Record Control, Change requests, Report, Department group. The page heading follows the tab label.
 #   * routedByNumber: its documents come from Document Management and are chosen by the number (above);
 #   * footerDate: the footer of a document that belongs to this application carries the day the Revision was published,
 #     wherever the document is shown (the option follows the document, not the screen);
@@ -82,21 +84,9 @@ application:
       pageKey: home
       readsObject: InspectionTemplate
     - type: PLATFORM
-      label: Document Control
+      label: Plant Review
       pageKey: templates
       readsObject: InspectionTemplate
-    - type: PLATFORM
-      label: Change requests
-      pageKey: change-requests
-      readsObject: InspectionChangeRequest
-    - type: PLATFORM
-      label: Record Control
-      pageKey: fill-ins
-      readsObject: InspectionFill
-    - type: PLATFORM
-      label: Report
-      pageKey: fill-in-report
-      readsObject: InspectionFill
     - type: PLATFORM
       label: KPI management
       pageKey: kpi-management
@@ -106,8 +96,16 @@ application:
       pageKey: management-review
       placeholder: true
     - type: PLATFORM
-      label: Plantwise Review
-      pageKey: plantwise-review
-      placeholder: true
+      label: Record Control
+      pageKey: fill-ins
+      readsObject: InspectionFill
+    - type: PLATFORM
+      label: Change requests
+      pageKey: change-requests
+      readsObject: InspectionChangeRequest
+    - type: PLATFORM
+      label: Report
+      pageKey: fill-in-report
+      readsObject: InspectionFill
     - type: OBJECT
       object: DepartmentGroup

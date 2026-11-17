@@ -2,7 +2,7 @@
 
 import { useId, useState } from "react";
 import { Modal } from "@/components/ui/Modal";
-import { INPUT_KINDS, KIND_WORDS, MOST_FILES, type InputKind, type InputSettings } from "@/lib/sheets/inputs";
+import { INPUT_KINDS, KIND_WORDS, MOST_FILES, takesPrompt, type InputKind, type InputSettings } from "@/lib/sheets/inputs";
 
 export interface InputCellDialogProps {
   /** What the cell where the focus is states now: the form starts from it. */
@@ -40,7 +40,7 @@ export function InputCellDialog({ initial, cells, columnKind, onApply, onClose }
       cls,
       values: values.split("\n").map((value) => value.trim()).filter((value) => value !== ""),
       maxFiles: Number(maxFiles),
-      prompt: one && prompt.trim() !== "" ? prompt : null,
+      prompt: one && takesPrompt(kind === "" ? null : kind) && prompt.trim() !== "" ? prompt : null,
     };
     const problem = onApply(settings);
     if (problem) {
@@ -90,15 +90,22 @@ export function InputCellDialog({ initial, cells, columnKind, onApply, onClose }
             />
           </div>
         ) : null}
-        {kind === "boolean_reason" ? (
+        {takesPrompt(kind === "" ? null : kind) ? (
           one ? (
             <div className="field">
-              <label htmlFor={`${id}-prompt`}>Prompt (shown above Yes and No)</label>
+              <label htmlFor={`${id}-prompt`}>
+                {kind === "attachment" ? "Prompt (shown with the paperclip)" : "Prompt (shown above Yes and No)"}
+              </label>
               <textarea id={`${id}-prompt`} rows={3} value={prompt} onChange={(event) => setPrompt(event.target.value)} />
-              <p className="hint">Left empty, the text the cell holds becomes the prompt. The reason is never compulsory.</p>
+              <p className="hint">
+                Left empty, the text the cell holds becomes the prompt.
+                {kind === "boolean_reason" ? " The reason is never compulsory." : ""}
+              </p>
             </div>
           ) : (
-            <p className="hint">Each cell keeps its own text as its prompt. The reason is never compulsory.</p>
+            <p className="hint">
+              Each cell keeps its own text as its prompt.{kind === "boolean_reason" ? " The reason is never compulsory." : ""}
+            </p>
           )
         ) : null}
         <div className="field">

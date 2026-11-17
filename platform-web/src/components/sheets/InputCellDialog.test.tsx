@@ -23,6 +23,19 @@ describe("the settings of an input cell", () => {
     expect(close).toHaveBeenCalled();
   });
 
+  it("lets the author state a prompt for an attachment cell too, and for no other plain kind", () => {
+    const apply = vi.fn<(settings: InputSettings) => string | null>(() => null);
+    render(<InputCellDialog initial={START} cells={1} columnKind="Text" onApply={apply} onClose={vi.fn()} />);
+
+    fireEvent.change(screen.getByLabelText("Kind"), { target: { value: "text" } });
+    expect(screen.queryByLabelText(/^Prompt/)).not.toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText("Kind"), { target: { value: "attachment" } });
+    fireEvent.change(screen.getByLabelText("Prompt (shown with the paperclip)"), { target: { value: "Attach the report" } });
+    fireEvent.click(screen.getByRole("button", { name: "Apply" }));
+
+    expect(apply).toHaveBeenCalledWith({ ...START, kind: "attachment", prompt: "Attach the report" });
+  });
+
   it("keeps the popup open with the editor's words when the settings are refused", () => {
     const close = vi.fn();
     render(

@@ -10,8 +10,9 @@ import org.junit.jupiter.api.Test;
 
 /**
  * The places where a workbook held an embedded file become attachment cells (SH5.1, ADR-0263): the form asked for a
- * file there. Only an empty cell inside the table takes one; a cell with text, a place outside the table and a sheet
- * whose filler adds the rows keep the place in the list for the author. The file itself is never kept. No database.
+ * file there. A cell inside the table takes one: an empty cell as it is, a cell with text with the text as its prompt;
+ * a place outside the table and a sheet whose filler adds the rows keep the place in the list for the author. The file
+ * itself is never kept. No database.
  *
  * <p>The sheet has four columns (A to D) and two rows in the file: row 1 names the columns, row 2 holds a text in A2
  * and nothing else, so B2, C2 and D2 are empty cells of the sheet's first row.
@@ -81,17 +82,62 @@ class AttachmentCellsFromUploadTest {
     }
 
     @Test
-    void aCellWithTextAndAPlaceOutsideTheTableAreListedByThePlaceInTheFileAndOnTheSheet() {
-        // A2 holds text; B1 is the row that names the columns, which is not a row of the sheet
-        SpreadsheetImporter.Imported imported = read(workbook(file(1, 0, 1), file(2, 1, 0)), 2, RowsMode.FIXED);
+    void aPlaceOutsideTheTableIsListedByThePlaceInTheFileAndOnTheSheet() {
+        // B1 is the row that names the columns, which is not a row of the sheet
+        SpreadsheetImporter.Imported imported = read(workbook(file(1, 1, 0)), 2, RowsMode.FIXED);
 
         assertThat(imported.checked().document().sheets().get(0).inputs()).isEmpty();
-        assertThat(count(imported, ImportNote.FILES_NOT_PLACED)).isEqualTo(2);
+        assertThat(count(imported, ImportNote.FILES_NOT_PLACED)).isEqualTo(1);
         SheetImportBuilder.Report report = imported.report();
-        assertThat(report.embeddedFilePlaces()).containsExactly(new RawSheet.Place(1, 0), new RawSheet.Place(0, 1));
-        // file row 2 is the sheet's row 1 (the row above named the columns); file row 1 is no row of the sheet
-        assertThat(report.sheetRow(new RawSheet.Place(1, 0), report.rows())).isEqualTo(1);
+        assertThat(report.embeddedFilePlaces()).containsExactly(new RawSheet.Place(0, 1));
         assertThat(report.sheetRow(new RawSheet.Place(0, 1), report.rows())).isNull();
+        // the cell A2 is in the table: file row 2 is the sheet's row 1 (the row above named the columns)
+        assertThat(report.sheetRow(new RawSheet.Place(1, 0), report.rows())).isEqualTo(1);
+    }
+
+    @Test
+    void aFileOverACellWithTextMakesAnAttachmentCellWhoseTextIsItsPrompt() {
+        // A2 holds the text "z"; the file stands over it (SH5.1: the text and the file share one box)
+        SpreadsheetImporter.Imported imported = read(workbook(file(1, 0, 1), file(2, 2, 1)), 2, RowsMode.FIXED);
+
+        SheetDocument.Tab tab = imported.checked().document().sheets().get(0);
+        assertThat(tab.inputs()).hasSize(2);
+        SheetDocument.Input withText = tab.inputs().values().stream().filter(input -> input.prompt() != null)
+                .findFirst().orElseThrow();
+        assertThat(withText.type()).isEqualTo("attachment");
+        assertThat(withText.prompt()).isEqualTo("z");
+        assertThat(withText.required()).isFalse();
+        assertThat(withText.maxFiles()).isNull();
+        // the text left the body cell: a stated cell holds no text of its own
+        assertThat(tab.body().cells().values()).extracting(SheetGrid.Cell::value).doesNotContain("z");
+        assertThat(count(imported, ImportNote.ATTACHMENT_PROMPTS)).isEqualTo(1);
+        assertThat(count(imported, ImportNote.ATTACHMENT_CELLS)).isEqualTo(1);
+        assertThat(count(imported, ImportNote.FILES_NOT_PLACED)).isZero();
+    }
+
+    @Test
+    void aFileOverTheOtherCellOfMergedTextUsesTheMergedAreaAsOneCell() {
+        byte[] bytes = new XlsxFile()
+                .row(1, XlsxFile.text("A1", "a"), XlsxFile.text("B1", "b"), XlsxFile.text("C1", "c"))
+                .row(2, XlsxFile.text("A2", "merged question"))
+                .merge("A2:B2")
+                .afterMerges("<legacyDrawing r:id=\"rId1\"/>")
+                .part("xl/worksheets/_rels/sheet1.xml.rels", ("<Relationships xmlns=\""
+                        + "http://schemas.openxmlformats.org/package/2006/relationships\">"
+                        + "<Relationship Id=\"rId1\" Type=\"" + R
+                        + "/vmlDrawing\" Target=\"../drawings/vmlDrawing1.vml\"/></Relationships>")
+                        .getBytes(StandardCharsets.UTF_8))
+                .part("xl/drawings/vmlDrawing1.vml",
+                        ("<xml>" + file(1, 1, 1) + "</xml>").getBytes(StandardCharsets.UTF_8)).bytes();
+
+        SpreadsheetImporter.Imported imported = read(bytes, 2, RowsMode.FIXED);
+
+        SheetDocument.Tab tab = imported.checked().document().sheets().get(0);
+        assertThat(tab.inputs()).hasSize(1).allSatisfy((key, input) -> {
+            assertThat(input.type()).isEqualTo("attachment");
+            assertThat(input.prompt()).isEqualTo("merged question");
+        });
+        assertThat(count(imported, ImportNote.ATTACHMENT_PROMPTS)).isEqualTo(1);
     }
 
     @Test

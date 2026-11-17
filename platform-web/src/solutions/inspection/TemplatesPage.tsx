@@ -14,6 +14,7 @@ import { AddressFilterNote } from "./AddressFilterNote";
 import { TemplateDetail } from "./TemplateDetail";
 import { text } from "./template";
 import { useRecordObjects } from "./objects";
+import { useEntryLabel } from "./application";
 
 const TONES = { active: "ok", draft: "on", review: "on", done: "quiet", stopped: "error" } as const;
 
@@ -47,6 +48,7 @@ const PRIMARY_FIELD = "name";
 
 function TemplatesScreen() {
   const objects = useRecordObjects();
+  const label = useEntryLabel("templates", "Document Control");
   const route = useListRoute({ keep: ["state"] });
   // A tile of the home page opens this list narrowed to one state (FA9): the address names it, the server filters.
   const state = stateParam(useSearchParams()?.get("state"));
@@ -137,7 +139,7 @@ function TemplatesScreen() {
   return (
     <>
       <ListPage<TemplateRow>
-        title="Document Control"
+        title={label}
         titleControl={views.titleControl}
         remote={views.remote}
         items={ready?.rows}

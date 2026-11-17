@@ -49,6 +49,72 @@ function draw(props: Partial<Parameters<typeof UploadSheet>[0]> = {}) {
   return onSaved;
 }
 
+describe("the report behind More information (SH_UI)", () => {
+  const preview = () => fakeApi({ [IMPORT]: () => json({ data: { saved: false, report: REPORT } }) });
+
+  it("shows only the checkbox and the buttons at first, with a short line that says how many things to check", async () => {
+    preview();
+    draw();
+
+    pick("Fire checks.xlsx");
+
+    const more = await screen.findByRole("button", { name: "More information" });
+    expect(more).toHaveAttribute("aria-expanded", "false");
+    expect(screen.getByTestId("upload-to-check")).toHaveTextContent("2 things to check");
+    expect(screen.getByTestId("upload-report")).not.toBeVisible();
+    expect(screen.getByRole("checkbox", { name: "The first row holds the names of the columns" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Save as a new draft" })).toBeEnabled();
+  });
+
+  it("opens the report on the button and says which part it controls, and closes it again", async () => {
+    preview();
+    draw();
+    pick("Fire checks.xlsx");
+
+    const more = await screen.findByRole("button", { name: "More information" });
+    fireEvent.click(more);
+
+    expect(more).toHaveAttribute("aria-expanded", "true");
+    expect(screen.getByTestId("upload-report")).toBeVisible();
+    expect(more.getAttribute("aria-controls")).toBe(screen.getByTestId("upload-report").id);
+    expect(screen.getByText("2 images were left out.")).toBeVisible();
+    fireEvent.click(more);
+    expect(screen.getByTestId("upload-report")).not.toBeVisible();
+  });
+
+  it("starts closed again when another file is chosen", async () => {
+    preview();
+    draw();
+    pick("One.xlsx");
+    fireEvent.click(await screen.findByRole("button", { name: "More information" }));
+    fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+
+    pick("Two.xlsx");
+
+    expect(await screen.findByRole("button", { name: "More information" })).toHaveAttribute("aria-expanded", "false");
+  });
+
+  it("shows a refusal at once, in the API's words, with no report to open", async () => {
+    fakeApi({ [IMPORT]: () => refusal("VALIDATION_ERROR", "The file has too many columns.", 400) });
+    draw();
+
+    pick("Wide.xlsx");
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("The file has too many columns.");
+    expect(screen.queryByRole("button", { name: "More information" })).toBeNull();
+  });
+
+  it("says nothing to check when the report has nothing to look at", async () => {
+    fakeApi({ [IMPORT]: () => json({ data: { saved: false, report: { ...REPORT, notes: [] } } }) });
+    draw();
+
+    pick("Clean.xlsx");
+
+    await screen.findByRole("button", { name: "More information" });
+    expect(screen.queryByTestId("upload-to-check")).toBeNull();
+  });
+});
+
 describe("the upload of a spreadsheet", () => {
   it("previews what the file gives, says what was left out and saves only when asked", async () => {
     const calls = fakeApi({

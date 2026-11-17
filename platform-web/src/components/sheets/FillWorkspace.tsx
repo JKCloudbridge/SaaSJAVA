@@ -358,7 +358,7 @@ function FillPane({
                 {leaving ? "Leave without saving" : "Cancel"}
               </button>
             ) : null}
-            <span className="hint" role="status">
+            <span className="hint" role="status" title="Changes save after a short pause. Submit and Cancel save them first.">
               {saving ? "Saving…" : saved && !dirty ? "Saved" : dirty ? "There are changes that are not saved." : ""}
             </span>
           </div>

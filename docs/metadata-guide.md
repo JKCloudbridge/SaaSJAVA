@@ -1540,3 +1540,10 @@ the number of files; a click opens the files of that cell.
 
 **Existing templates and fill-ins.** A Revision never changes, so a cell cannot change kind under a fill-in that exists; a new Revision may, and
 only fill-ins started on it follow. A sheet in format version 1 keeps its named headings and colours. Decision: ADR-0263.
+
+### 54.1 An attachment cell with a prompt
+
+An attachment cell may carry a prompt, the text shown with the paperclip, as a Yes/No cell with a reason does. Choose Attachment in the
+settings of an input cell and type the prompt; left empty, the text the cell already holds becomes the prompt. When a form is uploaded
+and a box holds text and an embedded file together, the cell becomes an attachment cell and its text is the prompt (the upload report
+says how many: "cells that hold text and an embedded file"). No other kind takes a prompt. The prompt is your text: it is never logged.

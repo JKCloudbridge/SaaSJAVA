@@ -584,7 +584,8 @@ final class FillValidator {
         }
         for (int i = 0; i < rows.size(); i++) {
             for (Map.Entry<String, Object> cell : rows.get(i).cells().entrySet()) {
-                if (textOf(cell.getValue()) instanceof String text && text.length() > maxCellChars) {
+                String text = textOf(cell.getValue());
+                if (text != null && text.length() > maxCellChars) {
                     out.add(new Problem("text_too_long", cellPlace(i, cell.getKey()), "A text is longer than the "
                             + "allowed " + maxCellChars + " characters."));
                 }
@@ -597,7 +598,8 @@ final class FillValidator {
         List<Problem> out = new ArrayList<>();
         for (int i = 0; i < rows.size(); i++) {
             for (Map.Entry<String, Object> cell : rows.get(i).cells().entrySet()) {
-                if (textOf(cell.getValue()) instanceof String text && CellValues.unsafe(text)) {
+                String text = textOf(cell.getValue());
+                if (text != null && CellValues.unsafe(text)) {
                     out.add(new Problem("unsafe_text", cellPlace(i, cell.getKey()), CellValues.TEXT_UNSAFE));
                 }
             }

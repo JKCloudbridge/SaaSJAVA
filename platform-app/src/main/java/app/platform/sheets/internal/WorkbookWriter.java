@@ -589,9 +589,10 @@ final class WorkbookWriter {
             boolean sample = spec.id() == null;
             String text = found == null || input || formula != null ? null : shown(found.value());
             if (two && input && key != null) {
-                // A Yes/No cell with a reason shows its prompt in the file (SH5.1, ADR-0263).
+                // A cell with a prompt (a Yes/No cell with a reason, an attachment cell) shows it in the file (SH5.1,
+                // ADR-0263); never a file name.
                 SheetDocument.Input stated = tab.inputs().get(key);
-                if (stated != null && SheetDocument.BOOLEAN_REASON.equals(stated.type()) && stated.prompt() != null) {
+                if (stated != null && SheetDocument.takesPrompt(stated.type()) && stated.prompt() != null) {
                     text = stated.prompt();
                 }
             }

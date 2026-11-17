@@ -102,6 +102,7 @@ function answers(rows = [row(FILL, { filledBy: "Pat Filler" }), row(OTHER, { sta
       }),
     [`GET ${RECORDS}/${FILL}/approval`]: () => json(NO_APPROVAL),
     [`GET ${RECORDS}/${FILL}/files`]: () => json({ data: [] }),
+    [`POST ${RECORDS}/approval-history`]: () => json({ data: [] }),
     [`GET /api/v1/sheet-fills/InspectionFill/${FILL}`]: () =>
       json({
         data: {
@@ -234,15 +235,20 @@ describe("one fill-in", () => {
 
     expect(currentUrl()).toBe(`/apps/inspection/s-fill-ins?open=${FILL}`);
     expect(await screen.findByTestId("fill-in-detail")).toBeInTheDocument();
-    expect(await screen.findByRole("grid", { name: "Fire exit check, revision 02" })).toBeInTheDocument();
+    // The sheet has a tab of its own; Details is the one that opens.
+    expect(screen.getByRole("tab", { name: "Details" })).toHaveAttribute("aria-selected", "true");
+    expect(screen.queryByRole("grid")).not.toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Fire exit check" })).toHaveAttribute(
       "href",
       `/apps/inspection/s-templates?open=${TEMPLATE}`,
     );
+    fireEvent.click(screen.getByRole("tab", { name: "Sheet" }));
+    expect(currentUrl()).toBe(`/apps/inspection/s-fill-ins?open=${FILL}&tab=sheet`);
+    expect(await screen.findByRole("grid", { name: "Fire exit check, revision 02" })).toBeInTheDocument();
   });
 
   it("still shows the cells to a person who may not read the header", async () => {
-    setUrl(`/apps/inspection/s-fill-ins?open=${FILL}`);
+    setUrl(`/apps/inspection/s-fill-ins?open=${FILL}&tab=sheet`);
     fakeApi({
       ...answers(),
       [`GET ${RECORDS}/${FILL}`]: () => refusal("NOT_FOUND", "This does not exist.", 404),
@@ -255,7 +261,7 @@ describe("one fill-in", () => {
   });
 
   it("says there are changes not saved yet while they wait to be saved", async () => {
-    setUrl(`/apps/inspection/s-fill-ins?open=${FILL}`);
+    setUrl(`/apps/inspection/s-fill-ins?open=${FILL}&tab=sheet`);
     fakeApi(answers());
     render(<FillInsPage />);
     fireEvent.click(await screen.findByRole("tab", { name: "Form view" }));
@@ -270,7 +276,7 @@ describe("one fill-in", () => {
   });
 
   it("sends a fill-in for good with Submit when no approval process applies, and reads it again as stored", async () => {
-    setUrl(`/apps/inspection/s-fill-ins?open=${FILL}`);
+    setUrl(`/apps/inspection/s-fill-ins?open=${FILL}&tab=sheet`);
     let sent = 0;
     fakeApi({
       ...answers(),
@@ -289,7 +295,7 @@ describe("one fill-in", () => {
   });
 
   it("saves what was typed before it sends, and sends nothing when the save is refused", async () => {
-    setUrl(`/apps/inspection/s-fill-ins?open=${FILL}`);
+    setUrl(`/apps/inspection/s-fill-ins?open=${FILL}&tab=sheet`);
     let sent = 0;
     const calls = fakeApi({
       ...answers(),
@@ -316,7 +322,7 @@ describe("one fill-in", () => {
   });
 
   it("opens the ordinary approval popup instead when the API says a review is needed", async () => {
-    setUrl(`/apps/inspection/s-fill-ins?open=${FILL}`);
+    setUrl(`/apps/inspection/s-fill-ins?open=${FILL}&tab=sheet`);
     fakeApi({
       ...answers(),
       [`POST /api/v1/fill-ins/${FILL}/submit`]: () => json({ data: { outcome: "REVIEW_NEEDED" } }),
@@ -341,7 +347,7 @@ describe("one fill-in", () => {
   });
 
   it("shows the API's words when the fill-in cannot be sent", async () => {
-    setUrl(`/apps/inspection/s-fill-ins?open=${FILL}`);
+    setUrl(`/apps/inspection/s-fill-ins?open=${FILL}&tab=sheet`);
     fakeApi({
       ...answers(),
       [`POST /api/v1/fill-ins/${FILL}/submit`]: () =>
@@ -355,7 +361,7 @@ describe("one fill-in", () => {
   });
 
   it("leaves with Cancel and sends nothing; unsaved changes are never dropped by one press", async () => {
-    setUrl(`/apps/inspection/s-fill-ins?open=${FILL}`);
+    setUrl(`/apps/inspection/s-fill-ins?open=${FILL}&tab=sheet`);
     // The save before leaving is refused, so one press does not drop the changes.
     const calls = fakeApi({
       ...answers(),
@@ -380,7 +386,7 @@ describe("one fill-in", () => {
   });
 
   it("offers no Submit or Cancel for a fill-in that was already sent", async () => {
-    setUrl(`/apps/inspection/s-fill-ins?open=${FILL}`);
+    setUrl(`/apps/inspection/s-fill-ins?open=${FILL}&tab=sheet`);
     fakeApi({
       ...answers(),
       [`GET ${RECORDS}/${FILL}`]: () =>
@@ -401,5 +407,91 @@ describe("one fill-in", () => {
     await screen.findByRole("grid", { name: /revision 02/ });
     expect(screen.queryByRole("button", { name: "Submit" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Cancel" })).not.toBeInTheDocument();
+  });
+
+  it("draws the approval as the flow of the document, with the process's own step names", async () => {
+    setUrl(`/apps/inspection/s-fill-ins?open=${FILL}`);
+    const person = (name: string) => ({ userId: `id-${name}`, name });
+    fakeApi({
+      ...answers(),
+      [`POST ${RECORDS}/approval-history`]: () =>
+        json({
+          data: [
+            {
+              recordId: FILL,
+              requests: [
+                {
+                  summary: {
+                    id: "req-1",
+                    version: 1,
+                    startedAt: "2026-10-24T08:00:00Z",
+                    status: "PENDING",
+                    processLabel: "Fill-in review",
+                    submittedBy: person("Pat Filler"),
+                    currentStepLabel: "Level 5",
+                  },
+                  steps: [
+                    {
+                      position: 1,
+                      name: "plant",
+                      label: "Plant reviewers",
+                      completion: "ANY",
+                      status: "APPROVED",
+                      assignments: [{ id: "a1", assignee: person("Plant Reviewer"), via: "RULE", status: "APPROVED", decidedAt: "2026-10-24T09:00:00Z" }],
+                    },
+                    {
+                      position: 2,
+                      name: "level5",
+                      label: "Level 5",
+                      completion: "ANY",
+                      status: "ACTIVE",
+                      assignments: [{ id: "a2", assignee: person("Top Reviewer"), via: "RULE", status: "OPEN" }],
+                    },
+                  ],
+                  history: [],
+                  historyVisible: true,
+                },
+              ],
+            },
+          ],
+        }),
+    });
+    render(<FillInsPage />);
+
+    const flow = await screen.findByTestId("approval-flow");
+    const lines = within(flow).getAllByRole("listitem");
+    expect(lines.map((line) => line.textContent)).toEqual([
+      "SubmittedDonePat Filler",
+      "Plant reviewersApprovedPlant Reviewer",
+      "Level 5PendingWaiting for Top Reviewer",
+    ]);
+    expect(screen.queryByTestId("approval-steps")).toBeNull();
+  });
+
+  it("opens Details when the address names no tab, and keeps typed cells when the person looks at Details and comes back", async () => {
+    setUrl(`/apps/inspection/s-fill-ins?open=${FILL}&tab=sheet`);
+    fakeApi(answers());
+    render(<FillInsPage />);
+    await screen.findByRole("grid", { name: /revision 02/ });
+
+    fireEvent.click(screen.getByRole("tab", { name: "Details" }));
+    expect(currentUrl()).toBe(`/apps/inspection/s-fill-ins?open=${FILL}`);
+    expect(screen.getByRole("tab", { name: "Details" })).toHaveAttribute("aria-selected", "true");
+    // The sheet stays in the page, hidden, so nothing typed and not yet saved is lost.
+    expect(document.getElementById("fill-in-panel-sheet")).toHaveAttribute("hidden");
+    fireEvent.click(screen.getByRole("tab", { name: "Sheet" }));
+    expect(document.getElementById("fill-in-panel-sheet")).not.toHaveAttribute("hidden");
+  });
+
+  it("no longer shows the long note about changes that are not saved", async () => {
+    setUrl(`/apps/inspection/s-fill-ins?open=${FILL}&tab=sheet`);
+    fakeApi(answers());
+    render(<FillInsPage />);
+    fireEvent.click(await screen.findByRole("tab", { name: "Form view" }));
+    const box = within((await screen.findAllByTestId("fill-row"))[0] as HTMLElement).getByRole("textbox", { name: /Amount/ });
+    fireEvent.change(box, { target: { value: "5" } });
+
+    expect(screen.queryByTestId("unsaved-note")).not.toBeInTheDocument();
+    expect(screen.queryByText(/They save after a short pause/)).not.toBeInTheDocument();
   });
 });

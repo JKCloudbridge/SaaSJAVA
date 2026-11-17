@@ -1,13 +1,15 @@
 import { renderHook } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { appBase, DEFAULT_APPLICATION } from "./appPaths";
-import { useApplication } from "./application";
+import { useApplication, useEntryLabel } from "./application";
 import { activityHref, homeLinks, HOME_LINKS } from "./home/model";
 import { changeRequestsHref } from "./changeRequests";
 import { fillInsHref } from "./fillIns";
 
 const params = vi.hoisted(() => ({ current: {} as Record<string, string> }));
 vi.mock("next/navigation", () => ({ useParams: () => params.current }));
+const lists = vi.hoisted(() => ({ current: null as unknown }));
+vi.mock("@/lib/applications/ApplicationsProvider", () => ({ useOptionalApplications: () => lists.current }));
 
 describe("the application the pages of the solution are shown in (FA13A)", () => {
   it("is the one the address names, decoded", () => {
@@ -49,5 +51,30 @@ describe("the application the pages of the solution are shown in (FA13A)", () =>
     expect(fillInsHref("f1")).toBe("/apps/inspection/s-fill-ins?open=f1");
     expect(HOME_LINKS.requests).toBe("/apps/inspection/s-change-requests");
     expect(activityHref({ about: "template", id: "t1" })).toBe("/apps/inspection/s-templates?open=t1");
+  });
+});
+
+describe("the heading of a page follows the tab that opened it (SH_UI)", () => {
+  const apps = (label: string) => ({
+    state: {
+      applications: [
+        { apiName: "management-core", label: "Management Core", items: [{ type: "PLATFORM", pageKey: "templates", label }] },
+        { apiName: "document-management", label: "Document Management", items: [{ type: "PLATFORM", pageKey: "templates", label: "Document Control" }] },
+      ],
+    },
+  });
+
+  it("says the label of the entry in the application the address names", () => {
+    lists.current = apps("Plant Review");
+    params.current = { application: "management-core" };
+    expect(renderHook(() => useEntryLabel("templates", "Document Control")).result.current).toBe("Plant Review");
+    params.current = { application: "document-management" };
+    expect(renderHook(() => useEntryLabel("templates", "Document Control")).result.current).toBe("Document Control");
+  });
+
+  it("falls back to the given words when the list does not know the entry", () => {
+    lists.current = null;
+    params.current = { application: "management-core" };
+    expect(renderHook(() => useEntryLabel("templates", "Document Control")).result.current).toBe("Document Control");
   });
 });

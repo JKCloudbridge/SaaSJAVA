@@ -10088,6 +10088,7 @@ export interface components {
             status: string;
             /** Format: date-time */
             submittedAt?: string;
+            submittedBy?: string;
             /** Format: date-time */
             updatedAt: string;
             /** Format: int64 */
@@ -10179,6 +10180,8 @@ export interface components {
             column: string;
             /** Format: int32 */
             row: number;
+            /** Format: int32 */
+            sheetRow?: number;
         };
         SheetImportReportView: {
             /** Format: int32 */
@@ -10224,7 +10227,7 @@ export interface components {
             picklist?: {
                 values: string[];
             };
-            /** @description The fixed text a boolean_reason cell shows above its answer (SH5.1, ADR-0263). Only that kind takes a prompt. It is the author's text: never logged. */
+            /** @description The fixed text a boolean_reason cell or an attachment cell shows with its answer or its files (SH5.1, ADR-0263). Only those two kinds take a prompt. It is the author's text: never logged. */
             prompt?: string;
             required?: boolean;
             /**

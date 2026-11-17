@@ -125,7 +125,7 @@ describe("the choice of a worksheet", () => {
       placesWords([
         { row: 12, column: "B", sheetRow: 10 },
         { row: 5, column: "C", sheetRow: 5 },
-        { row: 1, column: "D", sheetRow: null },
+        { row: 1, column: "D", sheetRow: undefined },
       ]),
     ).toBe("B12 in the file (B10 on the sheet), C5, D1");
   });

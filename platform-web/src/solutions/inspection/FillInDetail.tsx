@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useRef, useState } from "react";
 import {
   ApprovalCard,
@@ -9,6 +10,8 @@ import {
   useRecordApproval,
   type ApprovalState,
 } from "@/components/records/ApprovalPanel";
+import { ApprovalHistoryList, type ApprovalHistoryEntry } from "@/components/records/ApprovalHistoryList";
+import { useApprovalHistory } from "@/lib/approvals/history";
 import { RecordFiles } from "@/components/records/RecordFiles";
 import { useRecord } from "@/components/records/RecordFormPage";
 import { FillWorkspace } from "@/components/sheets/FillWorkspace";
@@ -25,6 +28,11 @@ import { ActionPlanSection } from "./ActionPlanSection";
 import { text } from "./template";
 
 const TONES = { active: "ok", draft: "on", review: "on", done: "quiet", stopped: "error" } as const;
+const TABS = [
+  { id: "details", label: "Details" },
+  { id: "sheet", label: "Sheet" },
+] as const;
+type TabId = (typeof TABS)[number]["id"];
 
 /**
  * One fill-in (Functional track FF1, ADR-0192; Submit and Cancel FA6A, ADR-0196): the facts of its header, the approval of
@@ -48,7 +56,27 @@ export function FillInDetail({ id, onBack }: { id: string; onBack: () => void })
   const [refresh, setRefresh] = useState(0);
   const record = useRecord(objects.fill, id, refresh);
   const [approval, setApproval] = useState<ApprovalState>({ locked: false, mayOverride: false, mayApprove: false });
-  const [dirty, setDirty] = useState(false);
+  const router = useRouter();
+  const pathname = usePathname() ?? "";
+  const params = useSearchParams();
+  // The open tab is in the address (as the template's), so a link or a notice can open the sheet; no tab means Details.
+  const tab: TabId = TABS.find((entry) => entry.id === params?.get("tab"))?.id ?? "details";
+  // The sheet is drawn the first time its tab is opened and then kept (hidden on the other tab), so cells typed and not
+  // yet saved, and the autosave queue, are never lost by looking at the details.
+  const [sheetOpened, setSheetOpened] = useState(tab === "sheet");
+  if (tab === "sheet" && !sheetOpened) {
+    setSheetOpened(true);
+  }
+  const goTo = (next: TabId) => {
+    const query = new URLSearchParams(params?.toString() ?? "");
+    if (next === "details") {
+      query.delete("tab");
+    } else {
+      query.set("tab", next);
+    }
+    const search = query.toString();
+    router.replace(search ? `${pathname}?${search}` : pathname);
+  };
   const [archived, setArchived] = useState(false);
   const onLoaded = useCallback((summary: FillSummary) => setArchived(Boolean(summary.archivedAt)), []);
   const decisions = useRecordApproval({
@@ -58,6 +86,16 @@ export function FillInDetail({ id, onBack }: { id: string; onBack: () => void })
     onState: setApproval,
     onChanged: () => setRefresh((now) => now + 1),
   });
+
+  // The approvals of this fill-in as a history by day, the same list the template page draws (ADR-0205). A person who may not
+  // read the history, or a fill-in with none, gets nothing here; the card and its buttons still come from the record's panel.
+  const history = useApprovalHistory(objects.fill, [id], refresh)[id] ?? [];
+  const flowEntries: ApprovalHistoryEntry[] = history.map((instance) => ({
+    key: instance.summary.id,
+    at: instance.summary.startedAt,
+    title: "Approval",
+    instance,
+  }));
 
   const header = record.status === "ready" ? record.record : undefined;
   const fields = header?.fields ?? {};
@@ -109,67 +147,105 @@ export function FillInDetail({ id, onBack }: { id: string; onBack: () => void })
       testId="fill-in-detail"
     >
       {header ? (
-        <DetailSection title="Details">
-          <DetailGrid>
-            <DetailItem label="Template">
-              {templateId ? (
-                <Link href={`${appBase(application)}/s-templates?open=${templateId}`}>{name}</Link>
-              ) : (
-                "Not available"
-              )}
-            </DetailItem>
-            <DetailItem label="Status">
-              {tag ? <Tag tone={TONES[tag.tone]}>{tag.text}</Tag> : "Not available"}
-            </DetailItem>
-            {templateId ? <TemplateNumber id={templateId} refresh={refresh} /> : null}
-            {scoreText ? <DetailItem label="Score">{scoreText}</DetailItem> : null}
-            {text(fields.result) ? (
-              <DetailItem label="Result">
-                {text(fields.result) === "ACTION_PLAN" ? <Tag tone="error">Below the limit</Tag> : <Tag tone="ok">Passed</Tag>}
-              </DetailItem>
-            ) : null}
-          </DetailGrid>
-          {approval.locked ? (
-            <p className="hint" role="note">
-              This fill-in is waiting for a decision, so it is locked. The people who may correct a fill-in after it is sent
-              can still correct it.
-            </p>
-          ) : null}
-        </DetailSection>
+        <div className="detail-tabs-row">
+          <div role="tablist" aria-label="Parts of the fill-in" className="detail-tabs">
+            {TABS.map((entry) => (
+              <button
+                key={entry.id}
+                type="button"
+                role="tab"
+                id={`fill-in-tab-${entry.id}`}
+                aria-selected={tab === entry.id}
+                aria-controls={`fill-in-panel-${entry.id}`}
+                className="detail-tab"
+                onClick={() => goTo(entry.id)}
+              >
+                {entry.label}
+              </button>
+            ))}
+          </div>
+        </div>
       ) : null}
-
-      {header ? <ApprovalCard approval={decisions} recordVersion={header.version} actions={false} /> : null}
-
-      {header ? <ActionPlanSection fillId={id} refresh={refresh} /> : null}
 
       {header ? (
-        <DetailSection title="Attachments" stack>
-          <p className="hint">
-            Photographs and documents that belong to this fill-in. Whoever can see the fill-in can open them; they are
-            downloaded, never shown inside the page.
-          </p>
-          <RecordFiles objectApiName={objects.fill} recordId={id} mayChange={mayChangeFiles} />
-        </DetailSection>
+        <div
+          role="tabpanel"
+          id="fill-in-panel-details"
+          aria-labelledby="fill-in-tab-details"
+          className="stack"
+          hidden={tab !== "details"}
+        >
+          <div className={flowEntries.length > 0 ? "detail-with-flow detail-has-flow" : "detail-with-flow"}>
+            <div className="stack">
+              <DetailSection title="Details">
+                <DetailGrid>
+                  <DetailItem label="Template">
+                    {templateId ? (
+                      <Link href={`${appBase(application)}/s-templates?open=${templateId}`}>{name}</Link>
+                    ) : (
+                      "Not available"
+                    )}
+                  </DetailItem>
+                  <DetailItem label="Status">
+                    {tag ? <Tag tone={TONES[tag.tone]}>{tag.text}</Tag> : "Not available"}
+                  </DetailItem>
+                  {templateId ? <TemplateNumber id={templateId} refresh={refresh} /> : null}
+                  {scoreText ? <DetailItem label="Score">{scoreText}</DetailItem> : null}
+                  {text(fields.result) ? (
+                    <DetailItem label="Result">
+                      {text(fields.result) === "ACTION_PLAN" ? <Tag tone="error">Below the limit</Tag> : <Tag tone="ok">Passed</Tag>}
+                    </DetailItem>
+                  ) : null}
+                </DetailGrid>
+                {approval.locked ? (
+                  <p className="hint" role="note">
+                    This fill-in is waiting for a decision, so it is locked. The people who may correct a fill-in after it is sent
+                    can still correct it.
+                  </p>
+                ) : null}
+              </DetailSection>
+
+              <ApprovalCard approval={decisions} recordVersion={header.version} actions={false} steps={flowEntries.length === 0} />
+
+              <ActionPlanSection fillId={id} refresh={refresh} />
+
+              <DetailSection title="Attachments" stack>
+                <p className="hint">
+                  Photographs and documents that belong to this fill-in. Whoever can see the fill-in can open them; they are
+                  downloaded, never shown inside the page.
+                </p>
+                <RecordFiles objectApiName={objects.fill} recordId={id} mayChange={mayChangeFiles} />
+              </DetailSection>
+            </div>
+            {flowEntries.length > 0 ? (
+              <aside className="detail-flow-column" aria-label="Approvals of this fill-in" data-testid="fill-in-approvals">
+                <ApprovalHistoryList entries={flowEntries} label="Approvals of this fill-in" />
+              </aside>
+            ) : null}
+          </div>
+        </div>
       ) : null}
 
-      <DetailSection title="Fill-in" stack>
-        {dirty ? (
-          <p className="form-message" role="note" data-testid="unsaved-note">
-            There are changes that are not saved. They save after a short pause; Submit and Cancel save them first.
-          </p>
-        ) : null}
-        <FillWorkspace
-          owner={{ object: objects.fill, id }}
-          label={name}
-          refreshToken={refresh}
-          onDirty={setDirty}
-          onLoaded={onLoaded}
-          submit={header && sendable ? submit : undefined}
-          onCancel={sendable ? onBack : undefined}
-          registerLeave={registerLeave}
-          footer={footer}
-        />
-      </DetailSection>
+      {sheetOpened || !header ? (
+        <div
+          role={header ? "tabpanel" : undefined}
+          id="fill-in-panel-sheet"
+          aria-labelledby={header ? "fill-in-tab-sheet" : undefined}
+          className="stack"
+          hidden={header ? tab !== "sheet" : false}
+        >
+          <FillWorkspace
+            owner={{ object: objects.fill, id }}
+            label={name}
+            refreshToken={refresh}
+            onLoaded={onLoaded}
+            submit={header && sendable ? submit : undefined}
+            onCancel={sendable ? onBack : undefined}
+            registerLeave={registerLeave}
+            footer={footer}
+          />
+        </div>
+      ) : null}
     </DetailPage>
   );
 }
