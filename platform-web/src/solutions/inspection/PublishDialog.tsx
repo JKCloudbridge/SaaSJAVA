@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useId, useMemo, useState } from "react";
+import { useEffect, useId, useMemo, useRef, useState } from "react";
+import { Tag } from "@/components/ui/lists/Tag";
 import type { ApiFailure } from "@/lib/api/errors";
 import {
   getAudienceOptions,
@@ -12,19 +13,22 @@ import {
 import { revisionWords } from "@/lib/sheets/revision";
 
 type Options = { status: "loading" } | { status: "ready"; options: AudienceOptions } | { status: "failed"; message: string };
+type Place = AudienceOptions["locations"][number];
+
+const keyOf = (location: string, department: string) => `${location}/${department}`;
 
 /**
- * The dialog of Publish (Functional track FA4, ADR-0188): choose a Location, then tick the Departments of it (the
- * choices narrow to the location chosen, as the organization keeps them), add the ticked ones at once, choose another
- * location and tick again if needed, and publish. The
- * people of each department are a group an administrator keeps; the server finds the group, so this dialog names none.
+ * The dialog of Publish (Functional track FA4, ADR-0188; the layout of FA15, ADR-0265). One section for each location,
+ * all headers visible with their status; under an open header the departments of that location are a column of tick
+ * boxes and ticking is direct. A summary line above Publish says in words what will happen, including what will be
+ * taken back.
  *
- * <p>When a step of the review suggested where the template is meant to be published (FA6G, ADR-0200) the dialog starts from
- * that suggestion, which the person may change: the departments suggested are listed ready, and a location suggested
- * without a department is already chosen, waiting for its departments. A suggestion shares nothing; only Publish does.
- * Otherwise it shows the audience the template already has and keeps it unless the approver changes it. It offers every department
- * of the organization's list, marking those without a group, because the server is the one that says "no group is set up
- * for this department yet" in its own words; a refusal names the pair it is about. Nothing here decides a permission.
+ * <p>The server decides who may publish where; this dialog draws what it says. When the approval chose locations
+ * (FA6G, ADR-0200) they come first and are marked; a person who is limited to them (`limitedToSuggested`) sees only
+ * those, plus a read-only note of what others published elsewhere, which a publish of theirs never changes. The
+ * departments the approval ticked are hints, pre-ticked. What is already published starts ticked, so that nothing is
+ * taken back by accident; unticking it is how it is taken back. Nothing here decides a permission, and a refusal is
+ * shown in the API's words with the place it names.
  */
 export function PublishDialog({
   templateId,
@@ -41,23 +45,28 @@ export function PublishDialog({
   onDone: (view: TemplateLifecycleView) => void;
 }) {
   const heading = useId();
+  const listRef = useRef<HTMLDivElement>(null);
   const [options, setOptions] = useState<Options>({ status: "loading" });
   const suggested = lifecycle.suggestedAudience;
-  const [chosen, setChosen] = useState<AudiencePick[]>(() =>
-    suggested.length > 0
-      ? suggested.flatMap((place) =>
-          place.department ? [{ location: place.location, department: place.department }] : [],
-        )
-      : lifecycle.audience.map((audience) => ({ location: audience.location, department: audience.department })),
+  const limited = lifecycle.limitedToSuggested;
+  const noPlaceLeft = lifecycle.noPlaceLeft;
+  const suggestedLocations = useMemo(() => [...new Set(suggested.map((place) => place.location))], [suggested]);
+  const publishedKeys = useMemo(
+    () => new Set(lifecycle.audience.map((entry) => keyOf(entry.location, entry.department))),
+    [lifecycle.audience],
   );
-  // The first suggested location is chosen already, so its suggested departments show ticked and the person only has to
-  // add what is missing (a location suggested alone waits for its departments).
-  const [location, setLocation] = useState(
-    () => (suggested.find((place) => !place.department) ?? suggested[0])?.location ?? "",
+  // What is published now and the departments the approval ticked: the union, so nothing already published is hidden.
+  const [ticked, setTicked] = useState<Set<string>>(
+    () =>
+      new Set([
+        ...publishedKeys,
+        ...suggested.flatMap((place) => (place.department ? [keyOf(place.location, place.department)] : [])),
+      ]),
   );
-  const [ticks, setTicks] = useState<string[]>([]);
+  const [open, setOpen] = useState<string | undefined>(suggestedLocations[0] ?? lifecycle.audience[0]?.location);
   const [busy, setBusy] = useState(false);
   const [refusal, setRefusal] = useState<ApiFailure | undefined>();
+  const [lastSent, setLastSent] = useState<AudiencePick[]>([]);
   // The two options of the sheet (FA7): both start unticked on a template that never had them set.
   const [viewOnly, setViewOnly] = useState(lifecycle.viewOnly);
   const [allowDownload, setAllowDownload] = useState(lifecycle.allowDownload);
@@ -81,50 +90,76 @@ export function PublishDialog({
   const versionNo = numbers.approvedVersion > 0 ? numbers.approvedVersion : numbers.activeVersion;
   const changesVersion = numbers.approvedVersion > 0 && numbers.approvedVersion !== numbers.activeVersion;
 
-  const locations = useMemo(() => (options.status === "ready" ? options.options.locations : []), [options]);
-  const departments = useMemo(
-    () => locations.find((place) => place.value === location)?.departments ?? [],
-    [locations, location],
-  );
+  const locations = useMemo<Place[]>(() => (options.status === "ready" ? options.options.locations : []), [options]);
   // An application that publishes to places alone (MC1, ADR-0257): the server names the one department that receives a
   // template at each place, and the dialog asks for places only.
   const placesOnly = options.status === "ready" && options.options.placesOnly === true;
   const placeDepartment = options.status === "ready" ? options.options.placeDepartment ?? "" : "";
+  const inScope = (location: string) => !limited || suggestedLocations.includes(location);
   const labelOf = (pick: AudiencePick) => {
     const place = locations.find((entry) => entry.value === pick.location);
     const part = place?.departments.find((entry) => entry.value === pick.department);
     return placesOnly ? (place?.label ?? pick.location) : `${place?.label ?? pick.location} · ${part?.label ?? pick.department}`;
   };
-  const isPlaceChosen = (code: string) =>
-    chosen.some((pick) => pick.location === code && pick.department === placeDepartment);
-  const togglePlace = (code: string) => {
+
+  // The locations drawn, in groups: the ones the approval chose first, the others quieter (only for who may).
+  const chosenPlaces = suggestedLocations.flatMap((code) => locations.filter((place) => place.value === code));
+  const otherPlaces = locations.filter((place) => !suggestedLocations.includes(place.value));
+  const shown = suggestedLocations.length === 0 ? locations : chosenPlaces.concat(limited ? [] : otherPlaces);
+  const elsewhere = limited ? lifecycle.audience.filter((entry) => !suggestedLocations.includes(entry.location)) : [];
+
+  const toggle = (location: string, department: string) => {
     setRefusal(undefined);
-    setChosen(
-      isPlaceChosen(code)
-        ? chosen.filter((pick) => !(pick.location === code && pick.department === placeDepartment))
-        : [...chosen, { location: code, department: placeDepartment }],
-    );
+    setTicked((now) => {
+      const next = new Set(now);
+      const key = keyOf(location, department);
+      if (next.has(key)) {
+        next.delete(key);
+      } else {
+        next.add(key);
+      }
+      return next;
+    });
   };
-  const isChosen = (code: string) => chosen.some((pick) => pick.location === location && pick.department === code);
 
-  const toggle = (code: string) =>
-    setTicks((now) => (now.includes(code) ? now.filter((one) => one !== code) : [...now, code]));
+  // What will be sent: the ticked pairs of the places the person may publish to, in the order of the organization's lists.
+  const sendPairs: AudiencePick[] = shown.flatMap((place) =>
+    placesOnly
+      ? ticked.has(keyOf(place.value, placeDepartment))
+        ? [{ location: place.value, department: placeDepartment }]
+        : []
+      : place.departments
+          .filter((part) => ticked.has(keyOf(place.value, part.value)))
+          .map((part) => ({ location: place.value, department: part.value })),
+  );
+  const sentLocations = new Set(sendPairs.map((pick) => pick.location));
+  const notYet = chosenPlaces.filter((place) => !sentLocations.has(place.value)).map((place) => place.label);
+  const takenBack = [...publishedKeys].filter((key) => inScope(key.split("/")[0] ?? "") && !ticked.has(key)).length;
+  const summary =
+    sendPairs.length === 0
+      ? "Nothing is chosen yet."
+      : `Publishing to ${sentLocations.size} ${sentLocations.size === 1 ? "location" : "locations"}, ${sendPairs.length} ${
+          placesOnly ? (sendPairs.length === 1 ? "place" : "places") : sendPairs.length === 1 ? "department" : "departments"
+        }.` +
+        (notYet.length > 0 ? ` Not yet chosen: ${notYet.join(", ")}.` : "") +
+        (takenBack > 0 ? ` Will be taken back: ${takenBack}.` : "");
 
-  // Every ticked department of the location goes into the list at once, in the order the organization's list has them.
-  const add = () => {
-    const wanted = departments.filter((part) => ticks.includes(part.value) && !isChosen(part.value));
-    if (location === "" || wanted.length === 0) {
-      return;
+  const statusOf = (place: Place): string => {
+    const departments = place.departments;
+    const own = departments.filter((part) => ticked.has(keyOf(place.value, part.value)));
+    const was = departments.filter((part) => publishedKeys.has(keyOf(place.value, part.value)));
+    if (own.length === 0) {
+      return was.length > 0 ? "Will be taken back" : suggestedLocations.includes(place.value) ? "No department yet" : "None chosen";
     }
-    setChosen([...chosen, ...wanted.map((part) => ({ location, department: part.value }))]);
-    setTicks([]);
-    setRefusal(undefined);
+    const same = own.length === was.length && own.every((part) => publishedKeys.has(keyOf(place.value, part.value)));
+    return same ? "Published" : `${own.length} of ${departments.length} departments`;
   };
 
   const submit = async () => {
     setBusy(true);
     setRefusal(undefined);
-    const outcome = await publishTemplate(templateId, { versionNo, audiences: chosen, viewOnly, allowDownload });
+    setLastSent(sendPairs);
+    const outcome = await publishTemplate(templateId, { versionNo, audiences: sendPairs, viewOnly, allowDownload });
     setBusy(false);
     if (outcome.ok) {
       onDone(outcome.data);
@@ -133,12 +168,78 @@ export function PublishDialog({
     setRefusal(outcome.failure);
   };
 
+  // Arrow keys move between the headers of the sections; Enter and Space open one, as on any button.
+  const moveBetweenHeaders = (event: React.KeyboardEvent<HTMLButtonElement>) => {
+    const headers = [...(listRef.current?.querySelectorAll<HTMLButtonElement>("button[data-section-header]") ?? [])];
+    const at = headers.indexOf(event.currentTarget);
+    const next =
+      event.key === "ArrowDown" ? at + 1 : event.key === "ArrowUp" ? at - 1 : event.key === "Home" ? 0 : event.key === "End" ? headers.length - 1 : -1;
+    if (next >= 0 && next < headers.length) {
+      event.preventDefault();
+      headers[next]?.focus();
+    }
+  };
+
   // The server names the pair that cannot be published to by its place, audiences[2]: say it with the pair's own words.
   const placed = Object.entries(refusal?.fields ?? {}).flatMap(([place, messages]) => {
     const index = /^audiences\[(\d+)\]$/.exec(place)?.[1];
-    const pick = index === undefined ? undefined : chosen[Number(index)];
+    const pick = index === undefined ? undefined : lastSent[Number(index)];
     return messages.map((message) => ({ where: pick ? labelOf(pick) : undefined, message }));
   });
+
+  const section = (place: Place, byApproval: boolean) => {
+    const isOpen = open === place.value;
+    const panel = `${heading}-${place.value}`;
+    return (
+      <div key={place.value} className="stack" data-testid={`publish-section-${place.value}`}>
+        <h4>
+          <button
+            type="button"
+            className="link-button"
+            data-section-header=""
+            aria-expanded={isOpen}
+            aria-controls={panel}
+            onClick={() => setOpen(isOpen ? "" : place.value)}
+            onKeyDown={moveBetweenHeaders}
+          >
+            {isOpen ? "▾" : "▸"} {place.label}{" "}
+            {byApproval ? <Tag tone="on">Chosen by Corporate QMS</Tag> : null} <Tag>{statusOf(place)}</Tag>
+          </button>
+        </h4>
+        {isOpen ? (
+          <div id={panel} role="group" aria-label={`Departments of ${place.label}`} className="stack">
+            {placesOnly ? (
+              <label>
+                <input
+                  type="checkbox"
+                  checked={ticked.has(keyOf(place.value, placeDepartment))}
+                  onChange={() => toggle(place.value, placeDepartment)}
+                />{" "}
+                {place.departments[0]?.configured === false ? `${place.label} (no group set up yet)` : place.label}
+              </label>
+            ) : (
+              place.departments.map((part) => (
+                <label key={part.value}>
+                  <input
+                    type="checkbox"
+                    checked={ticked.has(keyOf(place.value, part.value))}
+                    onChange={() => toggle(place.value, part.value)}
+                  />{" "}
+                  {part.configured ? part.label : `${part.label} (no group set up yet)`}
+                  {publishedKeys.has(keyOf(place.value, part.value)) ? (
+                    <>
+                      {" "}
+                      <Tag tone="ok">Published</Tag>
+                    </>
+                  ) : null}
+                </label>
+              ))
+            )}
+          </div>
+        ) : null}
+      </div>
+    );
+  };
 
   return (
     <div
@@ -159,8 +260,9 @@ export function PublishDialog({
 
       {suggested.length > 0 ? (
         <p className="hint" data-testid="publish-suggested">
-          Filled in from the places suggested when this template was approved. Change them if they are not right; nobody
-          sees the template until you publish.
+          {limited
+            ? "You can publish to the locations chosen when this template was approved. The departments ticked there are a suggestion: tick the ones that are right. Nobody sees the template until you publish."
+            : "Filled in from the places suggested when this template was approved. Change them if they are not right; nobody sees the template until you publish."}
         </p>
       ) : null}
       {lifecycle.suggestionDropped > 0 ? (
@@ -168,6 +270,11 @@ export function PublishDialog({
           {lifecycle.suggestionDropped === 1
             ? "One suggested place is no longer offered and was left out."
             : `${lifecycle.suggestionDropped} suggested places are no longer offered and were left out.`}
+        </p>
+      ) : null}
+      {noPlaceLeft ? (
+        <p role="alert" className="form-message" data-testid="publish-no-place-left">
+          No location chosen for this document is offered any more. Ask somebody who may publish to any location.
         </p>
       ) : null}
 
@@ -182,88 +289,32 @@ export function PublishDialog({
         </p>
       ) : null}
 
-      {options.status === "ready" && placesOnly ? (
-        <fieldset className="stack" data-testid="publish-places">
-          <legend>Places</legend>
+      {options.status === "ready" ? (
+        <div ref={listRef} className="stack" data-testid="publish-places">
+          {suggestedLocations.length > 0 ? <strong>Places Corporate QMS chose</strong> : null}
+          {chosenPlaces.map((place) => section(place, true))}
+          {suggestedLocations.length === 0 ? locations.map((place) => section(place, false)) : null}
+          {suggestedLocations.length > 0 && !limited && otherPlaces.length > 0 ? (
+            <>
+              <strong className="hint">Other locations</strong>
+              {otherPlaces.map((place) => section(place, false))}
+            </>
+          ) : null}
           {locations.length === 0 ? <p className="hint">No place is set up to receive templates yet.</p> : null}
-          {locations.map((place) => {
-            const part = place.departments[0];
-            return (
-              <label key={place.value}>
-                <input type="checkbox" checked={isPlaceChosen(place.value)} onChange={() => togglePlace(place.value)} />{" "}
-                {part?.configured === false ? `${place.label} (no group set up yet)` : place.label}
-              </label>
-            );
-          })}
-        </fieldset>
+        </div>
       ) : null}
 
-      {options.status === "ready" && !placesOnly ? (
-        <>
-          <div className="filters">
-            <label>
-              Location
-              <select
-                value={location}
-                onChange={(event) => {
-                  setLocation(event.target.value);
-                  setTicks([]);
-                }}
-              >
-                <option value="">Choose a location</option>
-                {locations.map((place) => (
-                  <option key={place.value} value={place.value}>
-                    {place.label}
-                  </option>
-                ))}
-              </select>
-            </label>
-          </div>
-
-          <fieldset className="stack" disabled={location === ""}>
-            <legend>Departments</legend>
-            {location === "" ? <p className="hint">Choose a location first.</p> : null}
-            {departments.map((part) => {
-              const listed = isChosen(part.value);
-              return (
-                <label key={part.value}>
-                  <input
-                    type="checkbox"
-                    checked={listed || ticks.includes(part.value)}
-                    disabled={listed}
-                    onChange={() => toggle(part.value)}
-                  />{" "}
-                  {part.configured ? part.label : `${part.label} (no group set up yet)`}
-                </label>
-              );
-            })}
-            <div>
-              <button type="button" className="button button-secondary" onClick={add} disabled={ticks.length === 0}>
-                Add the ticked departments
-              </button>
-            </div>
-          </fieldset>
-
-          {chosen.length === 0 ? (
-            <p className="hint">No department is chosen yet. Add at least one.</p>
-          ) : (
-            <ul aria-label="Departments it is published to" className="stack">
-              {chosen.map((pick, index) => (
-                <li key={`${pick.location}/${pick.department}`} className="split">
-                  <span>{labelOf(pick)}</span>
-                  <button
-                    type="button"
-                    className="link-button"
-                    onClick={() => setChosen(chosen.filter((_, position) => position !== index))}
-                    aria-label={`Remove ${labelOf(pick)}`}
-                  >
-                    Remove
-                  </button>
-                </li>
-              ))}
-            </ul>
-          )}
-        </>
+      {elsewhere.length > 0 ? (
+        <div data-testid="publish-elsewhere">
+          <p className="hint">Published elsewhere by someone else. A publish of yours leaves these as they are:</p>
+          <ul className="stack">
+            {elsewhere.map((entry) => (
+              <li key={keyOf(entry.location, entry.department)}>
+                {entry.locationLabel} · {entry.departmentLabel}
+              </li>
+            ))}
+          </ul>
+        </div>
       ) : null}
 
       <div className="sheet-options-row" role="group" aria-label="Sheet options" data-testid="publish-sheet-options">
@@ -279,6 +330,17 @@ export function PublishDialog({
         View only: the template is a reference and nobody can start a fill-in from it. Allow download: everybody who can read
         the template can download its sheet as an Excel file. You can change both later from Sheet options.
       </p>
+
+      {options.status === "ready" ? (
+        <p role="status" data-testid="publish-summary">
+          {summary}
+        </p>
+      ) : null}
+      {notYet.length > 0 ? (
+        <p className="hint" data-testid="publish-gaps">
+          Not published yet: {notYet.join(", ")}.
+        </p>
+      ) : null}
 
       {refusal ? (
         <div role="alert" className="form-message" data-testid="publish-refused">
@@ -297,9 +359,14 @@ export function PublishDialog({
       ) : null}
 
       <div className="split">
-        <button type="button" className="button" onClick={() => void submit()} disabled={busy || chosen.length === 0}>
+        <button type="button" className="button" onClick={() => void submit()} disabled={busy || sendPairs.length === 0 || noPlaceLeft}>
           {busy ? "Publishing…" : "Publish"}
         </button>
+        {sendPairs.length === 0 && !noPlaceLeft && options.status === "ready" ? (
+          <span className="hint" data-testid="publish-why-disabled">
+            Tick at least one department to publish.
+          </span>
+        ) : null}
         <button type="button" className="button button-secondary" onClick={onClose} disabled={busy}>
           Cancel
         </button>

@@ -749,3 +749,59 @@ These notes apply to a template whose sheet is in format version 2.
 **The View page of a fill-in (SH_6).** View on a fill-in is a page to fill in: `FillViewPage` over the same `useFillEditor` and save queue as the Sheet tab, `SheetGrid` with `paper` (no letters or row numbers on a version 2 sheet), the stamp under it, and Save, Print and Back (a filler's Back saves first, a reviewer's asks); Print opens `SheetPrintView` unchanged, and the template's View is untouched. `FillRefusal` is the one notice of a refused save. Tests: `FillViewPage.test.tsx`, `FillWorkspaceView.test.tsx`, `FillWorkspaceStamp.test.tsx`. Decision note: ADR-0263.
 
 **A bell row about a fill-in opens it (SH_6, part A).** `FillNoticeDestination` serves the fill object of every set of records (through `RecordSets`), reads the header through the same read gate as opening it, and leads to `/apps/<application>/s-fill-ins?open=<id>` (the application from the header's own field); a person who may not read it gets the plain "no record you can open" message. The Action plan notice, a reviewer's approval row on a fill-in and the approvals inbox all use it. Tests: `FillNoticeOpenIT`, `ScoreAndActionPlanIT`.
+
+## Who publishes where (FA15)
+
+The decision is [ADR-0265](../adr/0265-corporate-chooses-the-locations-and-plant-qms-publishes-inside-them.md); the administrator's view is
+[metadata-guide.md](../metadata-guide.md) section 55. What the owner decided and what was decided while building is marked in the ADR.
+
+**The levels** (the owner's table; people are added to public groups and the groups are used in approval processes):
+
+| Level | Who | What they do |
+|---|---|---|
+| 1 | Plant head and the users who can fill in | fill in |
+| 2 | Management users (fill in, create a template, assign reviewers, send for approval); department users (fill in, create a template, send for approval). Anyone can be a reviewer, whose only extra power is to approve the submitted fill-ins | create, send, review |
+| 3 | Plant QMS (one group for the whole organization, holds **Publisher**) | approve; publish to departments of the locations Corporate QMS chose |
+| 4 | Corporate QMS (holds **Publisher anywhere**) | approve; choose the locations; publish to any location and, optionally, department |
+| 5 | CEO | final decisions where a process says so |
+
+**The flow in plain words.**
+
+1. A Management or department user makes a template and sends it for approval.
+2. Plant QMS approves. At the step marked "asks for a choice", Corporate QMS ticks the **locations** (a department is optional). The choice is stored as
+   a suggestion; it shares nothing.
+3. When the approval ends, **Plant QMS opens Publish**. The dialog has one section for each location; the locations Corporate chose come first and say
+   "Chosen by Corporate QMS". The departments Corporate ticked are pre-ticked hints. Plant QMS ticks the departments of each location and publishes.
+   Plant QMS can publish only to the locations Corporate chose.
+4. A chosen location with no department yet shows "No department yet" and, after a publish, "Not published yet" on the template page. It can be
+   published later; the next publish starts from what is already published, so nothing is taken back unless it is unticked.
+5. **Corporate QMS (Publisher anywhere) may publish to any location**, also one it did not choose, and its publish replaces the whole audience, as before.
+6. A limited publish never changes the rows of other locations: what Corporate or an administrator published elsewhere stays.
+
+**The cases.**
+
+| Case | Who may publish where | What the person sees |
+|---|---|---|
+| One location chosen | Publisher: that location only | One section, "Chosen by Corporate QMS" |
+| Several locations chosen | Publisher: those locations only; others refused at `audiences[i]` with "This location was not chosen for this document." | A section for each; the status of each; a summary line; "Not yet chosen: ..." |
+| The approval chose nothing (no choice step, older template, skipped step) | Publisher: anywhere, as before | Every location in one list |
+| A suggestion exists, none of its places is offered any more | Publisher: nothing (`409`, "No location chosen for this document is offered any more. ..."); Publisher anywhere: anywhere | The message; Publish off |
+| Holds Publisher anywhere (or is the Organization administrator) | Anywhere | Chosen locations first, the others under "Other locations" |
+| A revision published by a change request | The limit stays: the template's most recent suggestion binds the later publishes | As above |
+
+**Where it lives** (exact names).
+
+- `PublishScope` (pure rule: `of`, `limited`, `locations`, `noneLeft`, `outside`, the two fixed sentences).
+- `TemplatePublishing.scopeOf` (the one place the ability is asked for a publish), `checkScope` (the refusals), `shareWith(..., scope)` (only the rows of the scope may
+  change), `view` (the fields `limitedToSuggested`, `noPlaceLeft`, `unpublishedPlaces`), `unpublishedPlaces`.
+- `AudienceSuggestions.forVersion` and `AudienceSuggestionStore.latestRequestOfTemplate` (the suggestion that binds a version).
+- `Ability.SHEETS_PUBLISH_ANY_LOCATION`; the policy `publisher-anywhere` in `solutions/inspection/solution.yml`.
+- Web: `PublishDialog.tsx` (sections, summary, keyboard), `TemplateDetail.tsx` (`groupByLocation`, the gap list).
+- Tests: `PublishScopeTest`, `PublishLocationLimitIT`, `ShippedPoliciesIT`, `SolutionLoaderTest`, `TemplatePublishAuthorityIT`; frontend `PublishDialog.test.tsx`,
+  `TemplatesPage.test.tsx`.
+
+**Not changed:** the change-request publish (the last approval still requires a department for every location and is not limited, ADR-0202, ADR-0265
+decision 10), Management Core's publish to plants (ADR-0260), the choice step and its words, numbering, approvals, the footer, fill-ins.
+
+**The audit** of a publish adds `limited` (true or false) and `kept` (rows left alone), next to the counts it had. No location, department, group or
+suggestion content is ever logged, audited, put in an event or a notice.

@@ -10621,6 +10621,8 @@ export interface components {
             /** Format: date-time */
             lastRevisedAt?: string;
             lifecycle: components["schemas"]["TemplateLifecycle"];
+            limitedToSuggested: boolean;
+            noPlaceLeft: boolean;
             number?: string;
             numberPreview?: string;
             numberPreviewComplete: boolean;
@@ -10632,6 +10634,7 @@ export interface components {
             suggestedAudience: components["schemas"]["SuggestedAudience"][];
             /** Format: int32 */
             suggestionDropped: number;
+            unpublishedPlaces: components["schemas"]["UnpublishedPlace"][];
             versionReviews: components["schemas"]["VersionReview"][];
             viewOnly: boolean;
         };
@@ -10702,6 +10705,10 @@ export interface components {
             rejectedShare?: components["schemas"]["Tile"];
             templatesPublished?: components["schemas"]["Tile"];
             waitingApproval?: components["schemas"]["Tile"];
+        };
+        UnpublishedPlace: {
+            location: string;
+            locationLabel: string;
         };
         UpdateApplicationRequest: {
             definition: components["schemas"]["ApplicationDefinition"];

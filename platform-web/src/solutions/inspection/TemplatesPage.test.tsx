@@ -102,6 +102,9 @@ const lifecycleOf = (extra: Record<string, unknown> = {}, numbers = NONE) => ({
     numberPreviewComplete: false,
     suggestedAudience: [],
     suggestionDropped: 0,
+    limitedToSuggested: false,
+    noPlaceLeft: false,
+    unpublishedPlaces: [],
     ...extra,
   },
 });
@@ -611,6 +614,38 @@ describe("one template", () => {
     expect(within(audience).getByText(/Plant 1 · Production/)).toBeInTheDocument();
     expect(within(audience).getByText(/Head office · Human resources/)).toBeInTheDocument();
     expect(within(audience).getByText(/its group no longer exists/)).toBeInTheDocument();
+  });
+
+  it("groups the audience by location and names a chosen location nothing is published to yet (FA15)", async () => {
+    setUrl(OPEN);
+    const entry = (department: string, departmentLabel: string) => ({
+      location: "PLANT1",
+      department,
+      locationLabel: "Plant 1",
+      departmentLabel,
+      versionNo: 3,
+      publishedAt: "2026-10-22T09:00:00Z",
+      groupAvailable: true,
+    });
+    fakeApi({
+      ...listAnswers(),
+      [`GET /api/v1/templates/${ID}/lifecycle`]: () =>
+        json(
+          lifecycleOf({
+            audience: [entry("PRD", "Production"), entry("QLT", "Quality")],
+            unpublishedPlaces: [{ location: "PLANT2", locationLabel: "Plant 2" }],
+          }),
+        ),
+    });
+
+    render(<TemplatesPage />);
+
+    const audience = await screen.findByTestId("audience");
+    expect(within(audience).getAllByRole("listitem")).toHaveLength(1);
+    expect(audience).toHaveTextContent("Plant 1 · Production, Quality");
+    const gaps = await screen.findByTestId("audience-gaps");
+    expect(gaps).toHaveTextContent("Plant 2");
+    expect(gaps).toHaveTextContent("Not published yet");
   });
 
   it("takes the template back, and shows the API's words when it refuses", async () => {

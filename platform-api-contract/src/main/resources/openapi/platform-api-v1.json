@@ -30098,6 +30098,12 @@
           "lifecycle" : {
             "$ref" : "#/components/schemas/TemplateLifecycle"
           },
+          "limitedToSuggested" : {
+            "type" : "boolean"
+          },
+          "noPlaceLeft" : {
+            "type" : "boolean"
+          },
           "number" : {
             "type" : "string"
           },
@@ -30130,6 +30136,12 @@
             "type" : "integer",
             "format" : "int32"
           },
+          "unpublishedPlaces" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/UnpublishedPlace"
+            }
+          },
           "versionReviews" : {
             "type" : "array",
             "items" : {
@@ -30140,7 +30152,7 @@
             "type" : "boolean"
           }
         },
-        "required" : [ "allowDownload", "audience", "canDownload", "canPublish", "canRetire", "canSetOptions", "canSubmit", "canUnpublish", "footerDate", "id", "lifecycle", "numberPreviewComplete", "openChangeRequests", "retired", "suggestedAudience", "suggestionDropped", "versionReviews", "viewOnly" ]
+        "required" : [ "allowDownload", "audience", "canDownload", "canPublish", "canRetire", "canSetOptions", "canSubmit", "canUnpublish", "footerDate", "id", "lifecycle", "limitedToSuggested", "noPlaceLeft", "numberPreviewComplete", "openChangeRequests", "retired", "suggestedAudience", "suggestionDropped", "unpublishedPlaces", "versionReviews", "viewOnly" ]
       },
       "TemplatePage" : {
         "type" : "object",
@@ -30344,6 +30356,18 @@
             "$ref" : "#/components/schemas/Tile"
           }
         }
+      },
+      "UnpublishedPlace" : {
+        "type" : "object",
+        "properties" : {
+          "location" : {
+            "type" : "string"
+          },
+          "locationLabel" : {
+            "type" : "string"
+          }
+        },
+        "required" : [ "location", "locationLabel" ]
       },
       "UpdateApplicationRequest" : {
         "type" : "object",

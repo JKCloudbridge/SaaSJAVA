@@ -19,6 +19,7 @@ const OPTIONS = {
           { value: "QLT", label: "Quality", configured: false },
         ],
       },
+      { value: "PLANT2", label: "Plant 2", departments: [{ value: "PRD", label: "Production", configured: true }] },
       { value: "HEAD", label: "Head office", departments: [{ value: "HR", label: "Human resources", configured: true }] },
     ],
   },
@@ -52,12 +53,22 @@ function view(extra: Partial<TemplateLifecycleView> = {}): TemplateLifecycleView
     canSubmit: true,
     canSetOptions: true,
     footerDate: false,
+    limitedToSuggested: false,
+    noPlaceLeft: false,
+    unpublishedPlaces: [],
     ...extra,
   };
 }
 
-/** The tick boxes of the departments of the chosen location, not the two sheet options. */
-const departmentBoxes = () => within(screen.getByRole("group", { name: "Departments" })).queryAllByRole("checkbox");
+const published = (location: string, locationLabel: string, department: string, departmentLabel: string, versionNo = 3) => ({
+  location,
+  department,
+  locationLabel,
+  departmentLabel,
+  versionNo,
+  publishedAt: "2026-10-22T09:00:00Z",
+  groupAvailable: true,
+});
 
 function draw(lifecycle = view()) {
   const onDone = vi.fn();
@@ -66,52 +77,56 @@ function draw(lifecycle = view()) {
   return { onDone, onClose };
 }
 
-/** Chooses the location, ticks the departments by their words, and adds them to the list. */
+/** The header button of a location's section. */
+const header = async (name: string) => screen.findByRole("button", { name: new RegExp(name) });
+
+/** Opens the section of a location and ticks the departments by their words, directly. */
 async function choose(location: string, ...departments: string[]) {
-  fireEvent.change(await screen.findByLabelText("Location"), { target: { value: location } });
+  const button = await header(location);
+  if (button.getAttribute("aria-expanded") !== "true") {
+    fireEvent.click(button);
+  }
   for (const department of departments) {
     fireEvent.click(screen.getByRole("checkbox", { name: new RegExp(`^${department}`) }));
   }
-  fireEvent.click(screen.getByRole("button", { name: "Add the ticked departments" }));
 }
 
+const sentBody = (calls: { key: string; body?: string }[]) =>
+  JSON.parse(calls.filter((call) => call.key.endsWith("/publish")).at(-1)?.body ?? "null") as unknown;
+
 describe("the publish dialog", () => {
-  it("asks for the location first and offers a tick box for each department of it", async () => {
+  it("shows one section for each location with its status, and a column of tick boxes under an open one", async () => {
     fakeApi({ "GET /api/v1/templates/audience-options": () => json(OPTIONS) });
     draw();
 
-    await screen.findByLabelText("Location");
-    expect(departmentBoxes()).toHaveLength(0);
-    expect(screen.getByText("Choose a location first.")).toBeInTheDocument();
+    expect(await header("Plant 1")).toHaveAttribute("aria-expanded", "false");
+    expect(await header("Plant 2")).toHaveTextContent("None chosen");
+    expect(await header("Head office")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Add the ticked departments" })).toBeNull();
+    expect(screen.queryByLabelText("Location")).toBeNull();
 
-    fireEvent.change(screen.getByLabelText("Location"), { target: { value: "PLANT1" } });
-    expect(departmentBoxes().map((box) => box.parentElement?.textContent?.trim())).toEqual([
+    fireEvent.click(await header("Plant 1"));
+    const group = screen.getByRole("group", { name: "Departments of Plant 1" });
+    expect(within(group).getAllByRole("checkbox").map((box) => box.parentElement?.textContent?.trim())).toEqual([
       "Production",
       "Quality (no group set up yet)",
     ]);
-
-    fireEvent.change(screen.getByLabelText("Location"), { target: { value: "HEAD" } });
-    expect(departmentBoxes().map((box) => box.parentElement?.textContent?.trim())).toEqual([
-      "Human resources",
-    ]);
   });
 
-  it("adds every ticked department at once, then another location, with one Publish at the end", async () => {
+  it("ticks directly across locations and publishes once, in the order of the organization's lists", async () => {
     const calls = fakeApi({
       "GET /api/v1/templates/audience-options": () => json(OPTIONS),
-      [`POST /api/v1/templates/${ID}/publish`]: () => json({ data: view({ audience: [] }) }),
+      [`POST /api/v1/templates/${ID}/publish`]: () => json({ data: view() }),
     });
     const { onDone } = draw();
 
-    await choose("PLANT1", "Production", "Quality");
-    expect(screen.getByText("Plant 1 · Production")).toBeInTheDocument();
-    expect(screen.getByText("Plant 1 · Quality")).toBeInTheDocument();
-    await choose("HEAD", "Human resources");
+    await choose("Head office", "Human resources");
+    await choose("Plant 1", "Production", "Quality");
+    expect(screen.getByTestId("publish-summary")).toHaveTextContent("Publishing to 2 locations, 3 departments.");
     fireEvent.click(screen.getByRole("button", { name: "Publish" }));
 
     await waitFor(() => expect(onDone).toHaveBeenCalledTimes(1));
-    const sent = JSON.parse(calls.filter((call) => call.key.endsWith("/publish")).at(-1)?.body ?? "null") as unknown;
-    expect(sent).toEqual({
+    expect(sentBody(calls)).toEqual({
       versionNo: 2,
       viewOnly: false,
       allowDownload: false,
@@ -124,22 +139,19 @@ describe("the publish dialog", () => {
     expect(calls.filter((call) => call.key.endsWith("/publish"))).toHaveLength(1);
   });
 
-  it("will not publish to nobody, shows a department already in the list ticked and disabled, and adds it once", async () => {
+  it("will not publish to nobody and says why beside the button", async () => {
     fakeApi({ "GET /api/v1/templates/audience-options": () => json(OPTIONS) });
     draw();
 
-    expect(await screen.findByRole("button", { name: "Publish" })).toBeDisabled();
-    expect(screen.getByText(/No department is chosen yet/)).toBeInTheDocument();
-    await choose("PLANT1", "Production");
-    const box = screen.getByRole("checkbox", { name: /^Production/ });
-    expect(box).toBeChecked();
-    expect(box).toBeDisabled();
-    expect(screen.getByRole("button", { name: "Add the ticked departments" })).toBeDisabled();
-    expect(screen.getAllByText("Plant 1 · Production")).toHaveLength(1);
+    await header("Plant 1");
+    expect(screen.getByRole("button", { name: "Publish" })).toBeDisabled();
+    expect(screen.getByTestId("publish-why-disabled")).toHaveTextContent("Tick at least one department to publish.");
+    await choose("Plant 1", "Production");
     expect(screen.getByRole("button", { name: "Publish" })).toBeEnabled();
+    expect(screen.queryByTestId("publish-why-disabled")).toBeNull();
   });
 
-  it("names the pair that cannot be published to, in the API's words, and keeps what was chosen", async () => {
+  it("names the pair that cannot be published to, in the API's words, and keeps what was ticked", async () => {
     fakeApi({
       "GET /api/v1/templates/audience-options": () => json(OPTIONS),
       [`POST /api/v1/templates/${ID}/publish`]: () =>
@@ -155,18 +167,17 @@ describe("the publish dialog", () => {
         ),
     });
     const { onDone } = draw();
-    await choose("PLANT1", "Production", "Quality");
+    await choose("Plant 1", "Production", "Quality");
 
     fireEvent.click(screen.getByRole("button", { name: "Publish" }));
 
     const refused = await screen.findByTestId("publish-refused");
     expect(refused).toHaveTextContent("Plant 1 · Quality: No group is set up for this department yet.");
     expect(onDone).not.toHaveBeenCalled();
-    expect(screen.getByText("Plant 1 · Production")).toBeInTheDocument();
-    expect(screen.getByText("Plant 1 · Quality")).toBeInTheDocument();
+    expect(screen.getByRole("checkbox", { name: /^Quality/ })).toBeChecked();
   });
 
-  it("starts from the audience the template already has, and says the revision stays when only the audience changes", async () => {
+  it("starts with what is already published ticked and marked, and says what unticking will take back", async () => {
     fakeApi({ "GET /api/v1/templates/audience-options": () => json(OPTIONS) });
     draw(
       view({
@@ -179,25 +190,21 @@ describe("the publish dialog", () => {
           retiredVersion: 0,
           highestVersion: 3,
         },
-        audience: [
-          {
-            location: "PLANT1",
-            department: "PRD",
-            locationLabel: "Plant 1",
-            departmentLabel: "Production",
-            versionNo: 3,
-            publishedAt: "2026-10-22T09:00:00Z",
-            groupAvailable: true,
-          },
-        ],
+        audience: [published("PLANT1", "Plant 1", "PRD", "Production")],
       }),
     );
 
-    expect(await screen.findByText("Plant 1 · Production")).toBeInTheDocument();
-    expect(screen.getByText(/Revision 02 stays in use/)).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "Remove Plant 1 · Production" }));
-    expect(screen.queryByText("Plant 1 · Production")).toBeNull();
-    expect(screen.getByRole("button", { name: "Publish" })).toBeDisabled();
+    expect(await screen.findByText(/Revision 02 stays in use/)).toBeInTheDocument();
+    expect(await header("Plant 1")).toHaveTextContent("Published");
+    expect(await header("Plant 1")).toHaveAttribute("aria-expanded", "true");
+    const box = screen.getByRole("checkbox", { name: /^Production/ });
+    expect(box).toBeChecked();
+    expect(within(box.closest("label") as HTMLElement).getByText("Published")).toBeInTheDocument();
+    fireEvent.click(box);
+    expect(screen.getByTestId("publish-summary")).toHaveTextContent("Nothing is chosen yet.");
+    expect(await header("Plant 1")).toHaveTextContent("Will be taken back");
+    fireEvent.click(screen.getByRole("checkbox", { name: /^Quality/ }));
+    expect(screen.getByTestId("publish-summary")).toHaveTextContent("Will be taken back: 1.");
   });
 
   it("says which version replaces which", async () => {
@@ -237,6 +244,20 @@ describe("the publish dialog", () => {
     expect(onClose).toHaveBeenCalledTimes(1);
     expect(calls.some((call) => call.key.endsWith("/publish"))).toBe(false);
   });
+
+  it("moves between the headers with the arrow keys", async () => {
+    fakeApi({ "GET /api/v1/templates/audience-options": () => json(OPTIONS) });
+    draw();
+
+    const first = await header("Plant 1");
+    first.focus();
+    fireEvent.keyDown(first, { key: "ArrowDown" });
+    expect(await header("Plant 2")).toHaveFocus();
+    fireEvent.keyDown(await header("Plant 2"), { key: "End" });
+    expect(await header("Head office")).toHaveFocus();
+    fireEvent.keyDown(await header("Head office"), { key: "Home" });
+    expect(first).toHaveFocus();
+  });
 });
 
 describe("the sheet options of the publish dialog (FA7)", () => {
@@ -257,14 +278,13 @@ describe("the sheet options of the publish dialog (FA7)", () => {
     });
     const { onDone } = draw();
 
-    await choose("PLANT1", "Production");
+    await choose("Plant 1", "Production");
     fireEvent.click(screen.getByRole("checkbox", { name: "View only" }));
     fireEvent.click(screen.getByRole("checkbox", { name: "Allow download" }));
     fireEvent.click(screen.getByRole("button", { name: "Publish" }));
 
     await waitFor(() => expect(onDone).toHaveBeenCalledTimes(1));
-    const sent = JSON.parse(calls.filter((call) => call.key.endsWith("/publish")).at(-1)?.body ?? "null") as unknown;
-    expect(sent).toEqual({
+    expect(sentBody(calls)).toEqual({
       versionNo: 2,
       viewOnly: true,
       allowDownload: true,
@@ -282,98 +302,141 @@ describe("the sheet options of the publish dialog (FA7)", () => {
   });
 });
 
-describe("the publish dialog with a suggestion made at approval", () => {
-  it("starts from the suggested departments, which the person may change, and says where they came from", async () => {
+describe("the publish dialog with locations chosen at approval (FA15)", () => {
+  const SUGGESTED = [
+    { location: "PLANT1", locationLabel: "Plant 1", department: "PRD", departmentLabel: "Production" },
+    { location: "PLANT2", locationLabel: "Plant 2" },
+  ];
+
+  it("lists every suggested location first, marked, with its departments pre-ticked as hints and the gap said", async () => {
     const calls = fakeApi({
       "GET /api/v1/templates/audience-options": () => json(OPTIONS),
       [`POST /api/v1/templates/${ID}/publish`]: () => json({ data: view() }),
     });
-    const { onDone } = draw(
+    const { onDone } = draw(view({ suggestedAudience: SUGGESTED }));
+
+    expect(await screen.findByTestId("publish-suggested")).toBeInTheDocument();
+    expect(await header("Plant 1")).toHaveTextContent("Chosen by Corporate QMS");
+    expect(await header("Plant 1")).toHaveTextContent("1 of 2 departments");
+    expect(await header("Plant 2")).toHaveTextContent("No department yet");
+    expect(screen.getByText("Places Corporate QMS chose")).toBeInTheDocument();
+    expect(screen.getByText("Other locations")).toBeInTheDocument();
+    expect(screen.getByTestId("publish-gaps")).toHaveTextContent("Not published yet: Plant 2.");
+    expect(screen.getByTestId("publish-summary")).toHaveTextContent(
+      "Publishing to 1 location, 1 department. Not yet chosen: Plant 2.",
+    );
+    expect(screen.getByRole("checkbox", { name: /^Production/ })).toBeChecked();
+
+    fireEvent.click(screen.getByRole("button", { name: "Publish" }));
+    await waitFor(() => expect(onDone).toHaveBeenCalledTimes(1));
+    expect(sentBody(calls)).toMatchObject({ audiences: [{ location: "PLANT1", department: "PRD" }] });
+  });
+
+  it("keeps what is published and lets a second publish add a location without taking the first back", async () => {
+    const calls = fakeApi({
+      "GET /api/v1/templates/audience-options": () => json(OPTIONS),
+      [`POST /api/v1/templates/${ID}/publish`]: () => json({ data: view() }),
+    });
+    draw(
       view({
-        suggestedAudience: [
-          { location: "PLANT1", locationLabel: "Plant 1", department: "PRD", departmentLabel: "Production" },
-        ],
+        suggestedAudience: SUGGESTED,
+        audience: [published("PLANT1", "Plant 1", "PRD", "Production")],
+        unpublishedPlaces: [{ location: "PLANT2", locationLabel: "Plant 2" }],
       }),
     );
 
-    expect(await screen.findByTestId("publish-suggested")).toBeInTheDocument();
-    expect(await screen.findByText("Plant 1 · Production")).toBeInTheDocument();
-    await choose("PLANT1", "Quality");
+    await choose("Plant 2", "Production");
     fireEvent.click(screen.getByRole("button", { name: "Publish" }));
 
-    await waitFor(() => expect(onDone).toHaveBeenCalledTimes(1));
-    const sent = JSON.parse(calls.filter((call) => call.key.endsWith("/publish")).at(-1)?.body ?? "null") as unknown;
-    expect(sent).toEqual({
-      versionNo: 2,
-      viewOnly: false,
-      allowDownload: false,
+    await waitFor(() => expect(calls.some((call) => call.key.endsWith("/publish"))).toBe(true));
+    expect(sentBody(calls)).toMatchObject({
       audiences: [
         { location: "PLANT1", department: "PRD" },
-        { location: "PLANT1", department: "QLT" },
+        { location: "PLANT2", department: "PRD" },
       ],
     });
   });
 
-  it("has the suggested location chosen but cannot publish until a department is added", async () => {
-    fakeApi({ "GET /api/v1/templates/audience-options": () => json(OPTIONS) });
-    draw(view({ suggestedAudience: [{ location: "PLANT1", locationLabel: "Plant 1" }] }));
+  it("shows a limited publisher only the chosen locations, notes what is published elsewhere and never sends it", async () => {
+    const calls = fakeApi({
+      "GET /api/v1/templates/audience-options": () => json(OPTIONS),
+      [`POST /api/v1/templates/${ID}/publish`]: () => json({ data: view() }),
+    });
+    draw(
+      view({
+        limitedToSuggested: true,
+        suggestedAudience: SUGGESTED,
+        audience: [published("HEAD", "Head office", "HR", "Human resources")],
+      }),
+    );
 
-    const location = (await screen.findByLabelText("Location")) as HTMLSelectElement;
-    expect(location.value).toBe("PLANT1");
-    expect(screen.getByRole("button", { name: "Publish" })).toBeDisabled();
-    fireEvent.click(screen.getByRole("checkbox", { name: /^Production/ }));
-    fireEvent.click(screen.getByRole("button", { name: "Add the ticked departments" }));
-    expect(screen.getByRole("button", { name: "Publish" })).toBeEnabled();
+    expect(await header("Plant 1")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Head office/ })).toBeNull();
+    expect(screen.queryByText("Other locations")).toBeNull();
+    expect(screen.getByTestId("publish-elsewhere")).toHaveTextContent("Head office · Human resources");
+    expect(screen.getByTestId("publish-suggested")).toHaveTextContent("You can publish to the locations chosen");
+    expect(screen.getByRole("checkbox", { name: /^Production/ })).toBeChecked();
+    fireEvent.click(screen.getByRole("button", { name: "Publish" }));
+
+    await waitFor(() => expect(calls.some((call) => call.key.endsWith("/publish"))).toBe(true));
+    expect(sentBody(calls)).toMatchObject({ audiences: [{ location: "PLANT1", department: "PRD" }] });
   });
 
-  it("says in plain words that suggested places are no longer offered", async () => {
-    fakeApi({ "GET /api/v1/templates/audience-options": () => json(OPTIONS) });
-    draw(view({ suggestionDropped: 2 }));
+  it("names a refused location by its place, in the server's words", async () => {
+    fakeApi({
+      "GET /api/v1/templates/audience-options": () => json(OPTIONS),
+      [`POST /api/v1/templates/${ID}/publish`]: () =>
+        json(
+          {
+            error: {
+              code: "VALIDATION_ERROR",
+              message: "The request is not valid.",
+              fields: { "audiences[0]": ["This location was not chosen for this document."] },
+            },
+          },
+          422,
+        ),
+    });
+    draw(view({ suggestedAudience: SUGGESTED }));
+    await header("Plant 1");
 
-    expect(await screen.findByTestId("publish-suggestion-dropped")).toHaveTextContent(
+    fireEvent.click(screen.getByRole("button", { name: "Publish" }));
+
+    expect(await screen.findByTestId("publish-refused")).toHaveTextContent(
+      "Plant 1 · Production: This location was not chosen for this document.",
+    );
+  });
+
+  it("offers a person who may publish anywhere every location, the chosen ones first", async () => {
+    fakeApi({ "GET /api/v1/templates/audience-options": () => json(OPTIONS) });
+    draw(view({ suggestedAudience: SUGGESTED, limitedToSuggested: false }));
+
+    await header("Plant 1");
+    const names = screen.getAllByRole("button").map((button) => button.textContent ?? "");
+    const order = ["Plant 1", "Plant 2", "Head office"].map((name) => names.findIndex((text) => text.includes(name)));
+    expect(order).toEqual([...order].sort((a, b) => a - b));
+    expect(order.every((at) => at >= 0)).toBe(true);
+    expect(await header("Head office")).not.toHaveTextContent("Chosen by Corporate QMS");
+  });
+
+  it("cannot publish when no chosen place is offered any more", async () => {
+    fakeApi({ "GET /api/v1/templates/audience-options": () => json(OPTIONS) });
+    draw(view({ limitedToSuggested: true, noPlaceLeft: true, suggestionDropped: 2 }));
+
+    expect(await screen.findByTestId("publish-no-place-left")).toHaveTextContent("No location chosen for this document");
+    expect(screen.getByRole("button", { name: "Publish" })).toBeDisabled();
+    expect(screen.getByTestId("publish-suggestion-dropped")).toHaveTextContent(
       "2 suggested places are no longer offered and were left out.",
     );
-    expect(screen.queryByTestId("publish-suggested")).not.toBeInTheDocument();
   });
 
   it("starts from the audience the template already has when nothing was suggested", async () => {
     fakeApi({ "GET /api/v1/templates/audience-options": () => json(OPTIONS) });
-    draw(
-      view({
-        audience: [
-          {
-            location: "HEAD",
-            department: "HR",
-            locationLabel: "Head office",
-            departmentLabel: "Human resources",
-            versionNo: 1,
-            publishedAt: "2026-10-24T08:00:00Z",
-            groupAvailable: true,
-          },
-        ],
-      }),
-    );
+    draw(view({ audience: [published("HEAD", "Head office", "HR", "Human resources", 1)] }));
 
-    expect(await screen.findByText("Head office · Human resources")).toBeInTheDocument();
+    expect(await header("Head office")).toHaveTextContent("Published");
     expect(screen.queryByTestId("publish-suggested")).not.toBeInTheDocument();
-  });
-});
-
-describe("the publish dialog when departments were suggested", () => {
-  it("has the suggested location chosen and its suggested departments shown ticked", async () => {
-    fakeApi({ "GET /api/v1/templates/audience-options": () => json(OPTIONS) });
-    draw(
-      view({
-        suggestedAudience: [
-          { location: "PLANT1", locationLabel: "Plant 1", department: "PRD", departmentLabel: "Production" },
-        ],
-      }),
-    );
-
-    const location = (await screen.findByLabelText("Location")) as HTMLSelectElement;
-    expect(location.value).toBe("PLANT1");
-    expect(screen.getByRole("checkbox", { name: /^Production/ })).toBeChecked();
-    expect(screen.getByRole("button", { name: "Publish" })).toBeEnabled();
+    expect(screen.queryByText("Other locations")).toBeNull();
   });
 });
 
@@ -397,20 +460,15 @@ describe("the publish dialog of an application that publishes to places alone", 
     });
     const { onDone } = draw();
 
-    const places = await screen.findByTestId("publish-places");
+    fireEvent.click(await header("Plant 2"));
+    expect(screen.getByRole("checkbox", { name: "Plant 2 (no group set up yet)" })).toBeInTheDocument();
     expect(screen.queryByLabelText("Location")).toBeNull();
-    expect(screen.queryByRole("group", { name: "Departments" })).toBeNull();
-    expect(within(places).getAllByRole("checkbox").map((box) => box.parentElement?.textContent?.trim())).toEqual([
-      "Plant 1",
-      "Plant 2 (no group set up yet)",
-    ]);
-
-    fireEvent.click(within(places).getByRole("checkbox", { name: /^Plant 1/ }));
+    await choose("Plant 1");
+    fireEvent.click(screen.getByRole("checkbox", { name: "Plant 1" }));
     fireEvent.click(screen.getByRole("button", { name: "Publish" }));
 
     await waitFor(() => expect(onDone).toHaveBeenCalledTimes(1));
-    const sent = JSON.parse(calls.filter((call) => call.key.endsWith("/publish")).at(-1)?.body ?? "null") as unknown;
-    expect(sent).toEqual({
+    expect(sentBody(calls)).toEqual({
       versionNo: 2,
       viewOnly: false,
       allowDownload: false,
@@ -422,10 +480,10 @@ describe("the publish dialog of an application that publishes to places alone", 
     fakeApi({ "GET /api/v1/templates/audience-options": () => json(PLACES) });
     draw();
 
-    const places = await screen.findByTestId("publish-places");
+    await choose("Plant 1");
     const publish = screen.getByRole("button", { name: "Publish" });
     expect(publish).toBeDisabled();
-    const one = within(places).getByRole("checkbox", { name: /^Plant 1/ });
+    const one = screen.getByRole("checkbox", { name: "Plant 1" });
     fireEvent.click(one);
     expect(publish).toBeEnabled();
     fireEvent.click(one);

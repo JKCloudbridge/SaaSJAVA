@@ -174,6 +174,16 @@ public enum Ability {
                     + "is never given to another record."),
 
     /**
+     * Publish a template to any location, whatever the approval step suggested (FA15, ADR-0265). Without it a person
+     * who holds {@link #SHEETS_PUBLISH} may publish only to the locations the step of the review chose, when it chose
+     * some. It adds to {@link #SHEETS_PUBLISH} and does not replace it: the act still needs both.
+     */
+    SHEETS_PUBLISH_ANY_LOCATION("sheets.publish-any-location", "Publish to any location",
+            "Publish a template to any location and department, also to a location the approval did not choose. "
+                    + "It works together with the ability to publish; without it, a publisher is limited to the "
+                    + "locations chosen in the approval."),
+
+    /**
      * Start a fill-in of a published sheet (FF1, ADR-0192): type into the cells the sheet marks as input, in a fill-in
      * of one's own. It is an ability and not the right to create records because a fill-in's header is made by the
      * platform together with its cells; nobody makes one through the record screens. The sheet must be visible to the

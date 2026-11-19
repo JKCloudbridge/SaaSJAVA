@@ -60,6 +60,17 @@ type TabId = (typeof TABS)[number]["id"];
 
 const recordHref = (object: string, id: string) => `/records/${object}/${id}`;
 
+/** The audience grouped by location, in the order the server sent it (FA15, ADR-0265). Presentation only. */
+function groupByLocation(audience: TemplateLifecycleView["audience"]) {
+  const groups = new Map<string, { location: string; label: string; entries: TemplateLifecycleView["audience"] }>();
+  for (const entry of audience) {
+    const group = groups.get(entry.location) ?? { location: entry.location, label: entry.locationLabel, entries: [] };
+    group.entries.push(entry);
+    groups.set(entry.location, group);
+  }
+  return [...groups.values()];
+}
+
 /**
  * One template (Functional track FA3, FA4, UI3): a title with its status, the buttons that fit the member in the title
  * band (Edit on the Details tab, Submit for approval or Approve and Reject, Publish, and a "more" menu for the rare
@@ -432,12 +443,14 @@ export function TemplateDetail({ id, onBack }: { id: string; onBack: () => void 
                   <DetailSection title="Published to" stack>
                     {view && view.audience.length > 0 ? (
                       <ul aria-label="Published to" className="stack" data-testid="audience">
-                        {view.audience.map((entry) => (
-                          <li key={`${entry.location}/${entry.department}`}>
-                            {entry.locationLabel} · {entry.departmentLabel}{" "}
+                        {groupByLocation(view.audience).map((group) => (
+                          <li key={group.location}>
+                            {group.label} ·{" "}
+                            {group.entries
+                              .map((entry) => entry.departmentLabel + (entry.groupAvailable ? "" : " (its group no longer exists)"))
+                              .join(", ")}{" "}
                             <span className="hint">
-                              {revisionWords(entry.versionNo).toLowerCase()}
-                              {entry.groupAvailable ? "" : ", its group no longer exists"}
+                              {[...new Set(group.entries.map((entry) => revisionWords(entry.versionNo).toLowerCase()))].join(", ")}
                             </span>
                           </li>
                         ))}
@@ -447,6 +460,15 @@ export function TemplateDetail({ id, onBack }: { id: string; onBack: () => void 
                         Not published to any department.
                       </p>
                     )}
+                    {view && view.unpublishedPlaces.length > 0 ? (
+                      <ul aria-label="Not published yet" className="stack" data-testid="audience-gaps">
+                        {view.unpublishedPlaces.map((place) => (
+                          <li key={place.location}>
+                            {place.locationLabel} <Tag>Not published yet</Tag>
+                          </li>
+                        ))}
+                      </ul>
+                    ) : null}
                   </DetailSection>
                   <ApprovalCard approval={decisions} recordVersion={record.record.version} actions={false} steps={false} />
                   {decisions.panel && !decisions.panel.available && mayAdminister ? (

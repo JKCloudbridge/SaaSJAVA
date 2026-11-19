@@ -110,13 +110,29 @@ accessPolicies:
         read: [id, name, templateId, status, application, createdAt, updatedAt, ownerId, createdById, updatedById]
   - key: publisher
     name: Publisher
-    description: Publishes an approved template to departments, takes it back and retires it. Give it to the group that has the last word, for example Corporate QMS, or to Plant QMS in a flow with no Corporate step. Comes with the Quality Management System application and cannot be changed.
+    description: Publishes an approved template to the departments of the locations chosen in its approval, takes it back and retires it. When the approval chose no location it may publish to any. Give it to the plant group, for example Plant QMS. A group that publishes to any location holds Publisher anywhere instead. Comes with the Quality Management System application and cannot be changed.
     alsoAvailableWith: [document-management, management-core]
     objects:
       InspectionTemplate: [read, view-all]
     abilities:
       - sheets.publish
       - sheets.retire
+    fields:
+      InspectionTemplate:
+        read: [id, name, number, level, documentType, category, partA, partB, retired, revision, lastRevisedAt, application, createdAt, updatedAt, ownerId,
+                createdById, updatedById]
+  # FA15, ADR-0265: the same rights as the Publisher plus the one ability that lifts the limit to the locations chosen
+  # in the approval. For the group that chooses the locations and publishes anywhere, for example Corporate QMS.
+  - key: publisher-anywhere
+    name: Publisher anywhere
+    description: Publishes an approved template to any location and department, also to a location the approval did not choose, takes it back and retires it. Give it to the group that chooses the locations, for example Corporate QMS. Comes with the Quality Management System application and cannot be changed.
+    alsoAvailableWith: [document-management, management-core]
+    objects:
+      InspectionTemplate: [read, view-all]
+    abilities:
+      - sheets.publish
+      - sheets.retire
+      - sheets.publish-any-location
     fields:
       InspectionTemplate:
         read: [id, name, number, level, documentType, category, partA, partB, retired, revision, lastRevisedAt, application, createdAt, updatedAt, ownerId,

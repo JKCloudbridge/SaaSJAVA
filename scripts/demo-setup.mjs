@@ -148,10 +148,12 @@ const PEOPLE = [
   { email: "plant2-accounts@example.test", name: "Plant 2 Accounts User", groups: ["Plant 2 Accounts"] },
 ];
 // group -> the policies it holds ("List editor" is made here: it holds one ability and no right on data).
-// Publisher is the group with the last word: Plant QMS (FA6G). Corporate QMS approves and suggests where the template is
-// meant to be published; Plant QMS publishes, with that suggestion ready in the popup.
+// FA15 (ADR-0265): Corporate QMS approves, chooses the locations and may publish anywhere ("Publisher anywhere"); Plant QMS
+// publishes only inside the locations Corporate chose ("Publisher"), with that suggestion ready in the popup. This script
+// only adds policies, so a group made by an earlier run that still holds "Publisher" keeps it, which changes nothing:
+// the two policies add up and "Publisher anywhere" lifts the limit.
 const GROUP_POLICIES = {
-  "Corporate QMS": ["Approver"],
+  "Corporate QMS": ["Approver", "Publisher anywhere"],
   "Plant QMS": ["Approver", "List editor", "Publisher"],
   "Plant 1 HR": ["Author", "Reader", "Filler"],
   "Plant 1 Accounts": ["Author", "Reader", "Filler"],
@@ -215,7 +217,7 @@ const LEVEL_GROUP_POLICIES = {
   "Level 1": ["Filler", "Reader"],
   "Level 2": ["Author", "Filler", "Reader"],
   "Level 3": ["Approver", "Publisher", "Reader"],
-  "Level 4": ["Approver", "Publisher", "Reader"],
+  "Level 4": ["Approver", "Publisher anywhere", "Reader"],
   "Level 5": ["Observer"],
   // MC2A: the groups of plant heads that the Department group records of the fixed department point at, one per plant
   "Plant 1 plant heads": ["Filler", "Reader"],
