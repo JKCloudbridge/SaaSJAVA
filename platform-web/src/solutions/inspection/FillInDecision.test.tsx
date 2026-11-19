@@ -200,3 +200,43 @@ describe("a decision on a fill-in with cells that were typed and not saved", () 
     expect(server.cells).toEqual({ "r1:c2": "5" });
   });
 });
+
+describe("the reviewer's buttons on a fill-in made for a plant (one step, 2026-11-17)", () => {
+  const forPlant = {
+    [`GET ${RECORDS}/${FILL_ID}`]: () =>
+      json({
+        data: {
+          id: FILL_ID,
+          objectApiName: "InspectionFill",
+          ownerId: "0198f5c0-0000-7000-8000-000000000001",
+          fields: { name: "Plant activity", templateId: TEMPLATE_ID, status: "SUBMITTED", plant: "PLANT1", period: "2026-11" },
+          version: 2,
+          createdAt: "2026-10-23T08:00:00Z",
+          updatedAt: "2026-10-23T08:00:00Z",
+        },
+      }),
+  };
+
+  it("say Submit and Return, and Submit sends the approval that finishes the fill-in", async () => {
+    setUrl(`/apps/management-core/s-fill-ins?open=${FILL_ID}`);
+    const calls = page(newServer(), forPlant);
+    render(<FillInDetail id={FILL_ID} onBack={() => undefined} />);
+
+    expect(await screen.findByRole("button", { name: "Return" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Approve" })).toBeNull();
+    const form = await openApproval("Submit");
+    fireEvent.click(within(form).getByRole("button", { name: "Submit" }));
+
+    await waitFor(() => expect(order(calls)).toContain(APPROVE));
+  });
+
+  it("keep Approve and Reject on a fill-in that is not made for a plant", async () => {
+    setUrl(`/apps/inspection/s-fill-ins?open=${FILL_ID}`);
+    page(newServer());
+    render(<FillInDetail id={FILL_ID} onBack={() => undefined} />);
+
+    expect(await screen.findByRole("button", { name: "Approve" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Reject" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Submit" })).toBeNull();
+  });
+});

@@ -266,23 +266,34 @@ final class ManagementNumbers {
         return list;
     }
 
-    /** The Action plans of each plant by where they stand; rows that are not Action plans are ignored. */
-    static List<PlantPlans> plansByPlant(Collection<Row> plans, Map<String, String> labels, String notRecorded) {
+    /**
+     * The Action plans of each plant by where they stand, and the ones still owed: the fill-ins of {@code fills} that
+     * need an Action plan and that no Action plan of {@code plans} answers (2026-11-17). Rows of {@code plans} that are
+     * not Action plans are ignored; a plant that only owes one is listed too.
+     */
+    static List<PlantPlans> plansByPlant(Collection<Row> plans, Collection<Row> fills, Map<String, String> labels,
+            String notRecorded) {
         Map<String, long[]> counts = new TreeMap<>();
         for (Row row : plans) {
             if (!row.isPlan()) {
                 continue;
             }
-            long[] slot = counts.computeIfAbsent(row.plant() == null ? "" : row.plant(), key -> new long[3]);
+            long[] slot = counts.computeIfAbsent(row.plant() == null ? "" : row.plant(), key -> new long[4]);
             switch (row.status()) {
                 case SUBMITTED -> slot[1]++;
                 case APPROVED -> slot[2]++;
                 default -> slot[0]++;
             }
         }
+        Set<UUID> answered = answered(plans);
+        for (Row row : fills) {
+            if (!row.isPlan() && row.needsPlan() && row.plant() != null && !answered.contains(row.id())) {
+                counts.computeIfAbsent(row.plant(), key -> new long[4])[3]++;
+            }
+        }
         List<PlantPlans> list = new ArrayList<>();
         counts.forEach((plant, slot) -> list.add(new PlantPlans(plant, plant.isEmpty() ? notRecorded
-                : labels.getOrDefault(plant, plant), slot[0], slot[1], slot[2])));
+                : labels.getOrDefault(plant, plant), slot[0], slot[1], slot[2], slot[3])));
         list.sort(Comparator.comparing(PlantPlans::label).thenComparing(PlantPlans::plant));
         return list;
     }

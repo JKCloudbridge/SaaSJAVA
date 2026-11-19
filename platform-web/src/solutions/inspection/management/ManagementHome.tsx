@@ -292,18 +292,10 @@ function tilesOf(summary: ManagementSummary, links: ManagementLinks, filters: Ma
     label: "Waiting for review",
     value: formatCount(tile.value, tile.atLeast),
     empty: "",
-    hint: "Before the last step, in every month",
+    // The review is one step (2026-11-17): every fill-in sent and not yet submitted by its reviewer, in every month.
+    // The server no longer sends a tile for top management.
+    hint: "Sent, waiting for the reviewer's Submit, in every month",
     href: links.waiting("review", plant),
-    note: formNote,
-    attention: true,
-  }));
-  add(tiles.waitingForTopManagement, waitingFailed, "Waiting for top management", (tile) => ({
-    id: "waiting-top",
-    label: "Waiting for top management",
-    value: formatCount(tile.value, tile.atLeast),
-    empty: "",
-    hint: "At the last step, in every month",
-    href: links.waiting("top", plant),
     note: formNote,
     attention: true,
   }));
@@ -466,13 +458,13 @@ function Charts({
         <ChartCard
           testId="chart-plans"
           title="Action plans by plant"
-          note="Every month, as they stand now."
+          note="Owed: fill-ins of the months shown that scored below the limit and have no Action plan yet. The others: every month, as they stand now."
           loading={loading && !charts}
-          empty={emptyFor("action-plans", plans.length > 0, "No Action plan has been started yet.")}
+          empty={emptyFor("action-plans", plans.length > 0, "No Action plan is owed or has been started yet.")}
           table={{
             caption: "Action plans by plant",
-            columns: ["Plant", "Being written or returned", "Sent, waiting", "Approved"],
-            rows: plans.map((plant) => [plant.label, plant.open, plant.sent, plant.approved]),
+            columns: ["Plant", "Owed, not started", "Being written or returned", "Sent, waiting", "Approved"],
+            rows: plans.map((plant) => [plant.label, plant.owed ?? 0, plant.open, plant.sent, plant.approved]),
           }}
         >
           <PlansByPlant plants={plans} />

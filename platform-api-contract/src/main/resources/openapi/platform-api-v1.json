@@ -26012,6 +26012,10 @@
             "type" : "integer",
             "format" : "int64"
           },
+          "owed" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
           "plant" : {
             "type" : "string"
           },
@@ -26020,7 +26024,7 @@
             "format" : "int64"
           }
         },
-        "required" : [ "approved", "label", "open", "plant", "sent" ]
+        "required" : [ "approved", "label", "open", "owed", "plant", "sent" ]
       },
       "PlantPublicationState" : {
         "type" : "object",

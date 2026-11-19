@@ -6,7 +6,6 @@ import app.platform.data.DataRecord;
 import app.platform.sharedkernel.solution.ApplicationSettings;
 import app.platform.sharedkernel.solution.FillCorrections;
 import app.platform.sheets.FillLifecycle;
-import app.platform.sheets.FillStatus;
 import app.platformapi.QueryFilterNode;
 import java.math.BigDecimal;
 import java.util.HashMap;
@@ -125,19 +124,6 @@ class FillScores implements FillCorrections {
         } catch (NumberFormatException e) {
             return false;
         }
-    }
-
-    /**
-     * Whether the Action plan of a low-scoring fill-in has been sent: a fill-in that answers it exists and is sent or
-     * approved. A returned or draft Action plan has not been sent, so the low-scoring fill-in cannot be finished yet.
-     */
-    boolean actionPlanSent(String fillObject, UUID fillId) {
-        UUID plan = actionPlanOf(fillObject, fillId);
-        if (plan == null) {
-            return false;
-        }
-        FillLifecycle.Summary summary = fills.summaries(fillObject, List.of(plan)).get(plan);
-        return summary != null && (summary.status() == FillStatus.SUBMITTED || summary.status() == FillStatus.APPROVED);
     }
 
     /** The Action plan that answers a fill-in, or null when none was started. At most one can exist (unique link). */

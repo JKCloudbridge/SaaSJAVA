@@ -91,7 +91,9 @@ class ManagementHomeLogsAreCleanIT extends ManagementHomeSupport {
         for (Response refused : refusals) {
             assertThat(refused.status()).as(refused.body()).isEqualTo(400);
             for (String text : List.of(junkPlant, junkMonth, junkForm, "98")) {
-                assertThat(refused.body()).as("a refusal does not echo: " + text).doesNotContain(text);
+                // The answer carries a random request id and trace id: a short text such as "98" can sit inside one by chance.
+                String withoutIds = refused.body().replaceAll("\"(requestId|traceId)\":\"[^\"]*\"", "");
+                assertThat(withoutIds).as("a refusal does not echo: " + text).doesNotContain(text);
             }
         }
         for (String text : List.of(DISTINCT_SCORE, junkPlant, junkMonth, junkForm)) {

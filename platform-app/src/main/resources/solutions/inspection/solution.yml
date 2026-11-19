@@ -123,15 +123,20 @@ accessPolicies:
                 createdById, updatedById]
   - key: reader
     name: Reader
-    description: Reads the templates published to them. Comes with the Quality Management System application and cannot be changed.
+    description: Reads the templates published to them and the fill-ins shared with them, such as a fill-in they are asked to review. Comes with the Quality Management System application and cannot be changed.
     alsoAvailableWith: [document-management, management-core]
+    # 2026-11-17: fill-ins are private, so reading them reaches only those shared with the person: a reviewer chosen
+    # for a plant is given a read share of each fill-in they are asked to review, and needs this right to open it.
     objects:
       InspectionTemplate: [read]
+      InspectionFill: [read]
       InspectionChangeRequest: [read]
     fields:
       InspectionTemplate:
         read: [id, name, number, level, documentType, category, partA, partB, retired, revision, lastRevisedAt, application, createdAt, updatedAt, ownerId,
                 createdById, updatedById]
+      InspectionFill:
+        read: [id, name, templateId, status, application, plant, period, score, result, parentFill, createdAt, updatedAt, ownerId, createdById, updatedById]
       InspectionChangeRequest:
         read: [id, name, templateId, status, application, createdAt, updatedAt, ownerId, createdById, updatedById]
   - key: filler

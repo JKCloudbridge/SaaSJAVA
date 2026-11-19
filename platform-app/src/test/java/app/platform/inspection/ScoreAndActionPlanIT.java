@@ -2,6 +2,11 @@ package app.platform.inspection;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import app.platform.sharedkernel.notice.NoticeKind;
+import app.platform.sharedkernel.notice.NoticeRequest;
+import app.platform.sharedkernel.notice.Notices;
+import app.platform.tenant.TenantContext;
+import app.platform.tenant.TenantContexts;
 import app.platform.testsupport.PlatformIntegrationTest;
 import app.platform.testsupport.TestBrowser;
 import app.platform.testsupport.TestHttp.Response;
@@ -9,7 +14,9 @@ import com.jayway.jsonpath.JsonPath;
 import java.math.BigDecimal;
 import java.util.List;
 import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.test.context.TestPropertySource;
+import org.springframework.transaction.support.TransactionTemplate;
 
 /**
  * The score, the limit, the Action plan and the last step (MC2B, ADR-0261) through the real application, database and
@@ -17,7 +24,8 @@ import org.springframework.test.context.TestPropertySource;
  * header, a score equal to the limit passes and one below it needs an Action plan, the plant head's colleague (and no
  * one
  * of another plant) starts the Action plan from the low-scoring fill-in, it is reviewed by the reviewers of that plant
- * and not of another, the last step of a low-scoring fill-in is refused until the Action plan is sent, a score that
+ * and not of another, a reviewer's Submit finishes a low-scoring fill-in in a one-step review (the Action plan comes
+ * after it and no step waits for it, since 2026-11-17), a score that
  * cannot be calculated keeps the review open, a change of the limit in Setup is used by the next approval, and the
  * score never reaches a log.
  */
@@ -40,6 +48,15 @@ class ScoreAndActionPlanIT extends PlantsSupport {
             + "\"type\":\"text\"}],"
             + "\"headerRows\":[{\"id\":\"h1\"}],\"rows\":[{\"id\":\"r1\",\"label\":\"First\"}],"
             + "\"cells\":{\"h1:t\":{\"value\":\"Action plan\"}},\"merges\":[]}]}";
+
+    @Autowired
+    private Notices notices;
+
+    @Autowired
+    private TenantContexts contexts;
+
+    @Autowired
+    private TransactionTemplate transaction;
 
     private record Scored(Plants plants, String form) {
         TestBrowser creator() {
@@ -109,7 +126,36 @@ class ScoreAndActionPlanIT extends PlantsSupport {
     }
 
     @Test
-    void aScoreBelowTheLimitNeedsAnActionPlanThatTheLastStepWaitsForAndTheReviewersOfThePlantReview() {
+    void aReviewersSubmitFinishesAFillInBelowTheLimitInOneStepAndTheActionPlanComesAfterIt() {
+        Scored scored = scored();
+        Plants plants = scored.plants();
+        var approver = plants.world().approver().browser();
+        String oneStep = oneStepProcess(plants);
+        String fill = startedMonth(plants.head1().browser(), plants.template(), "PLANT1", "2026-03");
+        saved(plants.head1().browser(), fill, values("40", "100"));
+        String request = sent(plants.head1().browser(), fill, oneStep);
+
+        // The reviewer's Submit is the only decision: it ends the review although no Action plan exists yet.
+        assertThat(approve(plants.reviewerA().browser(), request).status()).isEqualTo(200);
+        assertThat(fillStatus(approver, fill)).isEqualTo("APPROVED");
+        assertThat(score(approver, fill)).isEqualByComparingTo("40.00");
+        assertThat(headerField(approver, fill, "result")).isEqualTo("ACTION_PLAN");
+        assertThat(notices(plants, "ACTION_PLAN_NEEDED")).as("the filler is told once").isEqualTo(1);
+        assertThat(tasks(approver)).as("top management is not asked").doesNotContain(request);
+
+        // The Action plan is started after the Submit, and its own review is one step too.
+        String start = FILL_INS + "/" + fill + "/action-plan";
+        Response made = plants.head1b().browser().postJson(start, "{}");
+        assertThat(made.status()).as(made.body()).isEqualTo(201);
+        String plan = JsonPath.read(made.body(), "$.data.fillId");
+        saved(plants.head1b().browser(), plan, three(row("r1", "\"t\":\"Fix the door\"")));
+        String planRequest = sent(plants.head1b().browser(), plan, oneStep);
+        assertThat(approve(plants.reviewerB().browser(), planRequest).status()).isEqualTo(200);
+        assertThat(fillStatus(approver, plan)).isEqualTo("APPROVED");
+    }
+
+    @Test
+    void aScoreBelowTheLimitNeedsAnActionPlanThatNoStepWaitsForAndTheReviewersOfThePlantReview() {
         Scored scored = scored();
         Plants plants = scored.plants();
         var approver = plants.world().approver().browser();
@@ -120,11 +166,11 @@ class ScoreAndActionPlanIT extends PlantsSupport {
         assertThat(headerField(approver, month[0], "result")).isEqualTo("ACTION_PLAN");
         assertThat(notices(plants, "ACTION_PLAN_NEEDED")).as("the filler is told once").isEqualTo(1);
 
-        // The last step is refused, in the engine's own conflict and the hook's words, until the Action plan is sent.
-        Response early = approve(approver, month[1]);
-        assertThat(early.status()).as(early.body()).isEqualTo(409);
-        assertThat(message(early)).contains("Action plan");
-        assertThat(fillStatus(approver, month[0])).isEqualTo("SUBMITTED");
+        // A process that still has a later step lets it decide without the Action plan (2026-11-17: nothing waits).
+        Response last = approve(approver, month[1]);
+        assertThat(last.status()).as(last.body()).isEqualTo(200);
+        assertThat(fillStatus(approver, month[0])).isEqualTo("APPROVED");
+        assertThat(notices(plants, "ACTION_PLAN_NEEDED")).as("still told once").isEqualTo(1);
 
         // Only a plant head of the plant may start it: not a plant head of another plant, not a reviewer.
         String start = FILL_INS + "/" + month[0] + "/action-plan";
@@ -143,8 +189,6 @@ class ScoreAndActionPlanIT extends PlantsSupport {
         assertThat(headerField(approver, plan, "period")).isEqualTo("2026-02");
         assertThat(headerStatus(approver, plan)).isEqualTo("DRAFT");
 
-        // The Action plan is not sent yet: the last step of the fill-in it answers still waits.
-        assertThat(approve(approver, month[1]).status()).isEqualTo(409);
         saved(plants.head1b().browser(), plan, three(row("r1", "\"t\":\"Fix the door\"")));
         String planRequest = sent(plants.head1b().browser(), plan, plants.process());
 
@@ -153,12 +197,58 @@ class ScoreAndActionPlanIT extends PlantsSupport {
         assertThat(tasks(plants.reviewerC().browser())).as("a reviewer of PLANT2").doesNotContain(planRequest);
         assertThat(fillView(plants.reviewerC().browser(), plan).status()).isEqualTo(404);
 
-        // Now the first fill-in can end, and so can the Action plan.
-        assertThat(approve(approver, month[1]).status()).isEqualTo(200);
-        assertThat(fillStatus(approver, month[0])).isEqualTo("APPROVED");
         assertThat(approve(plants.reviewerA().browser(), planRequest).status()).isEqualTo(200);
         assertThat(approve(approver, planRequest).status()).isEqualTo(200);
         assertThat(fillStatus(approver, plan)).isEqualTo("APPROVED");
+    }
+
+    @Test
+    void theActionPlanNoticeOpensTheFillInForThePlantHeadsAndForNobodyWhoCannotReadIt() {
+        Scored scored = scored();
+        Plants plants = scored.plants();
+        var approver = plants.world().approver().browser();
+        String[] month = month(plants, plants.head1(), "PLANT1", "2026-05", "80", "100");
+        assertThat(approve(plants.reviewerA().browser(), month[1]).status()).isEqualTo(200);
+        String page = "/apps/" + headerField(approver, month[0], "application") + "/s-fill-ins?open=" + month[0];
+
+        // The real notice, made by the Action plan code, opens the fill-in (it opened nothing before SH_6).
+        assertThat(opened(plants.head1().browser(), "ACTION_PLAN_NEEDED").href()).isEqualTo(page);
+
+        // A colleague of the same plant who may read the header is led to it too; a plant head of another plant, who
+        // cannot read it, gets the plain message.
+        tell(plants, plants.head1b(), month[0]);
+        tell(plants, plants.head2(), month[0]);
+        assertThat(opened(plants.head1b().browser(), "ACTION_PLAN_NEEDED").href()).isEqualTo(page);
+        Opened other = opened(plants.head2().browser(), "ACTION_PLAN_NEEDED");
+        assertThat(other.href()).isEqualTo("/notifications");
+        assertThat(other.explanation()).contains("no record you can open");
+    }
+
+    private record Opened(String href, String explanation) {
+    }
+
+    private void tell(Plants plants, Person person, String fill) {
+        contexts.call(TenantContext.of(plants.world().setting().organization().id()), () -> transaction.execute(
+                status -> notices.notify(new NoticeRequest(NoticeKind.ACTION_PLAN_NEEDED, person.member().person()
+                        .user().id(), "InspectionFill", java.util.UUID.fromString(fill),
+                        java.util.Map.of("event", "action-plan", "application", "management-core", "entry",
+                                "s-fill-ins"),
+                        "action-plan:" + fill))));
+    }
+
+    private static Opened opened(TestBrowser browser, String kind) {
+        Response list = browser.get("/api/v1/notifications");
+        List<String> ids = JsonPath.read(list.body(), "$.data[?(@.kind == '" + kind + "')].id");
+        assertThat(ids).isNotEmpty();
+        Response answer = browser.postJson("/api/v1/notifications/" + ids.getFirst() + "/open", "{}");
+        assertThat(answer.status()).as(answer.body()).isEqualTo(200);
+        String explanation = "";
+        try {
+            explanation = JsonPath.read(answer.body(), "$.data.explanation");
+        } catch (com.jayway.jsonpath.PathNotFoundException none) {
+            // a notice that opened has no explanation
+        }
+        return new Opened(JsonPath.read(answer.body(), "$.data.href"), explanation == null ? "" : explanation);
     }
 
     @Test

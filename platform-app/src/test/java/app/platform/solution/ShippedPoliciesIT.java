@@ -124,7 +124,8 @@ class ShippedPoliciesIT extends SolutionSupport {
                         FILL, List.of("modify-all", "read", "update", "view-all"),
                         REQUEST, List.of("modify-all", "read", "update", "view-all")),
                 "Publisher", Map.of(OBJECT, List.of("read", "view-all")),
-                "Reader", Map.of(OBJECT, List.of("read"), REQUEST, List.of("read")),
+                // 2026-11-17: Reader also reads the fill-ins shared with the person (a reviewer of a plant).
+                "Reader", Map.of(OBJECT, List.of("read"), FILL, List.of("read"), REQUEST, List.of("read")),
                 "Filler", Map.of(OBJECT, List.of("read"), FILL, List.of("read", "update"), REQUEST,
                         List.of("read")),
                 "Reviewer", Map.of(FILL, List.of("read", "view-all")),

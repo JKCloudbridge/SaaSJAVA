@@ -102,6 +102,14 @@ export interface SheetGridProps {
    * popup, so the grid opens no text box. Typing a key still starts the text box (a yes or a no can be typed).
    */
   openCell?: (rowId: string, columnId: string) => boolean;
+  /**
+   * The grid drawn as the form it is (SH_6, the View page of a fill-in): a sheet in format version 2 shows no band of column
+   * letters and no row numbers, only the sheet at its own widths. Typing, selection and keys are as ever. A sheet in
+   * version 1 keeps its named column headings, which are all the headings it has.
+   */
+  paper?: boolean;
+  /** Puts the focus on the grid when it is first drawn, so the keys work at once (the View page). */
+  autoFocus?: boolean;
 }
 
 /** The kinds an answer may have; anything else is shown as text. */
@@ -143,6 +151,8 @@ export function SheetGrid({
   formulaAnswers,
   formulaKinds,
   openCell,
+  paper = false,
+  autoFocus = false,
 }: SheetGridProps) {
   const { doc, rows, selection, rect } = editor;
   const gridId = useId();
@@ -183,7 +193,10 @@ export function SheetGrid({
   // The look (SH4): a sheet in format version 2 is drawn from what it states. A sheet in version 1 takes none of this.
   const looked = isLooked(doc);
   // A sheet in format version 2 has a band of row numbers at its left (SH5.1): every column starts after it.
-  const gutter = looked ? ROW_NUMBER_WIDTH : 0;
+  // A grid drawn as the form leaves out the letters and the numbers (SH_6): only a sheet that has them to leave out.
+  const bare = paper && looked;
+  const gutter = looked && !bare ? ROW_NUMBER_WIDTH : 0;
+  const band = bare ? 0 : LABEL_BAND_HEIGHT;
   const colLeft = useMemo(() => {
     let x = gutter;
     return [...doc.columns.map((column) => { const left = x; x += live && live.id === column.id ? live.width : (column.width ?? DEFAULT_COLUMN_WIDTH); return left; }), x];
@@ -205,7 +218,7 @@ export function SheetGrid({
     ? effectiveFreeze(readFreeze(doc.sheet?.freeze), rects, {
         rowHeights: rows.map(heightOf),
         columnWidths: doc.columns.map(widthOf),
-        viewHeight: Math.max(0, view.height - LABEL_BAND_HEIGHT),
+        viewHeight: Math.max(0, view.height - band),
         viewWidth: Math.max(0, view.width - gutter),
       })
     : { rows: 0, columns: 0 };
@@ -218,8 +231,8 @@ export function SheetGrid({
     getScrollElement: () => scrollRef.current,
     estimateSize: (i) => heightOf(at(rows, i)),
     overscan: 3,
-    paddingStart: LABEL_BAND_HEIGHT,
-    scrollPaddingStart: LABEL_BAND_HEIGHT + frozenHeight,
+    paddingStart: band,
+    scrollPaddingStart: band + frozenHeight,
     initialRect: { width: 800, height: 400 },
   });
   const columnVirtual = useVirtualizer({
@@ -285,6 +298,14 @@ export function SheetGrid({
       );
     }
   }, [measured]);
+
+  useEffect(() => {
+    if (autoFocus) {
+      scrollRef.current?.focus();
+    }
+    // only when the grid is first drawn
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   useEffect(() => {
     if (editing && inputRef.current) {
@@ -717,10 +738,10 @@ export function SheetGrid({
       <div
         key={row.id}
         role="row"
-        aria-rowindex={i + 2}
+        aria-rowindex={i + (bare ? 1 : 2)}
         aria-label={row.label || undefined}
         className={fixedRow ? (i === freeze.rows - 1 ? "sheet-row sheet-row-fixed sheet-row-fixed-last" : "sheet-row sheet-row-fixed") : "sheet-row"}
-        style={{ top: LABEL_BAND_HEIGHT + at(rowTop, i), height: heightOf(row), width: totalWidth }}
+        style={{ top: band + at(rowTop, i), height: heightOf(row), width: totalWidth }}
       >
         {fixedColumns.length > 0 || gutter > 0 ? (
           <div role="presentation" className="sheet-pane-left">
@@ -791,7 +812,7 @@ export function SheetGrid({
         role="grid"
         tabIndex={0}
         aria-label={label}
-        aria-rowcount={rows.length + 1 + footerLines.length}
+        aria-rowcount={rows.length + (bare ? 0 : 1) + footerLines.length}
         aria-colcount={doc.columns.length}
         aria-multiselectable="true"
         aria-readonly={readOnly}
@@ -815,28 +836,30 @@ export function SheetGrid({
           }
         }}
       >
-        <div className="sheet-canvas" style={{ width: totalWidth, height: LABEL_BAND_HEIGHT + totalHeight + footerHeight }}>
-          <div role="row" aria-rowindex={1} className="sheet-labels" style={{ height: LABEL_BAND_HEIGHT, width: totalWidth }}>
-            {fixedColumns.length > 0 || gutter > 0 ? (
-              <div role="presentation" className="sheet-pane-left">
-                {gutter > 0 ? (
-                  <div aria-hidden="true" className="sheet-corner" style={{ width: gutter, height: LABEL_BAND_HEIGHT }} />
-                ) : null}
-                {fixedColumns.map(renderLabel)}
-              </div>
-            ) : null}
-            {scrollingColumns.map(renderLabel)}
-          </div>
+        <div className="sheet-canvas" style={{ width: totalWidth, height: band + totalHeight + footerHeight }}>
+          {bare ? null : (
+            <div role="row" aria-rowindex={1} className="sheet-labels" style={{ height: LABEL_BAND_HEIGHT, width: totalWidth }}>
+              {fixedColumns.length > 0 || gutter > 0 ? (
+                <div role="presentation" className="sheet-pane-left">
+                  {gutter > 0 ? (
+                    <div aria-hidden="true" className="sheet-corner" style={{ width: gutter, height: LABEL_BAND_HEIGHT }} />
+                  ) : null}
+                  {fixedColumns.map(renderLabel)}
+                </div>
+              ) : null}
+              {scrollingColumns.map(renderLabel)}
+            </div>
+          )}
           {fixedRows.map((i) => renderRow(i, true))}
           {scrollingRows.map((i) => renderRow(i, false))}
           {footerLines.map((line, index) => (
             <div
               key={index}
               role="row"
-              aria-rowindex={rows.length + 2 + index}
+              aria-rowindex={rows.length + (bare ? 1 : 2) + index}
               className="sheet-footer"
               style={{
-                top: LABEL_BAND_HEIGHT + totalHeight + index * FOOTER_HEIGHT,
+                top: band + totalHeight + index * FOOTER_HEIGHT,
                 height: FOOTER_HEIGHT,
                 width: totalWidth,
               }}

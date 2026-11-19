@@ -139,3 +139,24 @@ place of the request (`plants[1]`, `plants[1].reviewers[0]`) and never the value
 - The process of Management Core fill-ins made by the demo setup carries the entry criteria `application = 'management-core' AND ISBLANK(parentFill)`,
   and a second process for Action plans carries `... AND NOT(ISBLANK(parentFill))`: the engine refuses two processes that both fit.
 - "What top management decides in the score" (the last step of the demo process) is answered by ADR-0261 decisions 5 and 6.
+
+## Note added 2026-11-17: a change of reviewers reaches a fill-in that is waiting
+
+The product owner chose a reviewer, the plant head sent the fill-in, and a minute later the reviewer was changed; the review still asked the first
+person, and the second could not reach it. Decision 6 ("a change never reaches a request already running") is replaced:
+
+- When the creator changes the reviewers of a plant, `PlantPublishing` finds the fill-ins of that document and plant that wait (and the Action plans
+  that answer them) and, in the same transaction, calls the shared-kernel seam `ApprovalRefresh`, which `ApprovalEngine` implements. For each pending
+  request whose **active** step has a `PUBLICATION_REVIEWERS` rule and needs one approval, the step is resolved again by the same rules as when it
+  became active (active member, licence, not the submitter, delegations, the fallback). A person no longer chosen loses their open task (`CLOSED`); a
+  person newly chosen gets an open task and the usual task notice; a person kept keeps theirs; a person whose task was closed this way gets it back
+  (one task per person and step, as the table requires). A task handed on (Reassign) or added by an administrator (Assign) is not touched.
+- The history writes `ASSIGNEE_DROPPED` and `ASSIGNED` with the reason `reviewers_changed` (existing kinds: no migration). Nobody left raises the
+  existing attention `no_approver`; a later change that asks somebody clears it. The audit record is `approval.reviewers.changed` with counts only.
+- The pure part is `ApprovalMachine.changeAsked`, held to the machine's invariants by a property test. A step that needs every person is left alone
+  (closing a task there could complete it without a decision).
+- **A reviewer can open the fill-in.** A fill-in is private and the reviewers hold no right to read every fill-in, so they held a task for a record they
+  could not open. When a fill-in is sent, and when the reviewers change while it waits, `ReviewerShares` gives each chosen reviewer (person or group) a
+  read share of that one header. The shipped **Reader** policy now reads fill-ins too (no view-all), so a reviewer who holds it opens the shared fill-in
+  and nothing else. The share is not taken back when a reviewer is removed.
+- Lock order unchanged: the document's lock, then each fill-in's row, then its request.

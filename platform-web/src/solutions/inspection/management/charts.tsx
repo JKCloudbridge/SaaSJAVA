@@ -1,7 +1,7 @@
 "use client";
 
-import { useId, type CSSProperties } from "react";
-import { ChartPatterns, Swatch } from "../home/ChartCard";
+import { type CSSProperties } from "react";
+import { Swatch } from "../home/ChartCard";
 import {
   formatScore,
   markOf,
@@ -126,7 +126,9 @@ function Marker({ mark, x, y, series, words }: { mark: Mark; x: number; y: numbe
   );
 }
 
-const DASHES = ["", "6 3", "2 3", "8 3 2 3", "1 4", "10 4"];
+// Solid lines in solid colours (owner's choice, 2026-11-17, Management Core only); the marker shape at each point still
+// tells the plants apart without colour.
+const DASHES = [""];
 
 /**
  * Lines of scores on a 0 to 100 scale, one for each series, with a month on the axis. A month with no score ends the
@@ -255,47 +257,55 @@ export function RankList({ plants }: { plants: readonly PlantScore[] }) {
 
 // ---- Action plans by plant: parts of a whole, side by side ----
 
+// The parts of a plant's Action plans, in the order they are drawn. "Owed" (2026-11-17) is a fill-in below the limit whose
+// Action plan was not started: the reviewer's Submit finishes the fill-in first, so "not filled" must be seen. It takes the
+// danger colour; the others take the series colours. Solid fills only.
 const PLAN_PARTS = [
-  { key: "open", label: "Being written or returned" },
-  { key: "sent", label: "Sent, waiting for a decision" },
-  { key: "approved", label: "Approved" },
+  { key: "owed", label: "Owed, not started", colour: "var(--color-danger)" },
+  { key: "open", label: "Being written or returned", colour: `var(--series-${seriesOf(0)})` },
+  { key: "sent", label: "Sent, waiting for a decision", colour: `var(--series-${seriesOf(1)})` },
+  { key: "approved", label: "Approved", colour: `var(--series-${seriesOf(2)})` },
 ] as const;
 
-/** One row for each plant: the Action plans it has, split by where they stand, with the numbers written out. */
+/** How many of a part a plant has; a server that does not send "owed" yet counts none. */
+function partOf(plant: PlantPlans, key: (typeof PLAN_PARTS)[number]["key"]): number {
+  return plant[key] ?? 0;
+}
+
+/** One row for each plant: its Action plans owed and the ones it has, split by where they stand, with the numbers written out. */
 export function PlansByPlant({ plants }: { plants: readonly PlantPlans[] }) {
-  const most = Math.max(1, ...plants.map((plant) => plant.open + plant.sent + plant.approved));
+  const totalOf = (plant: PlantPlans) => PLAN_PARTS.reduce((sum, part) => sum + partOf(plant, part.key), 0);
+  const most = Math.max(1, ...plants.map(totalOf));
   return (
     <div className="plan-stack" data-testid="plans-by-plant">
       <ul className="chart-legend chart-legend-inline" aria-label="Where an Action plan stands">
-        {PLAN_PARTS.map((part, index) => (
+        {PLAN_PARTS.map((part) => (
           <li key={part.key} className="chart-legend-row">
-            <Swatch index={index} solid />
+            <svg className="chart-swatch" viewBox="0 0 12 12" aria-hidden="true" focusable="false">
+              <rect width="12" height="12" rx="2" style={{ fill: part.colour }} />
+            </svg>
             <span className="chart-legend-name">{part.label}</span>
           </li>
         ))}
       </ul>
       <ul className="chart-bars">
         {plants.map((plant) => {
-          const total = plant.open + plant.sent + plant.approved;
+          const owed = partOf(plant, "owed");
           return (
-            <li key={plant.plant} className="chart-bar-row" tabIndex={0}
-              aria-label={`${plant.label}: ${plant.open} being written or returned, ${plant.sent} sent, ${plant.approved} approved`}>
+            <li key={plant.plant} className="chart-bar-row" tabIndex={0} data-testid={`plans-${plant.plant}`}
+              aria-label={`${plant.label}: ${owed} owed and not started, ${plant.open} being written or returned, ${plant.sent} sent, ${plant.approved} approved`}>
               <span className="chart-bar-label" title={plant.label}>
                 {plant.label}
               </span>
-              <span className="chart-bar-track plan-track" aria-hidden="true" style={{ width: `${(total / most) * 100}%` }}>
-                {PLAN_PARTS.map((part, index) =>
-                  plant[part.key] > 0 ? (
-                    <span
-                      key={part.key}
-                      className="plan-part"
-                      style={{ flexGrow: plant[part.key], background: `var(--series-${seriesOf(index)})` }}
-                    />
+              <span className="chart-bar-track plan-track" aria-hidden="true" style={{ width: `${(totalOf(plant) / most) * 100}%` }}>
+                {PLAN_PARTS.map((part) =>
+                  partOf(plant, part.key) > 0 ? (
+                    <span key={part.key} className="plan-part" style={{ flexGrow: partOf(plant, part.key), background: part.colour }} />
                   ) : null,
                 )}
               </span>
               <span className="chart-bar-value">
-                {plant.open} · {plant.sent} · {plant.approved}
+                {owed} · {plant.open} · {plant.sent} · {plant.approved}
               </span>
             </li>
           );
@@ -314,9 +324,11 @@ const STATUS_PARTS = [
   { key: "approved", label: "Approved" },
 ] as const;
 
-/** A column for each month, split by status, with patterns as well as colours and the total above the column. */
+/**
+ * A column for each month, split by status, in solid colours (owner's choice, 2026-11-17: no patterns in Management Core),
+ * the total above the column and every part in the column's words and the table view.
+ */
 export function StatusColumns({ months }: { months: readonly MonthStatus[] }) {
-  const prefix = `st${useId().replace(/[^a-zA-Z0-9]/g, "")}`;
   const totals = months.map((month) => month.draft + month.submitted + month.returned + month.approved);
   const top = Math.max(1, ...totals);
   const plotWidth = WIDTH - LEFT - RIGHT;
@@ -328,13 +340,12 @@ export function StatusColumns({ months }: { months: readonly MonthStatus[] }) {
       <ul className="chart-legend chart-legend-inline" aria-label="Status">
         {STATUS_PARTS.map((part, index) => (
           <li key={part.key} className="chart-legend-row">
-            <Swatch index={index} />
+            <Swatch index={index} solid />
             <span className="chart-legend-name">{part.label}</span>
           </li>
         ))}
       </ul>
       <svg viewBox={`0 0 ${WIDTH} ${HEIGHT}`} className="chart-svg" role="img" aria-label="Fill-ins of each month by status">
-        <ChartPatterns prefix={prefix} />
         <line x1={LEFT} x2={WIDTH - RIGHT} y1={TOP + plotHeight} y2={TOP + plotHeight} className="chart-grid" />
         {months.map((month, index) => {
           const x = LEFT + index * slot + (slot - width) / 2;
@@ -352,7 +363,7 @@ export function StatusColumns({ months }: { months: readonly MonthStatus[] }) {
                 const height = (value / top) * plotHeight;
                 const y = TOP + plotHeight - used - height;
                 used += height;
-                return <rect key={part.key} x={x} y={y} width={width} height={height} fill={`url(#${prefix}-${at})`} />;
+                return <rect key={part.key} x={x} y={y} width={width} height={height} style={{ fill: `var(--series-${seriesOf(at)})` }} />;
               })}
               {(totals[index] ?? 0) > 0 ? (
                 <text x={x + width / 2} y={TOP + plotHeight - used - 4} textAnchor="middle" className="chart-axis">

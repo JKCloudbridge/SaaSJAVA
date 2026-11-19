@@ -47,13 +47,15 @@ function serve(status = "DRAFT", canEdit = true) {
   });
 }
 
-// The View button on a fill-in: the print-style page with what the filler typed in the input cells.
+// The View button on a fill-in opens the View page (SH_6, tested in FillViewPage.test.tsx); Print on that page opens the print
+// drawing: the print-style page with what the filler typed in the input cells.
 describe("View on a fill-in", () => {
-  it("opens the print page with the typed values and the footer the caller gives", async () => {
+  it("opens the print drawing, from Print on the View page, with the typed values and the footer the caller gives", async () => {
     serve();
     render(<FillWorkspace owner={OWNER} label="Fire checks" footer="F/MR/16  Rev No.'02'" />);
 
     fireEvent.click(await screen.findByTestId("fill-view"));
+    fireEvent.click(await screen.findByRole("button", { name: "Print" }));
 
     const view = await screen.findByRole("dialog", { name: "View of Fire checks" });
     expect(within(view).getByText("12.5")).toBeInTheDocument();
@@ -67,20 +69,24 @@ describe("View on a fill-in", () => {
     render(<FillWorkspace owner={OWNER} label="Fire checks" footer={footer} />);
 
     fireEvent.click(await screen.findByTestId("fill-view"));
+    fireEvent.click(await screen.findByRole("button", { name: "Print" }));
 
     expect(await screen.findByTestId("sheet-print-footer")).toHaveTextContent("rev 3");
   });
 
-  it("is offered on a sent fill-in the person cannot edit, prints and closes again", async () => {
+  it("is offered on a sent fill-in the person cannot edit, prints, closes the drawing and goes back", async () => {
     serve("SUBMITTED", false);
     const print = vi.spyOn(window, "print").mockImplementation(() => undefined);
     render(<FillWorkspace owner={OWNER} label="Fire checks" />);
 
     fireEvent.click(await screen.findByTestId("fill-view"));
-    fireEvent.click(await screen.findByRole("button", { name: "Print" }));
+    fireEvent.click(await within(await screen.findByTestId("fill-view-page")).findByRole("button", { name: "Print" }));
+    fireEvent.click(await within(await screen.findByTestId("sheet-print-view")).findByRole("button", { name: "Print" }));
     expect(print).toHaveBeenCalledTimes(1);
     fireEvent.click(screen.getByRole("button", { name: "Close" }));
-
     expect(screen.queryByTestId("sheet-print-view")).toBeNull();
+
+    fireEvent.click(within(screen.getByTestId("fill-view-page")).getByRole("button", { name: "Back" }));
+    expect(screen.queryByTestId("fill-view-page")).toBeNull();
   });
 });

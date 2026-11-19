@@ -1,4 +1,4 @@
-import { configure, fireEvent, render, screen } from "@testing-library/react";
+import { configure, fireEvent, render, screen, within } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { fakeApi } from "@/test/fakeApi";
 import { FILL_OWNER, newServer, reviewerFill } from "@/test/reviewerFill";
@@ -61,11 +61,14 @@ describe("the stamp of a fill-in that was sent", () => {
     expect(screen.getByTestId("form-footer").textContent).toContain("Submitted by Plant head 1 on 17-Nov-2026");
   });
 
-  it("is the same for a person who may only read it, and shows View the same lines", async () => {
+  it("is the same for a person who may only read it, and shows the View page and its print drawing the same lines", async () => {
     await open(null, sent);
 
     expect(screen.getByTestId("sheet-footer-3")).toHaveTextContent("Submitted by Plant head 1 on 17-Nov-2026");
     fireEvent.click(screen.getByTestId("fill-view"));
+    const page = await screen.findByTestId("fill-view-page");
+    expect(within(page).getByTestId("sheet-footer-3")).toHaveTextContent("Submitted by Plant head 1 on 17-Nov-2026");
+    fireEvent.click(within(page).getByRole("button", { name: "Print" }));
     expect(screen.getByTestId("sheet-print-footer")).toHaveTextContent("F/MC/10 Rev No.'02'");
     expect(screen.getByTestId("sheet-print-footer-2")).toHaveTextContent("Publish date: 13-Nov-2026");
     expect(screen.getByTestId("sheet-print-footer-3")).toHaveTextContent("Submitted by Plant head 1 on 17-Nov-2026");

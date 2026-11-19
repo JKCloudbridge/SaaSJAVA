@@ -12,7 +12,8 @@ import org.springframework.test.context.TestPropertySource;
  * The reviewers chosen for a plant review its fill-ins and nobody else's (MC2A, ADR-0260), on a real PostgreSQL and the
  * real application: the approver rule {@code PUBLICATION_REVIEWERS} is resolved when the step becomes active, a person
  * and a group are both read (the group at that moment), a reviewer of another plant is asked nothing and reads nothing
- * through the list, the inbox or the fill-in itself, a change of reviewers never reaches a request already running, a
+ * through the list, the inbox or the fill-in itself, a change of reviewers reaches a fill-in already waiting (since
+ * 2026-11-17: the person taken off loses the task, the person added gets it and can open the fill-in), a
  * plant with nobody to ask refuses the send in the engine's words, an unlicensed reviewer is left out and a reviewer is
  * never asked to decide the fill-in they sent themselves.
  */
@@ -103,20 +104,98 @@ class PlantReviewersIT extends PlantsSupport {
         assertThat(tasks(late.browser())).containsExactly(next);
     }
 
-    @Test
-    void aChangeOfReviewersNeverReachesARequestThatIsRunning() {
-        Plants plants = published();
-        String request = sendMonth(plants, plants.head1(), "PLANT1", "2026-01");
+    /** A licensed person who holds the shipped Reader policy, as a reviewer of a plant is meant to (2026-11-17). */
+    private Person reader(Plants plants) {
+        var setting = plants.world().setting();
+        Person person = holding(setting, "Reader");
+        app.platform.testsupport.TestMembers.giveLicence(setting.organization().id(), person.member().membership(),
+                "user");
+        return person;
+    }
 
+    @Test
+    void aChangeOfReviewersReachesAFillInThatIsWaitingAndLeavesAnotherPlantAlone() {
+        Plants plants = published();
+        Person added = reader(plants);
+        String request = sendMonth(plants, plants.head1(), "PLANT1", "2026-01");
+        String other = sendMonth(plants, plants.head2(), "PLANT2", "2026-01");
+        String fill = fillOf(plants.head1());
+
+        // PLANT1: A is taken off, B is kept, a new reviewer is added; PLANT2 keeps its group.
         Response changed = publishToPlants(plants.creator(), plants.template(),
-                plant("PLANT1", reviewerUser(plants.reviewerB())), plant("PLANT2", reviewerUser(plants.reviewerC())));
+                plant("PLANT1", reviewerUser(plants.reviewerB()), reviewerUser(added)),
+                plant("PLANT2", reviewerGroup(plants.reviewerGroup())));
         assertThat(changed.status()).as(changed.body()).isEqualTo(200);
 
-        assertThat(tasks(plants.reviewerA().browser())).as("kept: the task was made then").containsExactly(request);
+        assertThat(tasks(plants.reviewerA().browser())).as("taken off: the task is closed").doesNotContain(request);
+        assertThat(approve(plants.reviewerA().browser(), request).status()).isGreaterThanOrEqualTo(400);
+        assertThat(fillView(plants.reviewerA().browser(), fill).status()).as("no task, no right: nothing to read")
+                .isEqualTo(404);
+        assertThat(tasks(plants.reviewerB().browser())).as("kept").containsExactly(request);
+        assertThat(tasks(added.browser())).as("added: asked now").containsExactly(request);
+        assertThat(tasks(plants.reviewerC().browser())).as("another plant is untouched").containsExactly(other);
+
+        // The reviewer added now opens the fill-in itself (a read share and the Reader policy) and decides it.
+        assertThat(fillView(added.browser(), fill).status()).isEqualTo(200);
+        assertThat(headerStatus(added.browser(), fill)).isEqualTo("SUBMITTED");
+        assertThat(approve(added.browser(), request).status()).isEqualTo(200);
+        assertThat(tasks(plants.reviewerB().browser())).as("the step is decided").doesNotContain(request);
+        assertThat(tasks(plants.world().approver().browser())).as("the next step of this process").contains(request);
+
+        // The history says who was asked and who was left out, and why: one line each.
+        assertThat(scalar(plants.world().setting().organization(), "select count(*) from approval_history "
+                + "where instance_id = ? and reason = 'reviewers_changed'", java.util.UUID.fromString(request)))
+                .isEqualTo(2);
+    }
+
+    private static long waitingForAnAdministrator(Plants plants, String request) {
+        return scalar(plants.world().setting().organization(), "select count(*) from approval_instance "
+                + "where id = ? and attention = 'no_approver'", java.util.UUID.fromString(request));
+    }
+
+    @Test
+    void whenTheChangeLeavesNobodyToAskTheWaitingFillInAsksForAnAdministratorAndAnAdditionClearsIt() {
+        Plants plants = published();
+        Person unlicensed = outsider(plants.world().setting());
+        String request = sendMonth(plants, plants.head1(), "PLANT1", "2026-01");
+        assertThat(waitingForAnAdministrator(plants, request)).isZero();
+
+        assertThat(publishToPlants(plants.creator(), plants.template(), plant("PLANT1", reviewerUser(unlicensed)),
+                plant("PLANT2", reviewerGroup(plants.reviewerGroup()))).status()).isEqualTo(200);
+
+        assertThat(waitingForAnAdministrator(plants, request)).as("nobody can be asked: an administrator").isOne();
+        assertThat(tasks(plants.reviewerA().browser())).doesNotContain(request);
+        assertThat(tasks(plants.reviewerB().browser())).doesNotContain(request);
+        assertThat(tasks(unlicensed.browser())).as("no licence, not asked").isEmpty();
+
+        // Choosing a reviewer again gives the task back and the request no longer waits for an administrator.
+        assertThat(publishToPlants(plants.creator(), plants.template(),
+                plant("PLANT1", reviewerUser(plants.reviewerA())),
+                plant("PLANT2", reviewerGroup(plants.reviewerGroup()))).status()).isEqualTo(200);
+        assertThat(tasks(plants.reviewerA().browser())).containsExactly(request);
+        assertThat(waitingForAnAdministrator(plants, request)).isZero();
         assertThat(approve(plants.reviewerA().browser(), request).status()).isEqualTo(200);
-        String later = sendMonth(plants, plants.head1(), "PLANT1", "2026-02");
-        assertThat(tasks(plants.reviewerA().browser())).as("not asked of the next one").doesNotContain(later);
-        assertThat(tasks(plants.reviewerB().browser())).contains(later);
+    }
+
+    @Test
+    void aReviewerWhoHoldsTheReaderPolicyOpensTheFillInTheyAreAskedAboutAndNoOther() {
+        Plants plants = plants();
+        Person reviewer = reader(plants);
+        assertThat(publishToPlants(plants.creator(), plants.template(), plant("PLANT1", reviewerUser(reviewer)),
+                plant("PLANT2", reviewerGroup(plants.reviewerGroup()))).status()).isEqualTo(200);
+        String request = sendMonth(plants, plants.head1(), "PLANT1", "2026-01");
+        sendMonth(plants, plants.head2(), "PLANT2", "2026-01");
+        String mine = fillOf(plants.head1());
+        String theirs = fillOf(plants.head2());
+
+        assertThat(tasks(reviewer.browser())).containsExactly(request);
+        assertThat(headerStatus(reviewer.browser(), mine)).as("the header, shared with the reviewer")
+                .isEqualTo("SUBMITTED");
+        assertThat(reviewer.browser().get(FILL_RECORDS + "/" + theirs).status()).as("another plant's")
+                .isEqualTo(404);
+        Response inbox = reviewer.browser().get(INBOX);
+        assertThat(com.jayway.jsonpath.JsonPath.<List<Boolean>>read(inbox.body(), "$.data[*].recordReadable"))
+                .as("the inbox opens it").containsExactly(true);
     }
 
     @Test

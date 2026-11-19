@@ -3,6 +3,7 @@ package app.platform.inspection.internal;
 import app.platform.data.BackgroundRecords;
 import app.platform.data.BackgroundWriteException;
 import app.platform.data.DataRecord;
+import app.platform.sharedkernel.ActorId;
 import app.platform.sharedkernel.approval.ApprovalHookRefusal;
 import app.platform.sharedkernel.approval.ApprovalHookWriteException;
 import app.platform.sharedkernel.approval.ApprovalHookWriter;
@@ -27,7 +28,8 @@ import org.springframework.stereotype.Component;
  *   <li><strong>On submit</strong>: the template the fill-in was made for must not be retired (a draft can be finished
  *   after the template is unpublished or has a newer version, because the fill-in is pinned to its version, but not
  *   after the template is retired); then the cells are checked against that version (every required value is there, a
- *   sheet whose filler adds the rows has a row) and the fill-in goes to review under the request.</li>
+ *   sheet whose filler adds the rows has a row) and the fill-in goes to review under the request; the reviewers chosen
+ *   for its plant are given a read share of it ({@link ReviewerShares}).</li>
  *   <li><strong>When the request ends</strong>: an approval approves the fill-in; a rejection returns it to its filler,
  *   who can change it and send it again; a recall or an administrator's cancellation puts it back as a draft.</li>
  * </ul>
@@ -44,9 +46,11 @@ class FillApprovalHooks implements ApprovalHooks {
     private final RecordSets sets;
     private final FillScores scores;
     private final ActionPlanNotices actionPlanNotices;
+    private final ReviewerShares reviewerShares;
 
     FillApprovalHooks(BackgroundRecords records, FillLifecycle fills, FillHeaders headers, RecordSets sets,
-            FillScores scores, ActionPlanNotices actionPlanNotices) {
+            FillScores scores, ActionPlanNotices actionPlanNotices, ReviewerShares reviewerShares) {
+        this.reviewerShares = reviewerShares;
         this.scores = scores;
         this.actionPlanNotices = actionPlanNotices;
         this.records = records;
@@ -89,6 +93,10 @@ class FillApprovalHooks implements ApprovalHooks {
                     Templates.fit(refusal.getMessage()));
         }
         follow(set, context.recordId(), FillStatus.SUBMITTED);
+        // The reviewers chosen for the plant may open the fill-in they are asked about (2026-11-17); a fill-in with
+        // no plant has none and nothing is shared.
+        reviewerShares.shareWithReviewers(set.fill(), context.recordId(),
+                context.submitter() == null ? ActorId.SYSTEM.value() : context.submitter());
     }
 
     /** The fields the hook may set on a header: what the sheet's score means (MC2B, ADR-0261). */
@@ -102,8 +110,9 @@ class FillApprovalHooks implements ApprovalHooks {
      * header with its result, so a reviewer's edit is always seen and the number a person reads is the one the
      * decision was taken on. A sheet that marks no score is not touched. A score that cannot be calculated is never a
      * pass: the approval is refused in fixed words and nothing is written. A fill-in below the limit tells its filler
-     * once that an Action plan is needed, and its last approval is refused until that Action plan has been sent, so a
-     * low score never reaches final approval without one.
+     * once that an Action plan is needed. Since the one-step review (ADR-0261, note of 2026-11-17) the reviewer's
+     * Submit finishes the fill-in whatever its score: the Action plan comes after it and is reviewed on its own, and
+     * the dashboard shows the plants that still owe one.
      */
     @Override
     public void beforeApprove(DecisionContext context, ApprovalHookWriter writer) {
@@ -128,10 +137,6 @@ class FillApprovalHooks implements ApprovalHooks {
         }
         if (Fills.ACTION_PLAN.equals(judgement.result())) {
             actionPlanNotices.tell(set, header);
-            if (context.endsRequest() && !scores.actionPlanSent(set.fill(), context.recordId())) {
-                throw new ApprovalHookRefusal("action_plan_missing", "This fill-in is below the limit. Its Action "
-                        + "plan must be sent before it can be approved.");
-            }
         }
     }
 

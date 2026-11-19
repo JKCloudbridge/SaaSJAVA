@@ -181,3 +181,9 @@ A prompt, a reason, a cell, a file name or a file identifier is never in a log, 
 ## Note: the stamp that closes a fill-in's sheet (SH5.2, 2026-11-17)
 
 - Everyone who sees a fill-in's sheet sees the same read-only stamp in the grid, the form view and View: the number and Revision, the publish day (only when the application's footer carries it and the fill-in is on the Revision in use, otherwise the line is left out), and, once it is sent, `Submitted by <name> on <day>` (the day alone when the person has left). It is made at show time and is never a cell. The template's `Date:` line is now `Publish date:` (ADR-0257 wrote `Date:`). No migration, endpoint or setting.
+
+## Note: the View of a fill-in is a page to fill in (SH_6, 2026-11-17)
+
+- **View** on a fill-in no longer opens the static print drawing. It opens a page that is the same grid over the same editor and the same save queue as the Sheet tab, drawn as the form (`SheetGrid` prop `paper`: no column letters and no row numbers for a sheet in format version 2; a sheet in version 1 keeps its named headings), with the footer stamp of SH5.2, and the buttons Save, Print and Back. The cells that may be typed in are still decided by `canEditCell` (`FillClassRules`); the page has no rule of its own.
+- Back saves a filler's unsaved cells first and stays, with the server's words, when that is refused. A reviewer is asked ("Save and go back", "Go back without saving"; the entries stay on the tab, unsaved) because every save of a reviewer is one counted, audited edit, and one press of Save is one save. A reader gets the same page read-only. Print opens the print drawing unchanged (the template's View is unchanged too); the paper size and orientation stay the person's choice in the browser's print window.
+- No migration, setting, endpoint, module edge or change to the generated client.

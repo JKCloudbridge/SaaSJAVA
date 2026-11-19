@@ -81,6 +81,15 @@ public abstract class PlantsSupport extends FillSupport {
                 process);
     }
 
+    /**
+     * The review as the owner chose it on 2026-11-17: one step, the reviewers chosen for the plant, whose Submit
+     * finishes the fill-in. A second process of the same object; a test names it when it sends.
+     */
+    protected static String oneStepProcess(Plants plants) {
+        return fillProcess(plants.world().setting().admin(), "McOneStep" + System.nanoTime(),
+                step("Reviewers", "{\"kind\":\"PUBLICATION_REVIEWERS\",\"value\":null}"));
+    }
+
     /** A member who holds no policy of the solution but holds a licence, so they can be asked to decide. */
     protected Person licensed(Setting setting) {
         Person person = outsider(setting);

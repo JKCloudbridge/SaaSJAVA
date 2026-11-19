@@ -183,7 +183,7 @@ class ManagementHome {
         Scan waited = readsFills && processes ? attempt("waiting", problems, () -> scanWaiting(set)) : null;
         Map<UUID, PendingStep> steps = waited == null ? null
                 : attempt("waiting", problems, () -> pendingSteps(set, waited.rows()));
-        // Without the step of each request the two waiting tiles cannot be told apart, so neither is drawn.
+        // Without the pending request of each fill-in the waiting tile cannot be counted, so it is not drawn.
         Scan waitScan = steps == null ? null : waited;
 
         Map<String, String> labels = departments.labels(Templates.LOCATION);
@@ -221,8 +221,10 @@ class ManagementHome {
                         plantsFor(chosen, plantLabels), monthMore || plantsMore[0]),
                 monthScan == null ? null : averageTile(monthRows, focus.toString(), previous, monthMore),
                 monthScan == null ? null : belowTile(monthRows, focus.toString(), previous, answered, monthMore),
-                waitScan == null ? null : waitingTile(waitRows, steps, false, waitMore),
-                waitScan == null ? null : waitingTile(waitRows, steps, true, waitMore),
+                waitScan == null ? null : waitingTile(waitRows, steps, waitMore),
+                // The review is one step (ADR-0262, note of 2026-11-17): nothing waits for top management, so the
+                // tile is not drawn. The field stays in the answer so the contract only ever grows.
+                null,
                 planScan == null ? null : new ManagementTile((double) ManagementNumbers.open(planRows), null, null,
                         null, planMore));
         ManagementChartsView charts = new ManagementChartsView(
@@ -230,7 +232,7 @@ class ManagementHome {
                         plantsFor(chosen, plantLabels), bands),
                 monthScan == null ? null : ManagementNumbers.plantsOverMonths(monthRows, months, labels),
                 monthScan == null ? null : ManagementNumbers.averageByMonth(monthRows, months),
-                planScan == null ? null : ManagementNumbers.plansByPlant(planRows, labels, NOT_RECORDED),
+                planScan == null ? null : ManagementNumbers.plansByPlant(planRows, monthRows, labels, NOT_RECORDED),
                 monthScan == null ? null : ManagementNumbers.fillsByMonth(monthRows, months));
         List<PlantOption> plantOptions = plantLabels.entrySet().stream()
                 .map(entry -> new PlantOption(entry.getKey(), entry.getValue())).toList();
@@ -335,12 +337,9 @@ class ManagementHome {
                 more);
     }
 
-    /** The fill-ins that wait at the last step ({@code top}) or before it; one with no pending request is not one. */
-    private static ManagementTile waitingTile(List<Row> rows, Map<UUID, PendingStep> steps, boolean top, boolean more) {
-        long count = rows.stream().filter(row -> {
-            PendingStep step = steps.get(row.id());
-            return step != null && step.last() == top;
-        }).count();
+    /** The fill-ins that wait for their reviewer's decision; one with no pending request is not one. */
+    private static ManagementTile waitingTile(List<Row> rows, Map<UUID, PendingStep> steps, boolean more) {
+        long count = rows.stream().filter(row -> steps.get(row.id()) != null).count();
         return new ManagementTile((double) count, null, null, null, more);
     }
 

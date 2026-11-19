@@ -498,8 +498,9 @@ class FillIns {
         if (wantedStatus != null && !STATUSES.contains(wantedStatus)) {
             throw ApiException.validation("status", "Choose DRAFT, SUBMITTED, RETURNED or APPROVED.");
         }
-        Boolean top = waiting == null || waiting.isBlank() ? null : waitingAtTop(waiting);
-        if (top != null) {
+        boolean waits = waiting != null && !waiting.isBlank();
+        Boolean top = waits ? waitingAtTop(waiting) : null;
+        if (waits) {
             // A fill-in waits for a decision only while it is sent; another status asked beside it matches nothing.
             if (wantedStatus != null && !"SUBMITTED".equals(wantedStatus)) {
                 return new FillInPage(List.of(), null);
@@ -510,27 +511,32 @@ class FillIns {
         RecordQuery query = new RecordQuery(set.narrow(filter(templateId, wantedStatus, extra, searchFilter(search))),
                 sort, projection(set), List.of(), limit, cursor);
         QueryResult result = records.query(set.fill(), query);
-        if (top == null) {
+        if (!waits) {
             return new FillInPage(rowsOf(set, result.records()), result.nextCursor());
         }
         return waitingPage(set, query, result, top, limit);
     }
 
-    private static boolean waitingAtTop(String waiting) {
+    /**
+     * What {@code waiting} asks for: {@code review} is every fill-in that waits for a decision (the review is one step
+     * since 2026-11-17, ADR-0262 note), {@code top} only those at the last step of a process that has several. Null
+     * stands for "any pending step".
+     */
+    private static Boolean waitingAtTop(String waiting) {
         return switch (waiting.strip().toLowerCase(Locale.ROOT)) {
-            case "review" -> false;
-            case "top" -> true;
+            case "review" -> null;
+            case "top" -> Boolean.TRUE;
             default -> throw ApiException.validation("waiting", "Choose review or top.");
         };
     }
 
     /**
-     * The fill-ins of the pages that wait at the last step ({@code top}) or before it (MC3, ADR-0262). The record store
-     * judged every row first; this only drops the rows whose pending request is at the other kind of step, reading the
-     * steps of a whole page in one statement. A page may therefore be short while a cursor remains; it reads on, a few
-     * pages at the most, until the page is full.
+     * The fill-ins of the pages that wait for a decision, or only at the last step ({@code top}) (MC3, ADR-0262). The
+     * record store judged every row first; this only drops the rows with no pending request (or, for {@code top}, one
+     * at an earlier step), reading the steps of a whole page in one statement. A page may therefore be short while a
+     * cursor remains; it reads on, a few pages at the most, until the page is full.
      */
-    private FillInPage waitingPage(RecordSet set, RecordQuery first, QueryResult firstResult, boolean top, int limit) {
+    private FillInPage waitingPage(RecordSet set, RecordQuery first, QueryResult firstResult, Boolean top, int limit) {
         List<QueriedRecord> kept = new ArrayList<>();
         QueryResult page = firstResult;
         for (int round = 0; ; round++) {
@@ -538,7 +544,7 @@ class FillIns {
                     page.records().stream().map(found -> found.record().id()).toList());
             for (QueriedRecord found : page.records()) {
                 ApprovalDecisions.PendingStep step = steps.get(found.record().id());
-                if (step != null && step.last() == top) {
+                if (step != null && (top == null || step.last())) {
                     kept.add(found);
                 }
             }

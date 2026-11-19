@@ -2943,6 +2943,47 @@ form + .detail-section {
   }
 }
 
+/* The View page of a fill-in (SH_6): the form to read and fill in, over the page, below the popups (50) and the print
+   drawing (60). The grid takes the height that is left. */
+.fill-view-root {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  background: var(--color-surface-sunken);
+}
+
+.fill-view-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.fill-view-body {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.fill-view-body .sheet-grid-wrap {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.fill-view-body .sheet-grid {
+  flex: 1 1 auto;
+  height: auto;
+  min-height: 0;
+  max-height: none;
+}
+
 /* The paper size and orientation are the person's choice in the print window; only the margin is fixed. */
 @page {
   margin: 12mm;

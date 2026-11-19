@@ -14,6 +14,7 @@ const REASONS: Record<string, string> = {
   inactive: "was not an active member",
   unlicensed: "did not hold a licence",
   self_approval_excluded: "submitted the request and the process does not let them decide it",
+  reviewers_changed: "the chosen reviewers were changed",
   record_locked: "The record is locked while it is being approved.",
   rejected_by_rule: "A validation rule refused the change.",
   required_missing: "A required field would be empty.",

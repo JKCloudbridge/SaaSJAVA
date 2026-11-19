@@ -125,8 +125,9 @@ public final class ManagementHomeViews {
      * @param averageScore the average of the plants' scores of the month
      * @param plantsBelowLimit plants with a fill-in of the month that needs an Action plan; extra is how many of
      *        those fill-ins have none yet
-     * @param waitingForReview fill-ins that wait for a review before the last step
-     * @param waitingForTopManagement fill-ins that wait at the last step
+     * @param waitingForReview fill-ins that wait for their reviewer's decision (every sent fill-in with a pending
+     *        request)
+     * @param waitingForTopManagement always null since the review is one step (kept so the contract only grows)
      * @param actionPlansOpen Action plans that are not yet approved, in every month
      */
     public record ManagementTilesView(ManagementTile plantsSubmitted, ManagementTile averageScore,
@@ -203,9 +204,11 @@ public final class ManagementHomeViews {
      * @param open plans being written or returned
      * @param sent plans sent and waiting for a decision
      * @param approved plans that were approved
+     * @param owed fill-ins of the months shown that scored below the limit and have no Action plan started yet
+     *        (2026-11-17: the reviewer's Submit finishes a fill-in before its Action plan exists)
      */
     public record PlantPlans(@NotNull String plant, @NotNull String label, @NotNull Long open, @NotNull Long sent,
-            @NotNull Long approved) {
+            @NotNull Long approved, @NotNull Long owed) {
     }
 
     /**

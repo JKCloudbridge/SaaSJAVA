@@ -32,7 +32,6 @@ function summary(changes: Partial<ManagementSummary> = {}): ManagementSummary {
       averageScore: { value: 84.25, previous: 80, atLeast: false },
       plantsBelowLimit: { value: 1, previous: 0, extra: 1, atLeast: false },
       waitingForReview: { value: 4, atLeast: false },
-      waitingForTopManagement: { value: 2, atLeast: false },
       actionPlansOpen: { value: 3, atLeast: false },
     },
     charts: {
@@ -50,7 +49,10 @@ function summary(changes: Partial<ManagementSummary> = {}): ManagementSummary {
         { plant: "P2", label: "Plant 2", points: MONTHS.map((month, index) => (index < 4 ? { month } : { month, score: 70 })) },
       ],
       averageByMonth: MONTHS.map((month, index) => (index === 0 ? { month, plants: 0 } : { month, average: 80 + index, plants: 2 })),
-      actionPlansByPlant: [{ plant: "P2", label: "Plant 2", open: 1, sent: 1, approved: 1 }],
+      actionPlansByPlant: [
+        { plant: "P2", label: "Plant 2", open: 1, sent: 1, approved: 1, owed: 0 },
+        { plant: "P3", label: "Plant 3", open: 0, sent: 0, approved: 0, owed: 2 },
+      ],
       fillsByMonth: MONTHS.map((month, index) => ({ month, draft: 0, submitted: index === 5 ? 2 : 0, returned: 0, approved: index === 5 ? 1 : 2 })),
     },
     problems: [],
@@ -75,7 +77,7 @@ afterEach(() => {
 });
 
 describe("the home page of Management Core", () => {
-  it("shows the six numbers with their words and asks the server once", async () => {
+  it("shows the five numbers with their words and asks the server once", async () => {
     open();
 
     expect(await screen.findByTestId("value-plants-sent")).toHaveTextContent("2 of 3");
@@ -83,7 +85,8 @@ describe("the home page of Management Core", () => {
     expect(screen.getByTestId("value-below-limit")).toHaveTextContent("1");
     expect(screen.getByTestId("tile-below-limit")).toHaveTextContent("1 fill-in has no Action plan yet");
     expect(screen.getByTestId("value-waiting-review")).toHaveTextContent("4");
-    expect(screen.getByTestId("value-waiting-top")).toHaveTextContent("2");
+    // The review is one step (2026-11-17): there is no tile for top management any more.
+    expect(screen.queryByTestId("tile-waiting-top")).not.toBeInTheDocument();
     expect(screen.getByTestId("value-plans-open")).toHaveTextContent("3");
     expect(calls.filter((call) => call.key === "POST /api/v1/management-home/summary")).toHaveLength(1);
   });
@@ -104,7 +107,6 @@ describe("the home page of Management Core", () => {
     expect(screen.getByTestId("tile-plants-sent")).toHaveAttribute("href", "/apps/management-core/s-fill-ins?period=2026-11&sent=1&plan=none");
     expect(screen.getByTestId("tile-below-limit")).toHaveAttribute("href", "/apps/management-core/s-fill-ins?period=2026-11&needs=1");
     expect(screen.getByTestId("tile-waiting-review")).toHaveAttribute("href", "/apps/management-core/s-fill-ins?waiting=review");
-    expect(screen.getByTestId("tile-waiting-top")).toHaveAttribute("href", "/apps/management-core/s-fill-ins?waiting=top");
     expect(screen.getByTestId("tile-plans-open")).toHaveAttribute("href", "/apps/management-core/s-fill-ins?plan=open");
   });
 
@@ -112,7 +114,7 @@ describe("the home page of Management Core", () => {
     open("/apps/management-core/s-home", summary({ applied: { plant: "P2" } }));
     await screen.findByTestId("value-plants-sent");
 
-    expect(screen.getByTestId("tile-waiting-top")).toHaveAttribute("href", "/apps/management-core/s-fill-ins?waiting=top&plant=P2");
+    expect(screen.getByTestId("tile-waiting-review")).toHaveAttribute("href", "/apps/management-core/s-fill-ins?waiting=review&plant=P2");
   });
 
   it("says the legend in the numbers the server sent, and the limit apart from the bands", async () => {
@@ -208,6 +210,21 @@ describe("the home page of Management Core", () => {
     expect(screen.queryByTestId("value-average-score")).toBeNull();
   });
 
+  it("shows the Action plans a plant owes beside the ones it has, and draws every chart in solid colours", async () => {
+    const { container } = open();
+    await screen.findByTestId("plans-by-plant");
+
+    expect(screen.getByTestId("plans-P3")).toHaveAccessibleName("Plant 3: 2 owed and not started, 0 being written or returned, 0 sent, 0 approved");
+    expect(screen.getByTestId("plans-P3")).toHaveTextContent("2 · 0 · 0 · 0");
+    expect(screen.getByTestId("plans-by-plant")).toHaveTextContent("Owed, not started");
+    // No hatch, dot or wave patterns and no dashed lines in Management Core (owner's choice, 2026-11-17).
+    expect(container.querySelector("pattern")).toBeNull();
+    expect(container.querySelector("[fill^='url(']")).toBeNull();
+    container.querySelectorAll<SVGPathElement>(".score-line").forEach((line) => {
+      expect(line.style.strokeDasharray).toBe("");
+    });
+  });
+
   it("draws no tile for a section the server did not send, and no zero in its place", async () => {
     const base = summary();
     open("/apps/management-core/s-home", summary({ tiles: { ...base.tiles, waitingForReview: undefined, waitingForTopManagement: undefined } }));
@@ -237,7 +254,7 @@ describe("the home page of Management Core", () => {
   it("says that waiting and Action plan numbers are not narrowed when a form is chosen", async () => {
     open("/apps/management-core/s-home?form=11111111-1111-1111-1111-111111111111");
 
-    expect(await screen.findByTestId("tile-waiting-top")).toHaveTextContent("Not narrowed by form");
+    expect(await screen.findByTestId("tile-waiting-review")).toHaveTextContent("Not narrowed by form");
   });
 
   it("puts a choice in the address, so a view can be shared", async () => {

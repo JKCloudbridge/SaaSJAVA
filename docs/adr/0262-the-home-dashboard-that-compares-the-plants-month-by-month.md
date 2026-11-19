@@ -112,3 +112,13 @@ application, key and the kind of change (ADR-0261).
 
 An export or an e-mail of the dashboard, a drill-down page for one plant (a tile opens the list), targets other than the limit, per-person scores, a chart
 library, the generic Dashboards feature (D8), the KPI management, Management Review and Plantwise Review pages, reminders to plant heads.
+
+## Note added 2026-11-17: one waiting tile, the Action plans owed and solid colours
+
+- **Waiting.** With a one-step review every pending fill-in is at its last step, so "Waiting for review" now counts every fill-in with a pending
+  request, and `waitingForTopManagement` is always null (the field stays so the contract only grows; the page draws no tile for it). The list filter
+  `waiting=review` means every pending request; `waiting=top` keeps its meaning (the last step of a process with several).
+- **Owed.** `PlantPlans` gained `owed`: the fill-ins of the months shown that scored below the limit and that no Action plan answers yet. A plant that
+  only owes one is listed. The graph draws it first, in the danger colour, beside being written, sent and approved.
+- **Solid colours.** The Management Core graphs draw solid fills and solid lines (the points keep their shapes); the hatch patterns of the fill-ins by
+  month and status are gone here. The Quality Management System dashboard (`home/ChartCard.tsx`) is unchanged.
