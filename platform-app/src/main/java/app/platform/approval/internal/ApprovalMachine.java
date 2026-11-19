@@ -59,7 +59,9 @@ final class ApprovalMachine {
          * A step nobody could be asked to decide was skipped because the process says it may be; the next step must be
          * resolved (see {@link Done#next()}).
          */
-        STEP_SKIPPED
+        STEP_SKIPPED,
+        /** The people the active step asks changed because the record's chosen reviewers changed. */
+        ASKED_CHANGED
     }
 
     /**
@@ -284,6 +286,60 @@ final class ApprovalMachine {
         tasks.add(new Task(newTask, to, TaskStatus.OPEN));
         return new Done(replace(model, new Step(step.position(), step.completion(), StepStatus.ACTIVE, tasks),
                 Status.PENDING), Effect.TASK_ADDED, List.of(), 0);
+    }
+
+    /**
+     * The people the active step asks change while it waits (2026-11-17, a note on ADR-0260): the reviewers chosen for
+     * the record were changed. The open tasks of {@code withdrawn} are {@code CLOSED}; each person of {@code asked}
+     * whose task of the step was closed gets it back open, and one who holds no task of the step gets a new open task
+     * (identifiers from {@code newTasks}, in order). A decided or handed-on task never changes, and a person who holds
+     * one is not asked again. Only a step that needs one approval: closing a task of a step that needs everyone could
+     * complete it without a decision. The step stays active even when no task is left open; it then waits for an
+     * administrator.
+     *
+     * @return {@link Refused} {@code not_pending}, {@code needs_everyone} or {@code unchanged}; otherwise the model
+     *         with {@link Effect#ASKED_CHANGED} and the closed tasks
+     */
+    static Result changeAsked(Model model, java.util.Collection<UUID> withdrawn, List<UUID> asked,
+            List<UUID> newTasks) {
+        Step step = pendingStep(model);
+        if (step == null) {
+            return new Refused("not_pending");
+        }
+        if (step.completion() != Completion.ANY) {
+            return new Refused("needs_everyone");
+        }
+        List<UUID> closed = new ArrayList<>();
+        List<Task> tasks = new ArrayList<>();
+        boolean changed = false;
+        for (Task task : step.tasks()) {
+            if (task.status() == TaskStatus.OPEN && withdrawn.contains(task.assignee())
+                    && !asked.contains(task.assignee())) {
+                closed.add(task.id());
+                tasks.add(new Task(task.id(), task.assignee(), TaskStatus.CLOSED));
+                changed = true;
+            } else if (task.status() == TaskStatus.CLOSED && asked.contains(task.assignee())) {
+                tasks.add(new Task(task.id(), task.assignee(), TaskStatus.OPEN));
+                changed = true;
+            } else {
+                tasks.add(task);
+            }
+        }
+        int next = 0;
+        for (UUID person : asked) {
+            if (tasks.stream().noneMatch(task -> task.assignee().equals(person))) {
+                if (next >= newTasks.size()) {
+                    throw new IllegalArgumentException("An identifier is needed for every new task");
+                }
+                tasks.add(new Task(newTasks.get(next++), person, TaskStatus.OPEN));
+                changed = true;
+            }
+        }
+        if (!changed) {
+            return new Refused("unchanged");
+        }
+        return new Done(replace(model, new Step(step.position(), step.completion(), StepStatus.ACTIVE, tasks),
+                Status.PENDING), Effect.ASKED_CHANGED, closed, 0);
     }
 
     /**

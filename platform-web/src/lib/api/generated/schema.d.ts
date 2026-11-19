@@ -9236,6 +9236,8 @@ export interface components {
             label: string;
             /** Format: int64 */
             open: number;
+            /** Format: int64 */
+            owed: number;
             plant: string;
             /** Format: int64 */
             sent: number;

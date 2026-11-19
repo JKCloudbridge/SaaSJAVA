@@ -97,8 +97,10 @@ class ManagementHomeIT extends ManagementHomeSupport {
         assertThat(number(answer, "tiles.averageScore.previous")).as("nothing was approved last month").isNull();
         assertThat(number(answer, "tiles.plantsBelowLimit.value")).isEqualTo(1);
         assertThat(number(answer, "tiles.plantsBelowLimit.extra")).as("one has no Action plan yet").isEqualTo(1);
-        assertThat(number(answer, "tiles.waitingForReview.value")).isEqualTo(1);
-        assertThat(number(answer, "tiles.waitingForTopManagement.value")).isEqualTo(2);
+        // The review is one step (2026-11-17): one tile counts every fill-in waiting for a decision, at any step of
+        // the two-step process these tests still use; the top-management tile is never drawn.
+        assertThat(number(answer, "tiles.waitingForReview.value")).isEqualTo(3);
+        assertThat(absent(answer, "tiles.waitingForTopManagement")).isTrue();
         assertThat(number(answer, "tiles.actionPlansOpen.value")).isEqualTo(1);
 
         // The list of each tile, by the very slice the tile's address names.
@@ -109,8 +111,8 @@ class ManagementHomeIT extends ManagementHomeSupport {
                 "{\"op\":\"IS_NOT_EMPTY\",\"field\":\"score\"}", no("parentFill")) + "}")).isEqualTo(1);
         assertThat(listed(approver, "{\"filter\":" + and(month, equal("result", "ACTION_PLAN"), sentStatus(),
                 no("parentFill")) + "}")).isEqualTo(1);
-        assertThat(listed(approver, "{\"waiting\":\"review\"}")).isEqualTo(1);
-        assertThat(listed(approver, "{\"waiting\":\"top\"}")).isEqualTo(2);
+        assertThat(listed(approver, "{\"waiting\":\"review\"}")).isEqualTo(3);
+        assertThat(listed(approver, "{\"waiting\":\"top\"}")).as("only those at the last step").isEqualTo(2);
         assertThat(listed(approver, "{\"filter\":" + and("{\"op\":\"IS_NOT_EMPTY\",\"field\":\"parentFill\"}",
                 "{\"op\":\"NE\",\"field\":\"status\",\"values\":[\"APPROVED\"]}") + "}")).isEqualTo(1);
     }
@@ -172,9 +174,8 @@ class ManagementHomeIT extends ManagementHomeSupport {
         Response chosen = home(approver, "{\"month\":\"" + PREVIOUS + "\",\"plant\":\"PLANT2\"}");
         assertThat(number(chosen, "tiles.plantsSubmitted.value")).isEqualTo(1);
         assertThat(number(chosen, "tiles.plantsSubmitted.whole")).isEqualTo(1);
-        assertThat(number(chosen, "tiles.waitingForReview.value")).isEqualTo(1);
-        assertThat(number(chosen, "tiles.waitingForTopManagement.value")).as("PLANT2's, this and no other month")
-                .isEqualTo(1);
+        assertThat(number(chosen, "tiles.waitingForReview.value")).as("PLANT2's two, and no other plant's")
+                .isEqualTo(2);
 
         Response form = home(approver, "{\"form\":\"" + filled.plants().template() + "\"}");
         assertThat(number(form, "tiles.plantsSubmitted.value")).isEqualTo(2);
@@ -211,10 +212,9 @@ class ManagementHomeIT extends ManagementHomeSupport {
         assertThat(number(one, "tiles.plantsSubmitted.whole")).as("not 1 of 2: that would say what PLANT2 did")
                 .isEqualTo(1);
         assertThat(JsonPath.<List<String>>read(one.body(), "$.data.filters.plants[*].code")).containsExactly("PLANT1");
-        assertThat(number(one, "tiles.waitingForTopManagement.value")).isEqualTo(1);
-        assertThat(number(one, "tiles.waitingForReview.value")).isZero();
+        assertThat(number(one, "tiles.waitingForReview.value")).isEqualTo(1);
         assertThat(one.body()).doesNotContain("PLANT2");
-        assertThat(number(two, "tiles.waitingForReview.value")).isEqualTo(1);
+        assertThat(number(two, "tiles.waitingForReview.value")).isEqualTo(2);
         assertThat(two.body()).doesNotContain("PLANT1");
         assertThat(home(filled.plants().head1().browser(), "{\"plant\":\"PLANT2\"}").status())
                 .as("a plant a person cannot see is not offered").isEqualTo(400);

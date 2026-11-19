@@ -20,6 +20,7 @@ import app.platform.data.DataRecord;
 import app.platform.data.RecordTitles;
 import app.platform.licensing.Entitlements;
 import app.platform.metadata.ApprovalProcessDefinition;
+import app.platform.metadata.ApprovalProcessDefinition.ApproverKind;
 import app.platform.metadata.ApprovalProcessDefinition.Outcome;
 import app.platform.metadata.CompiledApprovalProcess;
 import app.platform.metadata.ConditionOutcome;
@@ -36,6 +37,7 @@ import app.platform.sharedkernel.approval.ApprovalApplicability;
 import app.platform.sharedkernel.approval.ApprovalHookRefusal;
 import app.platform.sharedkernel.approval.ApprovalHooks.SubmitContext;
 import app.platform.sharedkernel.approval.ApprovalOutcome;
+import app.platform.sharedkernel.approval.ApprovalRefresh;
 import app.platform.sharedkernel.approval.ApprovalStartRefusal;
 import app.platform.sharedkernel.approval.ApprovalStarter;
 import app.platformapi.ApiException;
@@ -44,9 +46,11 @@ import app.platformapi.ErrorCode;
 import java.time.Clock;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
 import org.springframework.stereotype.Service;
@@ -75,12 +79,18 @@ import org.springframework.transaction.support.TransactionTemplate;
  */
 @Service
 @Transactional
-class ApprovalEngine implements Approvals, ApprovalApplicability, ApprovalStarter {
+class ApprovalEngine implements Approvals, ApprovalApplicability, ApprovalStarter, ApprovalRefresh {
 
     static final String FEATURE = "approvals";
 
     private static final String ALREADY_PENDING = "This record is already being approved.";
     private static final String NOT_FOUND = "This approval does not exist.";
+
+    /** The reason written in the history when the chosen reviewers of a record changed (2026-11-17). */
+    static final String REVIEWERS_CHANGED = "reviewers_changed";
+
+    /** The ways a task was made by resolving the step; a task handed on or added by an administrator is not one. */
+    private static final Set<String> RESOLVED_VIA = Set.of("DIRECT", "DELEGATED", "FALLBACK");
 
     private final ApprovalStore store;
     private final ApproverResolver resolver;
@@ -727,6 +737,103 @@ class ApprovalEngine implements Approvals, ApprovalApplicability, ApprovalStarte
         audit.reassigned(member.userId(), instance, step.position(), false);
         notifier.tasksCreated(instance, loaded.stepAt(loaded.activePosition()), List.of(to));
         return store.instance(id).orElseThrow();
+    }
+
+    // ---- the chosen reviewers changed (2026-11-17, a note on ADR-0260) ----
+
+    @Override
+    public int refreshChosenApprovers(String objectApiName, Collection<UUID> recordIds, UUID actor) {
+        int changed = 0;
+        for (UUID recordId : recordIds) {
+            if (refreshOne(objectApiName, recordId, actor)) {
+                changed++;
+            }
+        }
+        return changed;
+    }
+
+    /**
+     * One record: the record's row, then the request's (ADR-0148), then the active step asked again with the same rules
+     * as when it became active (active member, licence, not the submitter, delegations, the fallback).
+     */
+    private boolean refreshOne(String objectApiName, UUID recordId, UUID actor) {
+        Optional<InstanceRow> pending = store.pendingFor(objectApiName, recordId);
+        if (pending.isEmpty()) {
+            return false;
+        }
+        InstanceRow instance = hold(pending.get().id());
+        if (!instance.pending()) {
+            return false;
+        }
+        ApprovalProcessDefinition definition = pinned(instance).process().definition();
+        Loaded loaded = load(instance, store.assignmentsOf(instance.id()));
+        StepRow step = loaded.activeStep();
+        if (step == null || step.position() > definition.steps().size()) {
+            return false;
+        }
+        ApprovalProcessDefinition.Step spec = definition.steps().get(step.position() - 1);
+        if (spec.approvers().stream().noneMatch(rule -> rule.kind() == ApproverKind.PUBLICATION_REVIEWERS)) {
+            return false;
+        }
+        DataRecord record = records.find(objectApiName, recordId).orElse(null);
+        if (record == null) {
+            return false;
+        }
+        Resolved resolved = resolver.resolve(spec, new ApproverResolver.Context(record, instance.submittedBy(),
+                definition.allowSelfApproval(), definition.fallback(), objectApiName, definition.apiName()));
+        List<UUID> wanted = resolved.assignees().stream().map(Assignee::userId).toList();
+        List<AssignmentRow> mine = loaded.tasks().stream().filter(task -> task.stepId().equals(step.id())).toList();
+        List<UUID> withdrawn = mine.stream().filter(task -> "OPEN".equals(task.status())
+                && RESOLVED_VIA.contains(task.via()) && !wanted.contains(task.assigneeId()))
+                .map(AssignmentRow::assigneeId).toList();
+        // Placeholders for the machine: the store gives a new task its own identifier when it is written.
+        List<UUID> fresh = new ArrayList<>();
+        for (int i = 0; i < wanted.size(); i++) {
+            fresh.add(UUID.randomUUID());
+        }
+        ApprovalMachine.Result result = ApprovalMachine.changeAsked(loaded.model(), withdrawn, wanted, fresh);
+        if (!(result instanceof Done done)) {
+            return false;
+        }
+        boolean openBefore = mine.stream().anyMatch(task -> "OPEN".equals(task.status()));
+        persist(loaded, done.model(), actor);
+        List<UUID> told = new ArrayList<>();
+        for (Assignee assignee : resolved.assignees()) {
+            AssignmentRow held = mine.stream().filter(task -> task.assigneeId().equals(assignee.userId()))
+                    .findFirst().orElse(null);
+            if (held == null) {
+                store.insertAssignment(instance.id(), step.id(), assignee.userId(), assignee.via().name(),
+                        assignee.forUser(), actor);
+            } else if (!"CLOSED".equals(held.status())) {
+                continue;
+            }
+            told.add(assignee.userId());
+            store.insertHistory(instance.id(), step.position(), "ASSIGNED", actor, null, assignee.userId(),
+                    REVIEWERS_CHANGED, null, instance.processVersionNumber(), actor);
+        }
+        for (UUID person : withdrawn) {
+            store.insertHistory(instance.id(), step.position(), "ASSIGNEE_DROPPED", actor, null, person,
+                    REVIEWERS_CHANGED, null, instance.processVersionNumber(), actor);
+        }
+        boolean openAfter = done.model().active().map(active -> active.open() > 0).orElse(false);
+        InstanceRow current = store.instance(instance.id()).orElseThrow();
+        if (!openAfter && current.attention() == null) {
+            save(current, "PENDING", step.position(), "no_approver", current.outcomeFailure(), false, actor);
+            store.insertHistory(instance.id(), step.position(), "ATTENTION_RAISED", null, null, null, "no_approver",
+                    null, instance.processVersionNumber(), actor);
+            audit.attention(current, step.position(), "no_approver", true);
+        } else if (openAfter && "no_approver".equals(current.attention())) {
+            save(current, "PENDING", step.position(), null, current.outcomeFailure(), false, actor);
+            store.insertHistory(instance.id(), step.position(), "ATTENTION_CLEARED", actor, null, null,
+                    "no_approver", null, instance.processVersionNumber(), actor);
+            audit.attention(current, step.position(), "no_approver", false);
+        }
+        audit.askedChanged(actor, instance, step.position(), told.size(), withdrawn.size());
+        notifier.tasksCreated(instance, step, told);
+        if (!openBefore && openAfter) {
+            startTimer(instance, step, definition, actor);
+        }
+        return true;
     }
 
     /** A member who manages approvals asks one more person to decide the active step. */

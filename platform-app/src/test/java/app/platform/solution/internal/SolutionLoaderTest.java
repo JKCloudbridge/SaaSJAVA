@@ -106,6 +106,8 @@ class SolutionLoaderTest {
         assertThat(policy(bundle, "reader").objects().get("InspectionTemplate")).containsExactly(ObjectAction.READ);
         assertThat(policy(bundle, "filler").objects().get("InspectionTemplate")).containsExactly(ObjectAction.READ);
         assertThat(policy(bundle, "reader").abilities()).isEmpty();
+        // A reader reads only the fill-ins shared with them (a reviewer of a plant, 2026-11-17): no view-all.
+        assertThat(policy(bundle, "reader").objects().get("InspectionFill")).containsExactly(ObjectAction.READ);
         // A fill-in (FF1): the filler starts and works on their own, the reviewer and the approver see every one, and
         // nobody gets the right to create the header or to delete it: the platform makes it and it is kept.
         assertThat(policy(bundle, "filler").abilities()).containsExactly("sheets.fill");

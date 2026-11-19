@@ -76,6 +76,16 @@ class ApprovalAudit {
         meters.counter("platform.approval.decisions", "kind", byAdministrator ? "assign" : "reassign").increment();
     }
 
+    /**
+     * The people a waiting step asks changed because the chosen reviewers of the record changed (2026-11-17): counts
+     * only, never who.
+     */
+    void askedChanged(UUID actor, ApprovalStore.InstanceRow instance, int step, int added, int removed) {
+        record("reviewers.changed", actor, instance, Map.of("step", Integer.toString(step),
+                "added", Integer.toString(added), "removed", Integer.toString(removed)));
+        meters.counter("platform.approval.decisions", "kind", "reviewers_changed").increment();
+    }
+
     void attention(ApprovalStore.InstanceRow instance, int step, String reason, boolean raised) {
         record(raised ? "attention.raised" : "attention.cleared", null, instance,
                 Map.of("step", Integer.toString(step), "reason", reason == null ? "none" : reason));

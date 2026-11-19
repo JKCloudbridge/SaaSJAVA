@@ -1,5 +1,7 @@
 package app.platform.inspection.internal;
 
+import app.platform.data.BackgroundRecords;
+import app.platform.data.DataRecord;
 import app.platform.data.RecordShares;
 import app.platform.inspection.internal.DepartmentAudiences.Resolved;
 import app.platform.inspection.internal.PlantPublishRule.Reach;
@@ -18,14 +20,17 @@ import app.platform.inspection.internal.TemplateViews.AudiencePick;
 import app.platform.security.Grantee;
 import app.platform.security.GroupMembers;
 import app.platform.security.ShareTargets;
+import app.platform.sharedkernel.approval.ApprovalRefresh;
 import app.platform.sharedkernel.audit.AuditOutcome;
 import app.platform.sharedkernel.audit.AuditRecord;
 import app.platform.sharedkernel.audit.AuditRecorder;
 import app.platform.sharedkernel.directory.ReferenceLabels;
+import app.platform.sheets.FillStatus;
 import app.platform.sheets.SheetLifecycle;
 import app.platform.tenant.TenantContexts;
 import app.platformapi.ApiException;
 import app.platformapi.ErrorCode;
+import app.platformapi.QueryFilterNode;
 import io.micrometer.core.instrument.MeterRegistry;
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -53,9 +58,11 @@ import org.springframework.transaction.annotation.Transactional;
  * document, and neither
  * takes a share back that the other still holds.
  *
- * <p><strong>What a change of reviewers does.</strong> The reviewers are read when a review step becomes active, so a
- * change never reaches a request already running: its tasks were made then. Taking a plant back ends its reviewers too;
- * the fill-ins that exist stay as they are.
+ * <p><strong>What a change of reviewers does.</strong> The reviewers are read when a review step becomes active. Since
+ * 2026-11-17 (a note on ADR-0260) a change also reaches the fill-ins of that plant that already wait: they are shared
+ * with the reviewers chosen now ({@link ReviewerShares}) and their review is asked again ({@link ApprovalRefresh}), so
+ * the people taken off lose their task and the people added get one. Taking a plant back ends its reviewers too; the
+ * fill-ins that exist stay as they are.
  *
  * <p><strong>What is never written down</strong>: a plant, a group, a person or a name. The audit records and the
  * metrics carry the document's identifier and counts.
@@ -66,6 +73,8 @@ class PlantPublishing {
 
     private static final String USER_OBJECT = "User";
     private static final int CHOICES = 20;
+    private static final int WAITING_PAGE = 200;
+    private static final int WAITING_PAGES = 10;
     private static final String NOT_ALLOWED = "Only the person who made this document can publish it to the plants.";
 
     private final PlantPublishRule rule;
@@ -81,11 +90,18 @@ class PlantPublishing {
     private final AuditRecorder audit;
     private final TenantContexts contexts;
     private final MeterRegistry meters;
+    private final BackgroundRecords records;
+    private final ReviewerShares reviewerShares;
+    private final ApprovalRefresh refresh;
 
     PlantPublishing(PlantPublishRule rule, PlantPublicationStore store, PublicationStore publications,
             SheetLifecycle sheets, RecordShares shares, DepartmentAudiences audiences, GroupMembers groups,
             ShareTargets targets, List<ReferenceLabels> labels, PlantPublishedNotices notices, AuditRecorder audit,
-            TenantContexts contexts, MeterRegistry meters) {
+            TenantContexts contexts, MeterRegistry meters, BackgroundRecords records, ReviewerShares reviewerShares,
+            ApprovalRefresh refresh) {
+        this.records = records;
+        this.reviewerShares = reviewerShares;
+        this.refresh = refresh;
         this.rule = rule;
         this.store = store;
         this.publications = publications;
@@ -167,6 +183,7 @@ class PlantPublishing {
         Counts counts = new Counts();
         List<Plant> added = new ArrayList<>();
         Set<String> kept = new HashSet<>();
+        List<String> reviewersChanged = new ArrayList<>();
         for (int index = 0; index < wanted.size(); index++) {
             PlantPick pick = wanted.get(index);
             UUID group = resolved.get(index).groupId();
@@ -180,7 +197,18 @@ class PlantPublishing {
             if (existing == null) {
                 added.add(addPlant(reach, pick.plant(), group, actor, counts));
             }
-            changeReviewers(templateId, pick, liveReviewers, actor, counts);
+            if (changeReviewers(templateId, pick, liveReviewers, actor, counts)) {
+                reviewersChanged.add(pick.plant());
+            }
+        }
+        // A fill-in of a plant whose reviewers changed, already waiting, is asked of the reviewers chosen now
+        // (2026-11-17): they may read it, and its review gives them the task the people taken off lose.
+        for (String plant : reviewersChanged) {
+            List<UUID> waiting = waitingFills(plantSet, templateId, plant);
+            for (UUID fill : waiting) {
+                counts.sharesMade += reviewerShares.shareWithReviewers(plantSet.fill(), fill, actor);
+            }
+            counts.reviewsUpdated += refresh.refreshChosenApprovers(plantSet.fill(), waiting, actor);
         }
         for (Plant gone : live.values()) {
             if (kept.contains(gone.plant())) {
@@ -207,6 +235,7 @@ class PlantPublishing {
                 .with("shares_ended", Integer.toString(counts.sharesEnded))
                 .with("reviewers_added", Integer.toString(counts.reviewersAdded))
                 .with("reviewers_removed", Integer.toString(counts.reviewersRemoved))
+                .with("reviews_updated", Integer.toString(counts.reviewsUpdated))
                 .with("told", Integer.toString(told)));
         meters.counter("platform.inspection.plants", "act", "publish", "result", "ok").increment();
         return new PlantPublicationState(true, true, null, views(reach));
@@ -242,11 +271,13 @@ class PlantPublishing {
 
     // ---- the reviewers ----
 
-    private void changeReviewers(UUID templateId, PlantPick pick, List<Reviewer> liveReviewers, UUID actor,
+    /** Makes the reviewers of the plant those of the pick; answers whether anything changed. */
+    private boolean changeReviewers(UUID templateId, PlantPick pick, List<Reviewer> liveReviewers, UUID actor,
             Counts counts) {
         Set<String> wanted = pick.reviewers().stream().map(reviewer -> key(reviewer.kind(), reviewer.id()))
                 .collect(Collectors.toSet());
         Set<String> present = new HashSet<>();
+        boolean changed = false;
         for (Reviewer reviewer : liveReviewers) {
             if (!reviewer.plant().equals(pick.plant())) {
                 continue;
@@ -257,14 +288,46 @@ class PlantPublishing {
             } else {
                 store.revokeReviewer(reviewer.id(), "removed", actor);
                 counts.reviewersRemoved++;
+                changed = true;
             }
         }
         for (PlantReviewerPick reviewer : pick.reviewers()) {
             if (!present.contains(key(reviewer.kind(), reviewer.id()))) {
                 store.insertReviewer(templateId, pick.plant(), reviewer.kind(), reviewer.id(), actor);
                 counts.reviewersAdded++;
+                changed = true;
             }
         }
+        return changed;
+    }
+
+    /**
+     * The fill-ins of the document and the plant that wait for a review, and the Action plans that answer them: the
+     * sent headers of the plant (read as the platform, page by page), kept when they are of this document or answer a
+     * fill-in of it. A plant has a few a month, so the pages are a bound, not a cost.
+     */
+    private List<UUID> waitingFills(RecordSet set, UUID templateId, String plant) {
+        QueryFilterNode sent = new QueryFilterNode("AND", List.of(
+                new QueryFilterNode("EQ", null, Fills.STATUS, List.of(FillStatus.SUBMITTED.name())),
+                new QueryFilterNode("EQ", null, Fills.PLANT, List.of(plant))), null, null);
+        List<UUID> found = new ArrayList<>();
+        UUID after = null;
+        for (int page = 0; page < WAITING_PAGES; page++) {
+            List<DataRecord> rows = records.scan(set.fill(), sent, after, WAITING_PAGE);
+            for (DataRecord row : rows) {
+                UUID parent = Fills.templateOf(row.fields().get(Fills.PARENT_FILL));
+                DataRecord answered = parent == null ? row : records.find(set.fill(), parent).orElse(null);
+                if (answered != null
+                        && templateId.equals(Fills.templateOf(answered.fields().get(Fills.TEMPLATE_ID)))) {
+                    found.add(row.id());
+                }
+            }
+            if (rows.size() < WAITING_PAGE) {
+                break;
+            }
+            after = rows.get(rows.size() - 1).id();
+        }
+        return found;
     }
 
     /** Every reviewer is an active member or an existing group, and nobody is listed twice for a plant. */
@@ -354,5 +417,6 @@ class PlantPublishing {
         private int withdrawn;
         private int reviewersAdded;
         private int reviewersRemoved;
+        private int reviewsUpdated;
     }
 }

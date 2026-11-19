@@ -76,12 +76,21 @@ document back from every plant.
   month from the document's "Start a fill-in".
 - **Document Management does not undo it:** Unpublish and Retire in Document Management leave the plants as they are; taking the plants back is the
   creator's own act. A new Revision of the document keeps its plants and reviewers.
-- **A change of reviewers** reaches the fill-ins sent afterwards. A review that is running keeps the people it already asked.
+- **A change of reviewers** (since 2026-11-17) also reaches the fill-ins of that plant that already wait: a person taken off loses their task, a
+  person added gets one (and a notice), a person kept keeps theirs. A task somebody handed on with Reassign, or one an administrator added with
+  Assign, stays. When nobody is left the fill-in waits for an administrator (Approvals, "needs attention"); choosing a reviewer again clears it.
+  The history of the approval says who was asked and who was left out ("the chosen reviewers were changed").
+- **What a reviewer needs:** a licence, and the **Reader** access policy (or any policy that reads fill-ins). When a fill-in is sent, and when the
+  reviewers change while it waits, the platform shares that one fill-in read only with each reviewer chosen for its plant (a person or a group), so
+  the reviewer opens it from the Approvals inbox, types the reviewer's cells and presses **Submit**. Reader reads only what is shared with the
+  person, so a reviewer of one plant never sees another plant's fill-ins. A person once asked keeps reading that fill-in.
 - **Reviewers should not hold a policy that views every fill-in** (Reviewer, Approver, Observer): such a person sees every fill-in whatever the plant.
-  Being asked to review needs a licence and no policy.
-- **The approval process of the fill-ins** (Setup, Approvals, on the fill-in object, entry criteria `application = 'management-core'`): step 1 uses
-  the rule **Publication reviewers** (no value to choose: the reviewers are the ones the creator chose for the plant of the fill-in), then the last
-  step names the top management group. "Any one" or "all" is the step's own setting. A plant with nobody to ask refuses the send in the engine's words.
+- **The approval process of the fill-ins** (Setup, Approvals, on the fill-in object, entry criteria `application = 'management-core' AND
+  ISBLANK(parentFill)`): **one step** with the rule **Publication reviewers** (no value to choose: the reviewers are the ones the creator chose for
+  the plant of the fill-in), "any one" to complete it. The reviewer's decision finishes the fill-in; the page shows it as **Submit** (and Return
+  instead of Reject) on a fill-in made for a plant. The Approvals inbox keeps the general words Approve and Reject. A plant with nobody to ask
+  refuses the send in the engine's words. A process with a later step still works (the step decides after the reviewers); the owner chose one step on
+  2026-11-17.
 - **Monthly fill-in:** the plant head chooses the plant (a person of one plant is not asked) and the month (this month first; an earlier month may be
   started to catch up; a later one is refused). One fill-in exists for a document, a plant and a month, and a rejected one is returned and edited,
   never made again. Another plant head of the same plant can read the fill-in and cannot change it. "This month" is the month in UTC.
@@ -92,10 +101,11 @@ For an organization that has the feature it makes the roles of the tree (CEO; Co
 QMS; Department users and Management users under Plant QMS; Plant head under Management users), five groups filled with people (Level 1 Plant
 head: Filler, Reader; Level 2 Department QMS and Management QMS: Author, Filler, Reader; Level 3 Plant QMS: Approver, Publisher, Reader; Level 4
 Corporate QMS: Approver, Publisher, Reader; Level 5 CEO and top management: Observer), the departments "Level 1" and "Level 2" and a Department group record
-for each plant and level, the routing rule `F` with Part A `MC`, and two fill-in processes (one for documents of Document Management alone, one for
-Management Core: the reviewers chosen for the plant, then Level 5). MC2A adds a group of plant heads for each plant (**Plant 1 plant heads**,
-**Plant 2 plant heads**, each with the Filler and Reader policies) with the Department group records for `PLANTHEAD`, a third plant head, two more
-reviewers and a **Review group**, and brings the example Management Core fill-in process up to date if it has the older steps.
+for each plant and level, the routing rule `F` with Part A `MC`, and the fill-in processes (one for documents of Document Management alone; for
+Management Core one for the monthly fill-ins and one for the Action plans, each **one step: the reviewers chosen for the plant**). MC2A adds a group of
+plant heads for each plant (**Plant 1 plant heads**, **Plant 2 plant heads**, each with the Filler and Reader policies) with the Department group records
+for `PLANTHEAD`, a third plant head, two more reviewers and a **Review group**. Since 2026-11-17 the three reviewers are also in a group **Reviewers**
+that holds Reader, and the script brings the Management Core processes up to date when they have the older steps (Level 5 last).
 
 ## For contributors
 
@@ -130,8 +140,11 @@ fill-in is below the limit its filler gets a notice and a mail (no number in the
 fill-in. It is a fill-in of the form, for the same plant and month, linked by the unique `parentFill`, shared read only with the plant's plant heads,
 and reviewed by **the reviewers of the fill-in it answers** (never those of the Action plan form). The form need not be published to the plants.
 
-**Top management last.** The last step of both processes is the Level 5 group. The last step of a low-scoring fill-in is refused until its Action plan
-has been sent; a fill-in with a good score has no such rule.
+**One step, Submit, then the Action plan** (replaces "top management last", owner's decision of 2026-11-17). Both processes are one step, the plant's
+reviewers. The reviewer's Submit writes the score and the result and finishes the fill-in, whatever the score: nothing waits for the Action plan any more.
+A fill-in below the limit then tells its filler that an Action plan is needed; the Action plan is reviewed the same way, in one step. The dashboard shows,
+plant by plant, the Action plans **owed** (below the limit, not started), being written, sent and approved. Level 5 (top management) reads everything
+through the Observer policy and decides nothing.
 
 **Change requests.** Management users (anyone who can read the published document, in the Document Management chain) ask for a change; a plant head
 who cannot change the document cannot. The request carries the application and the next Revision keeps the plants and reviewers.
@@ -139,8 +152,8 @@ who cannot change the document cannot. The request carries the application and t
 **What the numbers are for MC3.** `score`, `result`, `plant`, `period`, `status` and the link are indexed fields of the fill-in and in every policy's
 read list; the list of fill-ins returns them. A dashboard counts them with the record store's own query.
 
-**Demo.** `scripts/demo-setup.mjs` now makes two processes: Management Core fill-in review (criteria `... AND ISBLANK(parentFill)`) and Management Core
-Action plan review (`... AND NOT(ISBLANK(parentFill))`), each the plant's reviewers then Level 5.
+**Demo.** `scripts/demo-setup.mjs` makes two processes: Management Core fill-in review (criteria `... AND ISBLANK(parentFill)`) and Management Core
+Action plan review (`... AND NOT(ISBLANK(parentFill))`), each one step, the plant's reviewers.
 
 ## The Home dashboard that compares the plants (MC3, ADR-0262)
 
@@ -150,20 +163,23 @@ It is chosen by the application's file (`options: dashboard: management`), so no
 **Filters** (in the address, so a view can be shared): **Month** (this, last, or one of the last 24), **Compare over** (3, 6 or 12 months), **Plant**
 and **Form**. Months are months in UTC.
 
-**Six numbers** (each opens the fill-in list narrowed to what it counts):
+**Five numbers** (each opens the fill-in list narrowed to what it counts; the tile "Waiting for top management" was removed on 2026-11-17 because the
+review is one step):
 
 | Tile | Counts | Opens |
 |---|---|---|
 | Plants that sent their fill-in | plants with a fill-in of the month that is waiting or decided; "n of m" where m is the plants the person may see | `?period=&sent=1&plan=none` |
 | Average score | the average of the plants' scores of the month (approved fill-ins only) | `?period=&status=APPROVED&scored=1&plan=none` |
 | Plants below the limit | plants whose fill-in of the month was decided to need an Action plan; the line under it says how many have none yet | `?period=&needs=1` |
-| Waiting for review | fill-ins waiting before the last step, in every month | `?waiting=review` |
-| Waiting for top management | fill-ins waiting at the last step, in every month | `?waiting=top` |
+| Waiting for review | fill-ins sent and waiting for their reviewer's Submit, in every month | `?waiting=review` |
 | Action plans open | Action plans not yet approved, in every month | `?plan=open` |
 
 **Six graphs**, each with a "View as table" of the same numbers: the score of each plant for the month (bars on a 0 to 100 scale with the limit drawn
 across them), the plants over the months (one line each; a month a plant did not report is a **gap, never a zero**), the average of the plants by month, the
-plants ranked with the word of their band, the Action plans by plant (being written or returned, sent, approved) and the fill-ins by month and status.
+plants ranked with the word of their band, the Action plans by plant (owed and not started, being written or returned, sent, approved; "owed" counts
+the fill-ins of the months shown) and the fill-ins by month and status. Every graph of this page is drawn in **solid colours** (no hatching, no dashed
+lines, owner's choice of 2026-11-17); the points of a line keep their shapes so the plants are told apart without colour. The Quality Management
+System dashboard keeps its patterns.
 
 **The words of the bands** (Setup, Application settings, next to the limit): **Excellent above** (85) and **Good above** (65). A score above the first is
 Excellent, above the second up to the first is Good, anything else is Poor; exactly 85 is Good and exactly 65 is Poor. Good must stay below Excellent: the
@@ -172,15 +188,17 @@ changed after a review, a bar can be under the limit line while its fill-in was 
 
 **Who sees what** is the record store's: a plant head sees one plant (the whole of "n of m" and the plant list are only the plants they may see), a person who
 may view every fill-in (Observer, Approver, a Reviewer policy) sees every plant, and a person who reads no fill-in is shown no section and no zero. A reviewer
-with no access policy is asked to decide through the inbox and reads no fill-in here.
+who holds Reader sees here the fill-ins shared with them (the ones they were asked to review).
 
 **Not narrowed by form:** the waiting tiles and the Action plan numbers, because an Action plan belongs to another form than the fill-in it answers and a
 fill-in waits in every month. The page says so when a form is chosen.
 
 **Contributors.** `ManagementHome` (service), `ManagementNumbers` (the arithmetic, pure), `ManagementHomeViews`, `ManagementHomeController`; the web page is
 `platform-web/src/solutions/inspection/management/` and `HomePage.tsx` chooses between the two dashboards from the application's `options`. The list reads
-its slice from the address (`addressSlice.ts`) and the server filter `waiting` of `POST /fill-ins/query`. The step of a pending request is
-`ApprovalDecisions.pendingSteps`. Tests: `ManagementNumbersTest`, `ManagementHomeNarrowingTest`, `RecordSetsTest`, `SolutionLoaderTest`,
+its slice from the address (`addressSlice.ts`) and the server filter `waiting` of `POST /fill-ins/query` (`review`: every pending request, since
+2026-11-17; `top`: only those at the last step of a process with several). The step of a pending request is `ApprovalDecisions.pendingSteps`. The
+reviewer change is `PlantPublishing` calling `ReviewerShares` and the shared-kernel `ApprovalRefresh` (implemented by `ApprovalEngine`, with the pure
+`ApprovalMachine.changeAsked`); tests `ApprovalMachineAskedChangedTest`, `PlantReviewersIT`. Tests: `ManagementNumbersTest`, `ManagementHomeNarrowingTest`, `RecordSetsTest`, `SolutionLoaderTest`,
 `ApplicationSettingOrderTest`; real PostgreSQL: `ManagementHomeIT`, `ManagementHomeLogsAreCleanIT`, `ManagementHomeCostIT`; frontend `model.test.ts`,
 `ManagementHome.test.tsx`, `HomePage.test.tsx`, `addressSlice.test.ts`.
 

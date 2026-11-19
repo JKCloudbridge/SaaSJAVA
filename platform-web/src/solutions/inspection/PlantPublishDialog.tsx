@@ -30,7 +30,7 @@ type Options = { status: "loading" } | { status: "ready"; options: PlantOptions 
  * each plant choose its reviewers, people or groups, at least one. The plants offered are the places that have a group of
  * plant heads (the server says which; one without a group is shown and cannot be ticked). The people and groups are found
  * by typing part of a name: the server answers the search, this dialog holds no list. Saving sets the whole at once, so a
- * plant left unticked is taken back and a change of reviewers reaches only the reviews that start afterwards. The
+ * plant left unticked is taken back and a change of reviewers reaches the fill-ins that wait too (2026-11-17). The
  * server decides who may do it and why a choice is refused; the words and the place are shown as they come.
  */
 export function PlantPublishDialog({
@@ -105,8 +105,8 @@ export function PlantPublishDialog({
       {inModal ? null : <h3 id={heading}>Publish to plants</h3>}
       <p>
         The plant heads of the plants you tick can read this document and start their fill-in every month. For each plant
-        choose who reviews its fill-ins. A change of reviewers reaches the reviews that start afterwards, never one that is
-        already running.
+        choose who reviews its fill-ins. A change of reviewers also reaches the fill-ins of that plant that are already
+        waiting: the people you take off are no longer asked, the people you add are asked now.
       </p>
 
       {options.status === "loading" ? (

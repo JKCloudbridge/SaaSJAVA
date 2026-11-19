@@ -246,14 +246,34 @@ class ManagementNumbersTest {
                 plan("P1", "SUBMITTED", parent), plan("P1", "APPROVED", parent), plan("P2", "SUBMITTED", parent),
                 plan(null, "DRAFT", parent), fill("P1", "2026-11", "1", "APPROVED", null));
 
-        List<PlantPlans> by = ManagementNumbers.plansByPlant(plans, LABELS, "Not recorded");
+        List<PlantPlans> by = ManagementNumbers.plansByPlant(plans, List.of(), LABELS, "Not recorded");
 
         assertThat(by).extracting(PlantPlans::label).containsExactly("Not recorded", "Plant 1", "Plant 2");
         PlantPlans first = by.get(1);
         assertThat(first.open()).isEqualTo(2);
         assertThat(first.sent()).isEqualTo(1);
         assertThat(first.approved()).isEqualTo(1);
+        assertThat(first.owed()).isZero();
         assertThat(ManagementNumbers.open(plans)).as("everything that is an Action plan and not approved").isEqualTo(5);
+    }
+
+    @Test
+    void aFillInBelowTheLimitWithNoActionPlanIsOwedByItsPlantAndOneThatHasAPlanIsNot() {
+        Row answered = fill("P1", "2026-11", "70", "APPROVED", "ACTION_PLAN");
+        Row owedOne = fill("P1", "2026-10", "60", "APPROVED", "ACTION_PLAN");
+        Row owedTwo = fill("P2", "2026-11", "50", "SUBMITTED", "ACTION_PLAN");
+        Row passed = fill("P2", "2026-11", "90", "APPROVED", "PASS");
+        Row draft = fill("P3", "2026-11", null, "DRAFT", "ACTION_PLAN");
+        List<Row> plans = List.of(plan("P1", "SUBMITTED", answered.id()));
+
+        List<PlantPlans> by = ManagementNumbers.plansByPlant(plans, List.of(answered, owedOne, owedTwo, passed, draft),
+                LABELS, "Not recorded");
+
+        assertThat(by).extracting(PlantPlans::plant).containsExactly("P1", "P2");
+        assertThat(by.get(0).owed()).as("the October one, not the answered November one").isEqualTo(1);
+        assertThat(by.get(0).sent()).isEqualTo(1);
+        assertThat(by.get(1).owed()).as("a plant that owes one and has no plan at all is listed").isEqualTo(1);
+        assertThat(by.get(1).open() + by.get(1).sent() + by.get(1).approved()).isZero();
     }
 
     @Test

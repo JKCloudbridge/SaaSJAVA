@@ -58,8 +58,9 @@ class FillApprovalHooksTest {
     private final ApplicationSettings settings = mock(ApplicationSettings.class);
     private final ActionPlanNotices notices = mock(ActionPlanNotices.class);
     private final ApprovalHookWriter writer = mock(ApprovalHookWriter.class);
+    private final ReviewerShares reviewerShares = mock(ReviewerShares.class);
     private final FillApprovalHooks hook = new FillApprovalHooks(records, fills, headers, RecordSetsFixture.both(),
-            new FillScores(RecordSetsFixture.both(), records, fills, settings, headers), notices);
+            new FillScores(RecordSetsFixture.both(), records, fills, settings, headers), notices, reviewerShares);
 
     private static DataRecord record(String object, UUID id, Map<String, Object> fields) {
         Instant now = Instant.now();
@@ -125,6 +126,7 @@ class FillApprovalHooksTest {
 
         verify(fills).submit(FILL_OBJECT, FILL, REQUEST, PERSON);
         verify(headers).status(FILL_OBJECT, FILL, FillStatus.SUBMITTED);
+        verify(reviewerShares).shareWithReviewers(FILL_OBJECT, FILL, PERSON);
     }
 
     @Test
@@ -225,8 +227,6 @@ class FillApprovalHooksTest {
 
     // ---- the score at every approval (MC2B, ADR-0261) ----
 
-    private static final UUID PLAN = UUID.randomUUID();
-
     private static DecisionContext deciding(boolean last) {
         return new DecisionContext(REQUEST, FILL_OBJECT, FILL, "FillReview", 1, 3, 1, "Step", PERSON, false,
                 List.of(), last);
@@ -301,35 +301,15 @@ class FillApprovalHooksTest {
     }
 
     @Test
-    void theLastStepOfAFillInBelowTheLimitIsRefusedUntilItsActionPlanIsSent() {
+    void theLastApprovalOfAFillInBelowTheLimitFinishesItWithoutAnActionPlanAndTellsTheFiller() {
         headerWithApplication("management-core");
         scoreIs(calculated("40.00"), 85);
-        when(records.scan(eq(FILL_OBJECT), any(), any(), org.mockito.ArgumentMatchers.anyInt()))
-                .thenReturn(List.of());
 
-        assertThatThrownBy(() -> hook.beforeApprove(deciding(true), writer)).isInstanceOfSatisfying(
-                ApprovalHookRefusal.class, refusal -> {
-                    assertThat(refusal.reason()).isEqualTo("action_plan_missing");
-                    assertThat(refusal.words()).contains("Action plan");
-                });
-    }
+        hook.beforeApprove(deciding(true), writer);
 
-    @ParameterizedTest
-    @CsvSource({"DRAFT,false", "RETURNED,false", "SUBMITTED,true", "APPROVED,true"})
-    void onlyAnActionPlanThatWasSentLetsTheLastStepThrough(FillStatus status, boolean passes) {
-        headerWithApplication("management-core");
-        scoreIs(calculated("40.00"), 85);
-        when(records.scan(eq(FILL_OBJECT), any(), any(), org.mockito.ArgumentMatchers.anyInt()))
-                .thenReturn(List.of(record(FILL_OBJECT, PLAN, Map.of())));
-        when(fills.summaries(eq(FILL_OBJECT), any())).thenReturn(Map.of(PLAN, new FillLifecycle.Summary(1, status, 0,
-                28, 0, Instant.now(), Instant.now(), null, null, PERSON, null)));
-
-        if (passes) {
-            hook.beforeApprove(deciding(true), writer);
-        } else {
-            assertThatThrownBy(() -> hook.beforeApprove(deciding(true), writer))
-                    .isInstanceOf(ApprovalHookRefusal.class);
-        }
+        assertThat(written()).containsEntry("score", "40.00").containsEntry("result", "ACTION_PLAN");
+        verify(notices).tell(any(), any());
+        verify(records, never()).scan(any(), any(), any(), org.mockito.ArgumentMatchers.anyInt());
     }
 
     @Test

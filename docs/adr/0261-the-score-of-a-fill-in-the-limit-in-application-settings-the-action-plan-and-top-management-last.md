@@ -151,3 +151,14 @@ kind of change; refusals have fixed words. The limit is not in the notice, and t
 ## Note added after testing (2026-11-15)
 
 - The standard metadata loader only allowed a text or yes/no field to be written by the platform alone. It now also allows a **decimal** (still never required, no default), so the score stays a number a list can sort and filter. Every fill-in object (`InspectionFill`, `EnvironmentFill` and the third-application fixture) carries `score`, `result` and `parentFill`, because the one approval hook of the fill-in serves them all.
+
+## Note added 2026-11-17: one step, Submit, and no wait for the Action plan
+
+The product owner decided that the monthly review ends at the reviewer: both processes are one step, the plant's reviewers, and the reviewer's
+decision is shown as **Submit** (Return instead of Reject) on a fill-in made for a plant. Decision 6 changes:
+
+- The refusal `action_plan_missing` is gone. The reviewer's Submit writes the score and the result and finishes the fill-in whatever the score; a fill-in
+  below the limit tells its filler that an Action plan is needed (unchanged), and the Action plan is reviewed by the same reviewers in one step.
+- Nothing in the engine or the hook names a step: a process with a later step still works, its last step simply no longer waits for the Action plan.
+- The dashboard (ADR-0262 note of the same day) shows the Action plans owed, so a low score with no Action plan is seen rather than blocked.
+- Level 5 (top management) takes no part in the review; it reads through the Observer policy.

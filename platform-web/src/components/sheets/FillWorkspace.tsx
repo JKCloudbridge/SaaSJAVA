@@ -13,7 +13,6 @@ import {
 } from "@/lib/sheets/fillApi";
 import {
   answersByCell,
-  explainFillPlace,
   fromApiFill,
   hasFormulas,
   isInputCell,
@@ -34,7 +33,8 @@ import { cellAddress } from "@/lib/sheets/addresses";
 import type { FillValue } from "@/lib/sheets/fillTypes";
 import { FillForm } from "./FillForm";
 import { SheetGrid } from "./SheetGrid";
-import { SheetPrintView } from "./SheetPrintView";
+import { FillRefusal } from "./FillRefusal";
+import { FillViewPage } from "./FillViewPage";
 import type { EditAs } from "@/lib/sheets/fillModel";
 import { useFillEditor } from "./useFillEditor";
 import { useNarrowScreen } from "./useNarrowScreen";
@@ -458,6 +458,54 @@ function FillPane({
     </div>
   );
 
+  // The notice of a refused save: under the strip on the Sheet tab, and on the View page while that is open (SH_6).
+  const refusalNotice = showing ? (
+    <FillRefusal grid={grid} refusal={showing} onReload={onReload} onReloadAndReapply={() => void reloadAndReapply()} />
+  ) : null;
+
+  // The cell that is filled through its own popup is opened from the Sheet tab and from the View page alike.
+  const openPopup = (rowId: string, columnId: string): boolean => {
+    if (!isInputCell(grid, rowId, columnId)) return false;
+    const type = editor.spec(rowId, columnId).type;
+    if (type !== "boolean_reason" && type !== "attachment") return false;
+    setPopup({ rowId, columnId, kind: type === "attachment" ? "files" : "choice" });
+    return true;
+  };
+
+  // The popups of the cells. While the View page is open they are drawn inside it, so that they lie above it.
+  const popups = (
+    <>
+      {popup?.kind === "files" ? (
+        <AttachmentDialog
+          object={owner.object}
+          recordId={owner.id}
+          place={cellAddress(
+            Math.max(0, editor.rows.findIndex((row) => row.id === popup.rowId)),
+            Math.max(0, grid.columns.findIndex((column) => column.id === popup.columnId)),
+          )}
+          value={filesIn(editor.fill.rows.find((row) => row.id === popup.rowId)?.cells[popup.columnId])}
+          maxFiles={editor.spec(popup.rowId, popup.columnId).maxFiles}
+          required={editor.spec(popup.rowId, popup.columnId).required}
+          readOnly={readOnly || narrow || !!summary.archivedAt || !editor.canEditCell(popup.rowId, popup.columnId)}
+          onChange={(files) => editor.setFiles(popup.rowId, popup.columnId, files)}
+          beforeRemove={() => autosave.flush(true)}
+          afterRemove={afterRemove}
+          onClose={() => setPopup(null)}
+        />
+      ) : null}
+      {popup?.kind === "choice" ? (
+        <ChoiceDialog
+          prompt={promptOf(editor.grid, popup.rowId, popup.columnId)}
+          value={editor.fill.rows.find((row) => row.id === popup.rowId)?.cells[popup.columnId]}
+          required={editor.spec(popup.rowId, popup.columnId).required}
+          readOnly={readOnly || narrow || !editor.canEditCell(popup.rowId, popup.columnId)}
+          onApply={(choice) => editor.setChoice(popup.rowId, popup.columnId, choice)}
+          onClose={() => setPopup(null)}
+        />
+      ) : null}
+    </>
+  );
+
   return (
     <div className="stack sheet-editor" data-testid="fill-editor">
       {toolbarSlot === undefined ? strip : toolbarSlot ? createPortal(strip, toolbarSlot) : null}
@@ -492,32 +540,10 @@ function FillPane({
           recorded in the audit trail, with its size and a fingerprint, never its content.
         </p>
       ) : null}
-      {showing ? (
-        <div role="alert" className="form-message" data-testid="save-refused">
-          <p>{showing.message}</p>
-          {showing.problems.length > 0 ? (
-            <ul>
-              {showing.problems.map((problem, i) => (
-                <li key={`${problem.place}-${i}`}>
-                  <strong>{explainFillPlace(grid, showing.sent, problem.place)}:</strong> {problem.message}
-                </li>
-              ))}
-            </ul>
-          ) : null}
-          {showing.stale ? (
-            <p>
-              <button type="button" className="button button-secondary" onClick={onReload}>
-                Reload this fill-in
-              </button>{" "}
-              <button type="button" className="button button-secondary" onClick={() => void reloadAndReapply()}>
-                Reload and reapply my changes
-              </button>{" "}
-              <span className="hint">Your unsaved changes are lost when you reload.</span>
-            </p>
-          ) : null}
-        </div>
-      ) : null}
+      {viewing ? null : refusalNotice}
 
+      {/* The View page is a modal over the tab: the tab stays mounted (nothing typed is lost) but is out of reach. */}
+      <div inert={viewing}>
       {tab === "form" ? (
         <div role="tabpanel" id={`${tabs}-form`} aria-labelledby={`${tabs}-form-tab`}>
           <FillForm
@@ -552,42 +578,8 @@ function FillPane({
               formulaKinds={shown?.kinds}
               footer={stamp === "" ? undefined : stamp}
               label={`${label}, ${revisionWords(summary.versionNo).toLowerCase()}`}
-              openCell={(rowId, columnId) => {
-                if (!isInputCell(grid, rowId, columnId)) return false;
-                const type = editor.spec(rowId, columnId).type;
-                if (type !== "boolean_reason" && type !== "attachment") return false;
-                setPopup({ rowId, columnId, kind: type === "attachment" ? "files" : "choice" });
-                return true;
-              }}
+              openCell={openPopup}
             />
-            {popup?.kind === "files" ? (
-              <AttachmentDialog
-                object={owner.object}
-                recordId={owner.id}
-                place={cellAddress(
-                  Math.max(0, editor.rows.findIndex((row) => row.id === popup.rowId)),
-                  Math.max(0, grid.columns.findIndex((column) => column.id === popup.columnId)),
-                )}
-                value={filesIn(editor.fill.rows.find((row) => row.id === popup.rowId)?.cells[popup.columnId])}
-                maxFiles={editor.spec(popup.rowId, popup.columnId).maxFiles}
-                required={editor.spec(popup.rowId, popup.columnId).required}
-                readOnly={readOnly || narrow || !!summary.archivedAt || !editor.canEditCell(popup.rowId, popup.columnId)}
-                onChange={(files) => editor.setFiles(popup.rowId, popup.columnId, files)}
-                beforeRemove={() => autosave.flush(true)}
-                afterRemove={afterRemove}
-                onClose={() => setPopup(null)}
-              />
-            ) : null}
-            {popup?.kind === "choice" ? (
-              <ChoiceDialog
-                prompt={promptOf(editor.grid, popup.rowId, popup.columnId)}
-                value={editor.fill.rows.find((row) => row.id === popup.rowId)?.cells[popup.columnId]}
-                required={editor.spec(popup.rowId, popup.columnId).required}
-                readOnly={readOnly || narrow || !editor.canEditCell(popup.rowId, popup.columnId)}
-                onApply={(choice) => editor.setChoice(popup.rowId, popup.columnId, choice)}
-                onClose={() => setPopup(null)}
-              />
-            ) : null}
             <p className="hint">
               {readOnly
                 ? "Arrow keys move; Ctrl+C copies."
@@ -596,14 +588,25 @@ function FillPane({
           </div>
         </div>
       )}
+      </div>
+      {viewing ? null : popups}
       {viewing ? (
-        <SheetPrintView
-          doc={editor.doc}
-          showInput
-          answers={shown ?? undefined}
+        <FillViewPage
+          editor={editor}
           label={label}
-          footer={stamp}
-          onClose={() => setViewing(false)}
+          stamp={stamp}
+          answers={shown}
+          readOnly={readOnly || narrow}
+          reviewer={view.editAs === "REVIEWER"}
+          dirty={dirty}
+          saving={saving}
+          statusWord={savedWord}
+          refusal={refusalNotice}
+          popups={popups}
+          suspended={popup !== null}
+          onSave={save}
+          onBack={() => setViewing(false)}
+          openCell={openPopup}
         />
       ) : null}
     </div>

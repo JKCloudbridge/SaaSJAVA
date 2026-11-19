@@ -35,6 +35,8 @@ const TABS = [
   { id: "sheet", label: "Sheet" },
 ] as const;
 type TabId = (typeof TABS)[number]["id"];
+/** The words of the reviewer's buttons on a fill-in made for a plant: one step, so the decision finishes it. */
+const PLANT_REVIEW_LABELS = { approve: "Submit", reject: "Return" } as const;
 
 /**
  * One fill-in (Functional track FF1, ADR-0192; Submit and Cancel FA6A, ADR-0196): the facts of its header, the approval of
@@ -87,6 +89,9 @@ export function FillInDetail({ id, onBack }: { id: string; onBack: () => void })
   const [toolbarSlot, setToolbarSlot] = useState<HTMLElement | null>(null);
   const [archived, setArchived] = useState(false);
   const onLoaded = useCallback((summary: FillSummary) => setArchived(Boolean(summary.archivedAt)), []);
+  // A fill-in made for a plant (a monthly fill-in or its Action plan) is reviewed in one step: the reviewer's decision
+  // finishes it, so the buttons say Submit and Return (owner's decision, 2026-11-17). The words only; the API decides.
+  const forPlant = record.status === "ready" && Boolean(text(record.record.fields.plant));
   const decisions = useRecordApproval({
     objectApiName: objects.fill,
     recordId: id,
@@ -94,6 +99,7 @@ export function FillInDetail({ id, onBack }: { id: string; onBack: () => void })
     onState: setApproval,
     onChanged: () => setRefresh((now) => now + 1),
     beforeDecision: () => beforeDecision.current(),
+    labels: forPlant ? PLANT_REVIEW_LABELS : undefined,
   });
 
   // The approvals of this fill-in as a history by day, the same list the template page draws (ADR-0205). A person who may not

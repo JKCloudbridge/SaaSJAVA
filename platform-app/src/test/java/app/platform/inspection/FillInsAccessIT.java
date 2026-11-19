@@ -153,12 +153,20 @@ class FillInsAccessIT extends FillSupport {
         String fill = started(world.filler().browser(), world.template());
         long version = fillVersion(fillView(world.filler().browser(), fill));
 
-        for (Person person : List.of(world.author(), reader(world.setting()), world.outsider())) {
+        for (Person person : List.of(world.author(), world.outsider())) {
             Map<String, Response> answers = everything(person.browser(), world.template(), fill, version);
             assertThat(answers.get("get").status()).isEqualTo(404);
             assertThat(answers.get("save").status()).isEqualTo(404);
             assertThat(answers.get("list").status()).isEqualTo(404);
         }
+        // Since 2026-11-17 the Reader policy reads fill-ins that are shared with the person (a reviewer of a plant is
+        // given a share). Fill-ins are private, so this fill-in is not shared with a Reader: they cannot open it or
+        // save it, and the list is theirs to read and does not hold it.
+        Map<String, Response> asReader = everything(reader(world.setting()).browser(), world.template(), fill, version);
+        assertThat(asReader.get("get").status()).isEqualTo(404);
+        assertThat(asReader.get("save").status()).isEqualTo(404);
+        assertThat(asReader.get("list").status()).isEqualTo(200);
+        assertThat(asReader.get("list").body()).doesNotContain(fill);
     }
 
     // ---- nobody makes or changes a header by hand ----
