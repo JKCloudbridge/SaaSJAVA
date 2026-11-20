@@ -10,10 +10,10 @@ import java.util.regex.Pattern;
 import org.junit.jupiter.api.Test;
 
 /**
- * The rule of ADR-0266 held by a test: every day the plant board reads (the day a score was stamped and the day an Action
- * plan was sent) is written, and judged, from the one injected clock. A statement that asks the database for the time, or
- * a call that asks the machine for it, would make the days impossible to control in a test and impossible to move in one
- * place, so none of the classes that write, read or judge these stamps may contain one.
+ * The rule of ADR-0266 held by a test: every day the plant board reads (the day a score was stamped and the day an
+ * Action plan was sent) is written, and judged, from the one injected clock. A statement that asks the database for the
+ * time, or a call that asks the machine for it, would make the days impossible to control in a test and impossible to
+ * move in one place, so none of the classes that write, read or judge these stamps may contain one.
  */
 class PlantBoardStampsUseTheClockTest {
 

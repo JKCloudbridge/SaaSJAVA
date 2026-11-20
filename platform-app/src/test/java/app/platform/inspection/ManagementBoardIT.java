@@ -20,12 +20,12 @@ import org.junit.jupiter.api.Test;
 import org.springframework.test.context.TestPropertySource;
 
 /**
- * The plant board of the Management Core Home page (ADR-0266, Option 1) through the real application and database: the
- * numbers equal the lists after every step of a whole cycle (a fill-in, the reviewer's Submit, a correction up and down,
- * the Action plan, its send and its review), the two days are stamped once from the platform's clock, the due days are a
- * setting of Setup, a plant head sees one plant, a person who reads no fill-in gets no section (never a zero), and the
- * addresses and refusals are those of the rest of the cluster. The back-dating of a stamp by a statement is a fixture of
- * this test only: nothing of the product does it.
+ * The plant board of the Management Core Home page (ADR-0266, Option 1) through the real application and database:
+ * the numbers equal the lists after every step of a whole cycle (a fill-in, the reviewer's Submit, a correction up and
+ * down, the Action plan, its send and its review), the two days are stamped once from the platform's clock, the due
+ * days are a setting of Setup, a plant head sees one plant, a person who reads no fill-in gets no section (never a
+ * zero), and the addresses and refusals are those of the rest of the cluster. The back-dating of a stamp by a
+ * statement is a fixture of this test only: nothing of the product does it.
  */
 @PlatformIntegrationTest
 @TestPropertySource(properties = {"platform.outbox.enabled=true", "platform.workflow.enabled=false"})

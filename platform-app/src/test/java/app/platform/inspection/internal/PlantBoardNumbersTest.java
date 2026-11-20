@@ -20,8 +20,8 @@ import java.util.UUID;
 import org.junit.jupiter.api.Test;
 
 /**
- * The rules of the plant board (ADR-0266), with no database and no clock: the status of every kind of Action plan, a day
- * that is never guessed, the cells, the tiles, the gaps, the totals and the order of the detail table.
+ * The rules of the plant board (ADR-0266), with no database and no clock: the status of every kind of Action plan, a
+ * day that is never guessed, the cells, the tiles, the gaps, the totals and the order of the detail table.
  */
 class PlantBoardNumbersTest {
 
