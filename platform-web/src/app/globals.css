@@ -3545,14 +3545,15 @@ form + .detail-section {
 /* The home pages sit in the middle of the page with the same space on both sides. */
 .dash,
 .overview,
-.app-grid-page {
+.app-grid-page,
+.pb {
   width: 100%;
   max-width: 80rem;
   margin-inline: auto;
 }
 
 /* The shell's main area is itself centred on these pages, so both sides have the same space. */
-.shell-main:has(> .dash, > .overview, > .app-grid-page, > .landing-window) {
+.shell-main:has(> .dash, > .overview, > .app-grid-page, > .landing-window, > .pb) {
   margin-inline: auto;
   justify-self: center;
 }
@@ -6408,41 +6409,12 @@ a.board-figure:focus-visible .board-figure-value {
   gap: var(--space-1);
 }
 
-/* ---- Management Core Home: the layout switch and Option 1, the plant board (ADR-0266) ----
-   To remove Option 1, delete this block from here to the end of the file. */
-.view-switch-row {
-  display: flex;
-  justify-content: flex-end;
-  margin-bottom: var(--space-2);
-}
+/* ---- Management Core Home: the plant board (ADR-0266) ----
+   The only layout of the page since 2026-11-20. */
 
-.view-switch {
-  display: inline-flex;
-  padding: var(--space-0-5);
-  border: var(--border-width) solid var(--color-border);
-  border-radius: var(--radius-pill);
-  background: var(--color-surface);
-}
-
-.view-switch button {
-  padding: var(--space-1) var(--space-3);
-  border: 0;
-  border-radius: var(--radius-pill);
-  background: transparent;
-  color: var(--color-text-muted);
-  font: inherit;
-  font-size: var(--font-size-sm);
-  cursor: pointer;
-}
-
-.view-switch button[aria-pressed="true"] {
-  background: var(--color-accent);
-  color: var(--color-accent-contrast);
-}
-
-.view-switch button:focus-visible {
-  outline: 2px solid var(--color-focus-ring);
-  outline-offset: 2px;
+/* Only a small margin below the tabs; the sides are not changed. */
+.shell-main:has(> .pb) {
+  padding-top: var(--space-3);
 }
 
 .pb {
@@ -6485,7 +6457,8 @@ a.board-figure:focus-visible .board-figure-value {
 .pb-tile {
   display: flex;
   flex-direction: column;
-  gap: var(--space-2);
+  gap: var(--space-1-5);
+  padding: var(--space-3) var(--space-4);
 }
 
 .pb-tile-name {
@@ -6537,7 +6510,8 @@ a.board-figure:focus-visible .board-figure-value {
 }
 
 .pb-facts {
-  display: grid;
+  display: flex;
+  flex-direction: column;
   gap: var(--space-0-5);
   margin: 0;
   padding-top: var(--space-2);
@@ -6616,10 +6590,6 @@ a.board-figure:focus-visible .board-figure-value {
   fill: var(--color-surface-sunken);
 }
 
-.pb-selected {
-  fill: var(--color-text-muted);
-  fill-opacity: 0.12;
-}
 
 .pb-line {
   fill: none;
@@ -6665,12 +6635,16 @@ a.board-figure:focus-visible .board-figure-value {
 .pb-stats {
   display: flex;
   flex-wrap: wrap;
+  justify-content: center;
   gap: var(--space-2) var(--space-6);
+  margin-bottom: var(--space-4);
+  text-align: center;
 }
 
 .pb-stat {
   display: flex;
   flex-direction: column;
+  align-items: center;
 }
 
 .pb-stat b {
@@ -6797,8 +6771,9 @@ a.pb-cell:focus-visible {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
+  justify-content: center;
   gap: var(--space-1-5) var(--space-3);
-  margin-top: var(--space-2);
+  margin: var(--space-2) 0 var(--space-4);
   font-size: var(--font-size-xs);
 }
 
@@ -6906,4 +6881,57 @@ a.pb-cell:focus-visible {
   margin: 0;
   padding: var(--space-3) 0;
   color: var(--color-text-muted);
+}
+
+.pb-chips-spaced {
+  margin-top: var(--space-2);
+}
+
+.pb-tracker-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-2) var(--space-6);
+  margin-bottom: var(--space-3);
+}
+
+.pb-tracker-head .pb-title {
+  margin: 0;
+}
+
+.pb-tracker-head .pb-stats {
+  margin-bottom: 0;
+  justify-content: flex-end;
+}
+
+.pb-chart-inner {
+  position: relative;
+  min-width: var(--pb-chart-min);
+}
+
+.pb-chart-inner .pb-chart-svg {
+  min-width: 0;
+}
+
+.pb-tip {
+  position: absolute;
+  z-index: 2;
+  display: grid;
+  gap: var(--space-0-5);
+  padding: var(--space-2) var(--space-3);
+  border: var(--border-width) solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-2);
+  font-size: var(--font-size-sm);
+  font-variant-numeric: tabular-nums;
+  pointer-events: none;
+  transform: translate(-50%, calc(-100% - 0.75rem));
+  white-space: nowrap;
+}
+
+/* Near the top of the chart the tip opens below the dot, so it is never cut off; lower down it opens above. */
+.pb-tip-below {
+  transform: translate(-50%, 0.75rem);
 }

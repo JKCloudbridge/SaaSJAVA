@@ -9,6 +9,7 @@ import { useRefreshOnReturn } from "../refreshOnReturn";
 import { ActionPlanTracker } from "./ActionPlanTracker";
 import { useBoard } from "./api";
 import { BOARD_DEFAULT_SPAN, type PlantBoard } from "./model";
+import { PendingReview } from "./PendingReview";
 import { PlantTiles } from "./PlantTiles";
 import { ScoreByMonth } from "./ScoreByMonth";
 
@@ -41,11 +42,6 @@ function BoardScreen() {
 
   const go = (next: ManagementFilters) => {
     const all = new URLSearchParams(paramsFromFilters(next, BOARD_DEFAULT_SPAN));
-    // The address keeps the other choice of the page (the layout) while the filters change.
-    const view = params?.get("view");
-    if (view) {
-      all.set("view", view);
-    }
     const text = all.toString();
     router.push(text ? `${pathname}?${text}` : pathname, { scroll: false });
   };
@@ -100,6 +96,7 @@ function Board({ board, application }: { board: PlantBoard; application: string 
       )}
       <ScoreByMonth months={board.months} plants={plants} loading={false} />
       <ActionPlanTracker board={board} application={application} />
+      <PendingReview board={board} application={application} />
     </>
   );
 }

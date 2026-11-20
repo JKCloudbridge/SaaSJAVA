@@ -8719,6 +8719,22 @@ export interface components {
             label: string;
             plant: string;
         };
+        ManagementBoardPending: {
+            actionPlan: boolean;
+            /** Format: int32 */
+            colour: number;
+            /** Format: int32 */
+            daysWaiting?: number;
+            /** Format: uuid */
+            fillId: string;
+            label: string;
+            month: string;
+            name: string;
+            plant: string;
+            /** Format: double */
+            score?: number;
+            sentOn?: string;
+        };
         ManagementBoardPlan: {
             /** Format: int32 */
             colour: number;
@@ -8796,6 +8812,7 @@ export interface components {
             month: string;
             monthChoices: string[];
             months: string[];
+            pending?: components["schemas"]["ManagementBoardPending"][];
             plans?: components["schemas"]["ManagementBoardPlan"][];
             plants?: components["schemas"]["ManagementBoardPlant"][];
             problems: string[];

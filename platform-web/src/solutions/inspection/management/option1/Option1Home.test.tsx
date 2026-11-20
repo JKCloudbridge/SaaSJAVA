@@ -17,7 +17,7 @@ function cells(statuses: Record<number, [string, string]>, scores: (number | nul
   return MONTHS.map((month, index) => {
     const score = scores[index];
     const found = statuses[index];
-    const [status, word] = found ?? (score === null ? ["NO_SCORE", "No score"] : ["NO_PLAN", "No plan"]);
+    const [status, word] = found ?? (score === null ? ["NO_SCORE", "No score"] : ["NO_PLAN", "Passed"]);
     return { month, status, word, ...(score === null || score === undefined ? {} : { score }), fillId: `fill-${month}` };
   });
 }
@@ -157,49 +157,59 @@ describe("Option 1 of the Management Core home: the plant board", () => {
     const { container } = open();
     const chart = await screen.findByTestId("board-chart");
 
-    expect(within(chart).getByTestId("line-P1").querySelectorAll("circle")).toHaveLength(10);
+    expect(within(chart).getByTestId("line-P1").querySelectorAll("circle.pb-point")).toHaveLength(10);
     expect(within(chart).queryAllByTestId("cross-P1")).toHaveLength(0);
     expect(within(chart).queryAllByTestId("cross-P2")).toHaveLength(1);
     expect(within(chart).queryAllByTestId("cross-P3")).toHaveLength(2);
     expect(within(chart).queryAllByTestId("bridge-P1")).toHaveLength(0);
     expect(within(chart).queryAllByTestId("bridge-P2")).toHaveLength(1);
     expect(within(chart).queryAllByTestId("bridge-P3")).toHaveLength(2);
-    expect(chart).toHaveTextContent("P1 91");
-    expect(chart).toHaveTextContent("P2 87");
-    expect(chart).toHaveTextContent("P3 89");
+    // The end of a line carries no label (2026-11-20): the readout and the table give the numbers.
+    expect(chart).not.toHaveTextContent("P1 91");
     expect(chart).toHaveTextContent("Score not submitted");
     // No reference line for the limit and no words about it.
     expect(container.querySelector(".score-limit-line")).toBeNull();
     expect(container.textContent).not.toMatch(/Below 85|action plan\b.*\bBelow|limit/i);
   });
 
-  it("reads one month by keyboard: it starts at the latest month and the arrow keys, Home and End move it", async () => {
+  it("shows a tip beside a dot while it is hovered and removes it when the pointer leaves, with no highlight or line of numbers under the chart", async () => {
     open();
     await screen.findByTestId("board-chart");
-    const readout = screen.getByTestId("board-readout");
     const area = screen.getByTestId("board-chart-area");
 
-    expect(readout).toHaveTextContent("Oct");
-    expect(readout).toHaveTextContent("Plant 1 91");
+    expect(screen.queryByTestId("board-tip")).toBeNull();
+    expect(screen.queryByTestId("board-readout")).toBeNull();
+    expect(screen.queryByTestId("board-selected")).toBeNull();
+    // Hovering a dot opens the tip of its month; leaving closes it.
+    const dot = screen.getByTestId("line-P1").querySelectorAll("g")[2]!;
+    fireEvent.pointerEnter(dot);
+    expect(screen.getByTestId("board-tip")).toHaveTextContent("Mar");
+    expect(screen.getByTestId("board-tip")).toHaveTextContent("Plant 2 - Missed");
+    fireEvent.pointerLeave(dot);
+    expect(screen.queryByTestId("board-tip")).toBeNull();
     area.focus();
     fireEvent.keyDown(area, { key: "ArrowLeft" });
-    expect(readout).toHaveTextContent("Sep");
-    expect(readout).toHaveTextContent("Plant 2 85");
+    const tip = screen.getByTestId("board-tip");
+    expect(tip).toHaveTextContent("Sep");
+    expect(tip).toHaveTextContent("Plant 1 90");
+    expect(tip).toHaveTextContent("Plant 2 85");
     fireEvent.keyDown(area, { key: "Home" });
-    expect(readout).toHaveTextContent("Jan");
-    expect(readout).toHaveTextContent("Plant 3 79");
+    expect(screen.getByTestId("board-tip")).toHaveTextContent("Jan");
+    expect(screen.getByTestId("board-tip")).toHaveTextContent("Plant 3 79");
     fireEvent.keyDown(area, { key: "ArrowLeft" });
-    expect(readout).toHaveTextContent("Jan");
+    expect(screen.getByTestId("board-tip")).toHaveTextContent("Jan");
     fireEvent.keyDown(area, { key: "End" });
+    expect(screen.getByTestId("board-tip")).toHaveTextContent("Oct");
     fireEvent.keyDown(area, { key: "ArrowRight" });
-    expect(readout).toHaveTextContent("Oct");
-    // A month with no score says so and is never a zero.
+    expect(screen.getByTestId("board-tip")).toHaveTextContent("Oct");
+    // A month a plant did not report says Missed and is never a zero.
     fireEvent.keyDown(area, { key: "Home" });
-    for (let step = 0; step < 2; step += 1) {
-      fireEvent.keyDown(area, { key: "ArrowRight" });
-    }
-    expect(readout).toHaveTextContent("Mar");
-    expect(readout).toHaveTextContent("Plant 2 No score");
+    fireEvent.keyDown(area, { key: "ArrowRight" });
+    fireEvent.keyDown(area, { key: "ArrowRight" });
+    expect(screen.getByTestId("board-tip")).toHaveTextContent("Mar");
+    expect(screen.getByTestId("board-tip")).toHaveTextContent("Plant 2 - Missed");
+    fireEvent.keyDown(area, { key: "Escape" });
+    expect(screen.queryByTestId("board-tip")).toBeNull();
   });
 
   it("offers the chart as a table of the very same numbers", async () => {
@@ -225,13 +235,13 @@ describe("Option 1 of the Management Core home: the plant board", () => {
     expect(rows).toHaveLength(4);
     const plant2 = within(rows[2]!);
     expect(plant2.getByText("Overdue")).toBeInTheDocument();
-    expect(plant2.getAllByText("No plan").length).toBeGreaterThan(0);
+    expect(plant2.getAllByText("Passed").length).toBeGreaterThan(0);
     expect(plant2.getByText("No score")).toBeInTheDocument();
     expect(plant2.getByText("In review")).toBeInTheDocument();
     expect(within(rows[3]!).getByText("Awaiting")).toBeInTheDocument();
     expect(within(rows[3]!).getByText("Late")).toBeInTheDocument();
     const key = within(tracker).getByTestId("board-key");
-    expect(key).toHaveTextContent("Score 85 or above, no plan");
+    expect(key).toHaveTextContent("Score 85 or above, passed");
     for (const words of ["Plan submitted on time", "Plan submitted late", "Plan sent, awaiting plant head", "Plan overdue", "Score not submitted"]) {
       expect(key).toHaveTextContent(words);
     }
@@ -258,6 +268,31 @@ describe("Option 1 of the Management Core home: the plant board", () => {
     expect(within(tracker).getByRole("button", { name: "Submitted" })).toHaveAttribute("aria-pressed", "true");
   });
 
+  it("lists the fill-ins that wait for a reviewer, longest first, with no reviewer named", async () => {
+    open("/apps/management-core/s-home", board({
+      pending: [
+        { plant: "P1", label: "Plant 1", colour: 1, month: "2026-10", name: "Plant activity", sentOn: "2026-11-10", daysWaiting: 10, actionPlan: false, fillId: "w1" },
+        { plant: "P2", label: "Plant 2", colour: 2, month: "2026-11", name: "Fix the door", score: 70, sentOn: "2026-11-19", daysWaiting: 1, actionPlan: true, fillId: "w2" },
+      ],
+    }));
+    const section = await screen.findByTestId("board-pending");
+
+    const rows = within(section).getAllByRole("row");
+    expect(rows).toHaveLength(3);
+    expect(rows[1]).toHaveTextContent("Plant 1");
+    expect(rows[1]).toHaveTextContent("10 Nov");
+    expect(rows[1]).toHaveTextContent("10");
+    expect(rows[2]).toHaveTextContent("Fix the door (Action plan)");
+    expect(within(rows[1]!).getByRole("link", { name: "Plant activity" })).toHaveAttribute("href", "/apps/management-core/s-fill-ins?open=w1");
+  });
+
+  it("says No data when nothing waits for a reviewer", async () => {
+    open();
+    const section = await screen.findByTestId("board-pending");
+
+    expect(section).toHaveTextContent("No data");
+  });
+
   it("opens the fill-in a cell is about, only where there is a score to open", async () => {
     open();
     const grid = await screen.findByTestId("board-grid");
@@ -276,15 +311,6 @@ describe("Option 1 of the Management Core home: the plant board", () => {
     expect(body).toEqual({ month: "2026-09", span: 6, plant: "P2" });
     fireEvent.change(screen.getByLabelText("Plant"), { target: { value: "P1" } });
     await waitFor(() => expect(fakeRouter.push).toHaveBeenCalledWith("/apps/management-core/s-home?month=2026-09&span=6&plant=P1", { scroll: false }));
-  });
-
-  it("keeps the layout choice in the address while a filter changes", async () => {
-    open("/apps/management-core/s-home?view=1");
-    await screen.findByTestId("board-tiles");
-
-    fireEvent.change(screen.getByLabelText("Compare over"), { target: { value: "3" } });
-
-    await waitFor(() => expect(fakeRouter.push).toHaveBeenCalledWith("/apps/management-core/s-home?span=3&view=1", { scroll: false }));
   });
 
   it("writes no explaining sentence anywhere on the board", async () => {
@@ -335,7 +361,7 @@ describe("Option 1 of the Management Core home: the plant board", () => {
     await screen.findByTestId("board-chart");
 
     expect(container.querySelector("pattern")).toBeNull();
-    container.querySelectorAll<SVGElement>("circle, .pb-line").forEach((mark) => {
+    container.querySelectorAll<SVGElement>("circle:not(.pb-hit), .pb-line").forEach((mark) => {
       expect(mark.getAttribute("fill") ?? mark.getAttribute("stroke") ?? "").toMatch(/var\(--series-\d\)|none/);
     });
   });

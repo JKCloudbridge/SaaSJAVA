@@ -12,6 +12,7 @@ export type BoardPlant = components["schemas"]["ManagementBoardPlant"];
 export type BoardGridRow = components["schemas"]["ManagementBoardGridRow"];
 export type BoardCell = components["schemas"]["ManagementBoardCell"];
 export type BoardPlan = components["schemas"]["ManagementBoardPlan"];
+export type BoardPending = components["schemas"]["ManagementBoardPending"];
 
 /** The months compared when the address names none: the board shows a year of months, as the pictures do. */
 export const BOARD_DEFAULT_SPAN = 12;
@@ -77,20 +78,22 @@ export function changeText(plant: BoardPlant): { arrow: "up" | "down" | "same"; 
 
 // ---- the chart ----
 
-/** A scale that fits the data and is not forced to start at 0: whole steps of 1, 2, 5, 10 or 20 around the scores. */
+/**
+ * A scale that fits the data in steps of 10 and never passes 100: from the ten below the lowest score to the ten above
+ * the highest, capped at 100. A score is a percent, so the axis stops at 100 and is not forced to start at 0.
+ */
 export function fitScale(scores: readonly (number | null | undefined)[]): { low: number; high: number; ticks: number[] } {
   const values = scores.filter((score): score is number => score !== null && score !== undefined);
   if (values.length === 0) {
-    return { low: 0, high: 100, ticks: [0, 50, 100] };
+    return { low: 0, high: 100, ticks: [0, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100] };
   }
-  const lowest = Math.min(...values);
-  const highest = Math.max(...values);
-  const range = Math.max(highest - lowest, 4);
-  const step = [1, 2, 5, 10, 20].find((one) => range / one <= 5) ?? 20;
-  const low = Math.floor((lowest - step / 2) / step) * step;
-  const high = Math.ceil((highest + step / 2) / step) * step;
+  const high = Math.min(100, Math.ceil(Math.max(...values) / 10) * 10);
+  let low = Math.max(0, Math.floor(Math.min(...values) / 10) * 10);
+  if (low >= high) {
+    low = Math.max(0, high - 10);
+  }
   const ticks: number[] = [];
-  for (let tick = low; tick <= high; tick += step) {
+  for (let tick = low; tick <= high; tick += 10) {
     ticks.push(tick);
   }
   return { low, high, ticks };

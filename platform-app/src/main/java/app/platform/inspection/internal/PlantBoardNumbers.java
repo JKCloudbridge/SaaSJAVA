@@ -34,7 +34,7 @@ final class PlantBoardNumbers {
 
     /** Where a cell or a plan stands. */
     enum Status {
-        NO_PLAN("No plan"),
+        NO_PLAN("Passed"),
         NO_SCORE("No score"),
         AWAITING("Awaiting"),
         SUBMITTED("Submitted"),
@@ -166,6 +166,28 @@ final class PlantBoardNumbers {
             }
         }
         return List.of();
+    }
+
+    /** The fill-ins and Action plans that were sent and wait for a decision, longest waiting first. */
+    static List<ManagementBoardViews.ManagementBoardPending> pending(List<Row> rows, Map<String, String> plants,
+            Map<String, Integer> colours, LocalDate today) {
+        return rows.stream().filter(row -> "SUBMITTED".equals(row.status()) && row.plant() != null
+                && row.period() != null && plants.containsKey(row.plant()))
+                .map(row -> {
+                    LocalDate sent = row.sentAt() == null ? null
+                            : row.sentAt().atZone(java.time.ZoneOffset.UTC).toLocalDate();
+                    return new ManagementBoardViews.ManagementBoardPending(row.plant(), plants.get(row.plant()),
+                            colours.getOrDefault(row.plant(), 1), row.period(), row.name() == null ? "" : row.name(),
+                            row.score() == null ? null : row.score().doubleValue(),
+                            sent == null ? null : sent.toString(),
+                            sent == null ? null : (int) ChronoUnit.DAYS.between(sent, today), row.isPlan(),
+                            row.id());
+                })
+                .sorted(Comparator.comparing(ManagementBoardViews.ManagementBoardPending::daysWaiting,
+                        Comparator.nullsLast(Comparator.reverseOrder()))
+                        .thenComparing(ManagementBoardViews.ManagementBoardPending::label)
+                        .thenComparing(ManagementBoardViews.ManagementBoardPending::fillId))
+                .toList();
     }
 
     // ---- the board ----

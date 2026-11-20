@@ -24203,6 +24203,46 @@
         },
         "required" : [ "cells", "colour", "label", "plant" ]
       },
+      "ManagementBoardPending" : {
+        "type" : "object",
+        "properties" : {
+          "actionPlan" : {
+            "type" : "boolean"
+          },
+          "colour" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "daysWaiting" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "fillId" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "label" : {
+            "type" : "string"
+          },
+          "month" : {
+            "type" : "string"
+          },
+          "name" : {
+            "type" : "string"
+          },
+          "plant" : {
+            "type" : "string"
+          },
+          "score" : {
+            "type" : "number",
+            "format" : "double"
+          },
+          "sentOn" : {
+            "type" : "string"
+          }
+        },
+        "required" : [ "actionPlan", "colour", "fillId", "label", "month", "name", "plant" ]
+      },
       "ManagementBoardPlan" : {
         "type" : "object",
         "properties" : {
@@ -24427,6 +24467,12 @@
             "type" : "array",
             "items" : {
               "type" : "string"
+            }
+          },
+          "pending" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/ManagementBoardPending"
             }
           },
           "plans" : {

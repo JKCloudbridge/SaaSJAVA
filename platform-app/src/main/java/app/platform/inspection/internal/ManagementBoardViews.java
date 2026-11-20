@@ -42,6 +42,7 @@ public final class ManagementBoardViews {
      * @param grid one row for each plant shown, the cells of the tracker
      * @param plans the Action plans owed and sent, for the detail table, most urgent first
      * @param totals the three numbers on top of the tracker
+     * @param pending the fill-ins sent and waiting for their reviewer, longest waiting first
      * @param problems the sections that could not be worked out, by name
      */
     public record ManagementPlantBoard(@NotNull Instant generatedAt, @NotNull String month, @NotNull String today,
@@ -49,7 +50,8 @@ public final class ManagementBoardViews {
             @NotNull List<String> monthChoices,
             @NotNull ManagementFiltersView filters, @NotNull ManagementAppliedView applied,
             @NotNull Boolean atLeast, List<ManagementBoardPlant> plants, List<ManagementBoardGridRow> grid,
-            List<ManagementBoardPlan> plans, ManagementBoardTotals totals, @NotNull List<String> problems) {
+            List<ManagementBoardPlan> plans, ManagementBoardTotals totals, List<ManagementBoardPending> pending,
+            @NotNull List<String> problems) {
     }
 
     /**
@@ -134,5 +136,25 @@ public final class ManagementBoardViews {
      */
     public record ManagementBoardTotals(@NotNull Integer plansSent, @NotNull Integer plansSubmitted,
             @NotNull Integer overdue) {
+    }
+
+    /**
+     * One fill-in that was sent and waits for its reviewer's decision. No reviewer is named: the person who may decide
+     * opens the fill-in.
+     *
+     * @param plant the plant code
+     * @param label what people read
+     * @param colour the plant's colour place
+     * @param month the month of the fill-in ({@code yyyy-MM})
+     * @param name the name the fill-in carries
+     * @param score its score when it has one, else null
+     * @param sentOn the day it was sent ({@code yyyy-MM-dd}, UTC), or null
+     * @param daysWaiting whole days since it was sent, or null
+     * @param actionPlan whether it is an Action plan
+     * @param fillId the fill-in, which a person who sees this row may open
+     */
+    public record ManagementBoardPending(@NotNull String plant, @NotNull String label, @NotNull Integer colour,
+            @NotNull String month, @NotNull String name, Double score, String sentOn, Integer daysWaiting,
+            @NotNull Boolean actionPlan, @NotNull UUID fillId) {
     }
 }

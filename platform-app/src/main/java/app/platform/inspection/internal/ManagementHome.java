@@ -317,6 +317,8 @@ class ManagementHome {
                 .filter(row -> !row.isPlan() && chosen.allows(row)).toList();
         List<ManagementNumbers.Row> plans = planScan == null ? List.of() : planScan.rows().stream()
                 .filter(chosen::plantAllows).toList();
+        List<ManagementNumbers.Row> pendingRows = new ArrayList<>(fills);
+        pendingRows.addAll(plans);
         String now0 = current.toString();
         List<String> ended = window.stream().filter(month -> month.compareTo(now0) < 0).toList();
         List<String> months = PlantBoardNumbers.trimmed(ended, fills);
@@ -337,7 +339,8 @@ class ManagementHome {
                 choices, new ManagementFiltersView(plantOptions, forms(monthScan)),
                 new ManagementAppliedView(chosen.plant(), chosen.form()), more,
                 board == null ? null : board.plants(), board == null ? null : board.grid(),
-                board == null ? null : board.plans(), board == null ? null : board.totals(), problems);
+                board == null ? null : board.plans(), board == null ? null : board.totals(),
+                board == null ? null : PlantBoardNumbers.pending(pendingRows, shown, colours, today), problems);
     }
 
     // ---- the filters ----
@@ -489,7 +492,8 @@ class ManagementHome {
                 blankToNull(text(fields.get(Fills.PLANT))), blankToNull(text(fields.get(Fills.PERIOD))),
                 number(fields.get(Fills.SCORE)), blankToNull(text(fields.get(Fills.RESULT))),
                 text(fields.get(Fills.STATUS)), Fills.templateOf(fields.get(Fills.PARENT_FILL)),
-                blankToNull(text(fields.get(Fills.SCORED_ON))), blankToNull(text(fields.get(Fills.PLAN_SENT_ON))));
+                blankToNull(text(fields.get(Fills.SCORED_ON))), blankToNull(text(fields.get(Fills.PLAN_SENT_ON))),
+                record.updatedAt());
     }
 
     private Map<UUID, PendingStep> pendingSteps(RecordSet set, List<Row> rows) {

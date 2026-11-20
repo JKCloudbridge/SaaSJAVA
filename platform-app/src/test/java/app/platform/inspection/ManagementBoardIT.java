@@ -135,6 +135,9 @@ class ManagementBoardIT extends ManagementHomeSupport {
         saved(plants.head1().browser(), fill, values("80", "100"));
         String request = sent(plants.head1().browser(), fill, oneStep);
         Response waiting = board(approver);
+        assertThat(strings(waiting, "pending[*].fillId")).as("sent and waiting for the reviewer")
+                .containsExactly(fill);
+        assertThat(integer(waiting, "pending[0].daysWaiting")).isZero();
         assertThat(str(waiting, "grid[0].plant")).isEqualTo("PLANT1");
         assertThat(str(waiting, "grid[0].cells[0].status")).isEqualTo("NO_SCORE");
         assertThat(absent(waiting, "plants[0].latestScore")).isTrue();
@@ -143,6 +146,7 @@ class ManagementBoardIT extends ManagementHomeSupport {
         // The reviewer's Submit stamps the day, from the platform's clock, and the plan is owed within the due days.
         assertThat(approve(plants.reviewerA().browser(), request).status()).isEqualTo(200);
         assertThat(headerField(approver, fill, "scoredOn")).isEqualTo(today());
+assertThat(objects(board(approver), "pending")).as("decided, so no longer waiting").isEmpty();
         Response owed = board(approver);
         assertThat(decimal(owed, "plants[0].latestScore")).isEqualTo(80.0);
         assertThat(str(owed, "grid[0].cells[0].status")).isEqualTo("AWAITING");

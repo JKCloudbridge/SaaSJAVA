@@ -57,6 +57,7 @@ export function ActionPlanTracker({ board, application }: { board: PlantBoard; a
   const limit = board.limit;
   return (
     <section className="pb-card" aria-labelledby="pb-tracker-title" data-testid="board-tracker">
+      <div className="pb-tracker-head">
       <h2 id="pb-tracker-title" className="pb-title">
         Action plan tracker
       </h2>
@@ -76,8 +77,9 @@ export function ActionPlanTracker({ board, application }: { board: PlantBoard; a
           </div>
         </div>
       ) : null}
+      </div>
 
-      <h3 className="pb-sub">By month</h3>
+      <h3 className="visually-hidden">By month</h3>
       {grid.length === 0 || columns.length === 0 ? (
         <p className="pb-empty" role="status">
           No data
@@ -121,7 +123,7 @@ export function ActionPlanTracker({ board, application }: { board: PlantBoard; a
         </div>
       )}
       <div className="pb-key" data-testid="board-key">
-        <span className="pb-cell pb-cell-ok">{limit === undefined || limit === null ? "No plan needed" : `Score ${limit} or above, no plan`}</span>
+        <span className="pb-cell pb-cell-ok">{limit === undefined || limit === null ? "Passed" : `Score ${limit} or above, passed`}</span>
         <span className="pb-cell pb-cell-done">Plan submitted on time</span>
         <span className="pb-cell pb-cell-late">Plan submitted late</span>
         <span className="pb-cell pb-cell-wait">Plan sent, awaiting plant head</span>
@@ -129,8 +131,8 @@ export function ActionPlanTracker({ board, application }: { board: PlantBoard; a
         <span className="pb-cell pb-cell-none">Score not submitted</span>
       </div>
 
-      <h3 className="pb-sub">Plan details</h3>
-      <div className="pb-chips" role="group" aria-label="Filter action plans">
+      <h3 className="visually-hidden">Plan details</h3>
+      <div className="pb-chips pb-chips-spaced" role="group" aria-label="Filter action plans">
         {CHIPS.map((chip) => (
           <button key={chip.key} type="button" aria-pressed={filter === chip.key} onClick={() => setFilter(chip.key)}>
             {chip.label}

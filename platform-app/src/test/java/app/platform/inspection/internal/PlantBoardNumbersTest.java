@@ -148,7 +148,7 @@ class PlantBoardNumbersTest {
 
         assertThat(cells).extracting(ManagementBoardCell::status).containsExactly("NO_PLAN", "SUBMITTED",
                 "OVERDUE", "NO_SCORE");
-        assertThat(cells).extracting(ManagementBoardCell::word).containsExactly("No plan", "Submitted", "Overdue",
+        assertThat(cells).extracting(ManagementBoardCell::word).containsExactly("Passed", "Submitted", "Overdue",
                 "No score");
         assertThat(cells.get(3).score()).isNull();
         assertThat(board.plants().get(0).points()).containsExactly(90.0, 80.0, 80.0, null);
@@ -281,6 +281,29 @@ class PlantBoardNumbersTest {
 
         assertThat(board.plants().get(0).latestScore()).isEqualTo(90.0);
         assertThat(board.plans()).isEmpty();
+    }
+
+    @Test
+    void theFillInsThatWaitForAReviewerAreListedLongestWaitingFirstWithWholeDaysAndNoReviewer() {
+        java.time.Instant now = java.time.Instant.parse("2026-11-20T10:00:00Z");
+        Row old = new Row(UUID.randomUUID(), "t", "Form A", P1, "2026-10", null, null, "SUBMITTED", null, null, null,
+                now.minus(java.time.Duration.ofDays(5)));
+        Row recent = new Row(UUID.randomUUID(), "t", "Form B", P2, "2026-11", new BigDecimal("70.00"), "ACTION_PLAN",
+                "SUBMITTED", null, null, null, now.minus(java.time.Duration.ofHours(30)));
+        Row approved = ok(P1, "2026-10", "90.00");
+        Row draft = fill(P1, "2026-10", null, null, "DRAFT", null);
+        Row elsewhere = new Row(UUID.randomUUID(), "t", "Form C", "P9", "2026-10", null, null, "SUBMITTED", null, null,
+                null, now);
+
+        var pending = PlantBoardNumbers.pending(List.of(recent, old, approved, draft, elsewhere),
+                Map.of(P1, "Plant 1", P2, "Plant 2"), Map.of(P1, 1, P2, 2), TODAY);
+
+        assertThat(pending).extracting(entry -> entry.name()).containsExactly("Form A", "Form B");
+        assertThat(pending.get(0).daysWaiting()).isEqualTo(5);
+        assertThat(pending.get(0).sentOn()).isEqualTo("2026-11-15");
+        assertThat(pending.get(1).daysWaiting()).isEqualTo(1);
+        assertThat(pending.get(1).score()).isEqualTo(70.0);
+        assertThat(pending.get(1).colour()).isEqualTo(2);
     }
 
     // ---- the months ----

@@ -85,11 +85,12 @@ describe("the words and days of the plant board", () => {
 
 describe("the scale and the lines", () => {
   it("fits the data and is not forced to start at zero", () => {
-    expect(fitScale([79, 91, 86, null])).toEqual({ low: 75, high: 95, ticks: [75, 80, 85, 90, 95] });
+    expect(fitScale([79, 91, 86, null])).toEqual({ low: 70, high: 100, ticks: [70, 80, 90, 100] });
+    expect(fitScale([91, 99])).toEqual({ low: 90, high: 100, ticks: [90, 100] });
     const flat = fitScale([88, 88]);
     expect(flat.low).toBeLessThan(88);
     expect(flat.high).toBeGreaterThan(88);
-    expect(fitScale([null, undefined])).toEqual({ low: 0, high: 100, ticks: [0, 50, 100] });
+    expect(fitScale([null, undefined]).ticks).toHaveLength(11);
   });
 
   it("breaks a line at a month with no score and joins the two sides with one thin piece", () => {
