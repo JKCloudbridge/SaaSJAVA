@@ -6,6 +6,7 @@ import app.platform.data.QueryFilter;
 import app.platform.data.QueryResult;
 import app.platform.data.RecordQuery;
 import app.platform.data.Records;
+import app.platform.inspection.internal.ManagementBoardViews.ManagementPlantBoard;
 import app.platform.inspection.internal.ManagementHomeViews.FormOption;
 import app.platform.inspection.internal.ManagementHomeViews.LegendView;
 import app.platform.inspection.internal.ManagementHomeViews.ManagementAppliedView;
@@ -33,6 +34,7 @@ import java.time.Clock;
 import java.time.DateTimeException;
 import java.time.Duration;
 import java.time.Instant;
+import java.time.LocalDate;
 import java.time.YearMonth;
 import java.time.ZoneOffset;
 import java.util.ArrayList;
@@ -87,8 +89,13 @@ class ManagementHome {
     private static final String LIMIT = "scoreLimit";
     private static final String EXCELLENT = "excellentAbove";
     private static final String GOOD = "goodAbove";
+    private static final String DUE_DAYS = "actionPlanDueDays";
     private static final List<String> HEADER_FIELDS = List.of(Fills.TEMPLATE_ID, Fills.NAME, Fills.PLANT,
             Fills.PERIOD, Fills.SCORE, Fills.RESULT, Fills.STATUS, Fills.PARENT_FILL);
+    // The option that draws the plant board also reads the two days the platform stamps (ADR-0266). The other option
+    // does not ask for them, so a profile that lists neither field is not refused there.
+    private static final List<String> BOARD_FIELDS = List.of(Fills.TEMPLATE_ID, Fills.NAME, Fills.PLANT, Fills.PERIOD,
+            Fills.SCORE, Fills.RESULT, Fills.STATUS, Fills.PARENT_FILL, Fills.SCORED_ON, Fills.PLAN_SENT_ON);
 
     private final TemplateAccess access;
     private final Metadata metadata;
@@ -245,6 +252,94 @@ class ManagementHome {
                 new LegendView(bands.limit(), bands.excellentAbove(), bands.goodAbove()), tiles, charts, problems);
     }
 
+    // ---- the plant board (ADR-0266, "Option 1") ----
+
+    /**
+     * Works the plant board out for the caller: the same filters, the same scans and the same narrowing as the other
+     * option, plus the two days the platform stamps. A section is null when the fill-ins cannot be read; a status is
+     * decided here from the stamped days and the platform's own clock, never by the screen.
+     */
+    ManagementPlantBoard board(RecordSet set, ManagementSummaryRequest request) {
+        long started = System.nanoTime();
+        String result = "refused";
+        try {
+            ManagementPlantBoard view = boardWork(set, request);
+            result = view.problems().isEmpty() ? "ok" : "partial";
+            return view;
+        } finally {
+            meters.timer("platform.inspection.management.home", "result", result)
+                    .record(Duration.ofNanos(System.nanoTime() - started));
+        }
+    }
+
+    private ManagementPlantBoard boardWork(RecordSet set, ManagementSummaryRequest request) {
+        if (!set.managementDashboard() || metadata.object(set.fill()).isEmpty()) {
+            throw ApiException.notFound(NOT_FOUND);
+        }
+        Caller caller = access.member();
+        Instant now = clock.instant();
+        YearMonth current = YearMonth.from(now.atZone(ZoneOffset.UTC));
+        LocalDate today = now.atZone(ZoneOffset.UTC).toLocalDate();
+        YearMonth focus = focus(request == null ? null : request.month(), current);
+        List<String> window = ManagementNumbers.monthsEnding(focus, span(request == null ? null : request.span()));
+        List<String> problems = new ArrayList<>();
+        boolean readsFills = reads(caller, set.fill());
+
+        Scan monthScan = readsFills ? attempt("fill-ins", problems,
+                () -> scan(set, QueryFilter.on(Fills.PERIOD, QueryFilter.Op.IN, window.toArray()), BOARD_FIELDS))
+                : null;
+        Scan planScan = readsFills ? attempt("action-plans", problems,
+                () -> scan(set, QueryFilter.on(Fills.PARENT_FILL, QueryFilter.Op.IS_NOT_EMPTY), BOARD_FIELDS)) : null;
+        Map<String, String> labels = departments.labels(Templates.LOCATION);
+        Set<String> seen = new HashSet<>();
+        for (Scan scan : new Scan[] {monthScan, planScan}) {
+            if (scan != null) {
+                scan.rows().stream().filter(row -> row.plant() != null).forEach(row -> seen.add(row.plant()));
+            }
+        }
+        boolean[] plantsMore = new boolean[1];
+        Set<String> visible = readsFills ? attempt("plants", problems, () -> visiblePlants(set, caller, seen,
+                plantsMore)) : null;
+        if (visible == null) {
+            visible = seen;
+        }
+        Chosen chosen = chosen(request, visible, monthScan);
+
+        Map<String, String> plantLabels = new LinkedHashMap<>();
+        visible.stream().sorted(Comparator.comparing((String code) -> labels.getOrDefault(code, code)))
+                .forEach(code -> plantLabels.put(code, labels.getOrDefault(code, code)));
+        // A plant keeps its colour in every widget and whatever the filter, so the place is counted over all of them.
+        Map<String, Integer> colours = new LinkedHashMap<>();
+        plantLabels.keySet().forEach(code -> colours.put(code, colours.size() + 1));
+        Map<String, String> shown = plantsFor(chosen, plantLabels);
+
+        List<ManagementNumbers.Row> fills = monthScan == null ? List.of() : monthScan.rows().stream()
+                .filter(row -> !row.isPlan() && chosen.allows(row)).toList();
+        List<ManagementNumbers.Row> plans = planScan == null ? List.of() : planScan.rows().stream()
+                .filter(chosen::plantAllows).toList();
+        String now0 = current.toString();
+        List<String> ended = window.stream().filter(month -> month.compareTo(now0) < 0).toList();
+        List<String> months = PlantBoardNumbers.trimmed(ended, fills);
+        String currentMonth = window.contains(now0) ? now0 : null;
+        Integer dueDays = setting(set, DUE_DAYS);
+
+        PlantBoardNumbers.Board board = monthScan == null || planScan == null ? null
+                : PlantBoardNumbers.build(new PlantBoardNumbers.Inputs(months, currentMonth, shown, colours, fills,
+                        plans, dueDays, today));
+        List<PlantOption> plantOptions = plantLabels.entrySet().stream()
+                .map(entry -> new PlantOption(entry.getKey(), entry.getValue())).toList();
+        List<String> choices = new ArrayList<>(ManagementNumbers.monthsEnding(current, CHOICES));
+        java.util.Collections.reverse(choices);
+        boolean more = (monthScan != null && monthScan.more()) || (planScan != null && planScan.more())
+                || plantsMore[0];
+        return new ManagementPlantBoard(now, focus.toString(), today.toString(), setting(set, LIMIT), dueDays, months,
+                currentMonth,
+                choices, new ManagementFiltersView(plantOptions, forms(monthScan)),
+                new ManagementAppliedView(chosen.plant(), chosen.form()), more,
+                board == null ? null : board.plants(), board == null ? null : board.grid(),
+                board == null ? null : board.plans(), board == null ? null : board.totals(), problems);
+    }
+
     // ---- the filters ----
 
     private static YearMonth focus(String text, YearMonth current) {
@@ -362,10 +457,14 @@ class ManagementHome {
     }
 
     private Scan scan(RecordSet set, QueryFilter filter) {
+        return scan(set, filter, HEADER_FIELDS);
+    }
+
+    private Scan scan(RecordSet set, QueryFilter filter, List<String> headerFields) {
         List<Row> rows = new ArrayList<>();
         boolean more = false;
         String cursor = null;
-        List<String> fields = new ArrayList<>(HEADER_FIELDS);
+        List<String> fields = new ArrayList<>(headerFields);
         while (true) {
             QueryResult page = records.query(set.fill(), new RecordQuery(set.narrow(filter), List.of(), fields,
                     List.of(), PAGE, cursor));
@@ -389,7 +488,8 @@ class ManagementHome {
         return new Row(record.id(), text(fields.get(Fills.TEMPLATE_ID)), text(fields.get(Fills.NAME)),
                 blankToNull(text(fields.get(Fills.PLANT))), blankToNull(text(fields.get(Fills.PERIOD))),
                 number(fields.get(Fills.SCORE)), blankToNull(text(fields.get(Fills.RESULT))),
-                text(fields.get(Fills.STATUS)), Fills.templateOf(fields.get(Fills.PARENT_FILL)));
+                text(fields.get(Fills.STATUS)), Fills.templateOf(fields.get(Fills.PARENT_FILL)),
+                blankToNull(text(fields.get(Fills.SCORED_ON))), blankToNull(text(fields.get(Fills.PLAN_SENT_ON))));
     }
 
     private Map<UUID, PendingStep> pendingSteps(RecordSet set, List<Row> rows) {

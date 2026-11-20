@@ -4480,6 +4480,54 @@
         "tags" : [ "Members" ]
       }
     },
+    "/api/v1/management-home/plant-board" : {
+      "post" : {
+        "description" : "The same question as the summary (a month, how many months to compare, one plant, one form) and the same counting rule: every number is made over the fill-ins and Action plans the record store itself returns to the caller, narrowed to the application. It adds the status of every Action plan (Awaiting, Submitted, Late, Overdue N days) from the two days the platform stamped (the day the reviewer's Submit stamped the score and the day the plant head first sent the Action plan), the number of days in the setting actionPlanDueDays and today in UTC from the platform's clock. A plan with no stamped day is NO_DATE and is never guessed. Statuses are shown, never acted on. The sections are null for a caller who may not read fill-ins, and a month a plant did not report is a null score, never a zero. NOT_FOUND on the platform host, for an application without this page and for an organization without the plan feature; VALIDATION_ERROR for a month, span, plant or form that is not offered. Nothing typed, no score, plant, month or day is logged or audited.",
+        "operationId" : "managementHomePlantBoard",
+        "parameters" : [ {
+          "description" : "The application whose records are counted (its API name). It chooses among the sets of records only: NOT_FOUND, in the same words, for an application that does not exist, that the organization does not have or that has no such page.",
+          "in" : "query",
+          "name" : "application",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/ManagementSummaryRequest"
+              }
+            }
+          }
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseManagementPlantBoard"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "The plant board of the Management Core Home page: tiles, score by month, Action plan tracker",
+        "tags" : [ "Management home" ]
+      }
+    },
     "/api/v1/management-home/summary" : {
       "post" : {
         "description" : "One answer for the whole page: the tiles and the graphs, for a month (this, last or a month as year-month) and how many months to compare (3, 6 or 12), and optionally one plant and one form. A post, because the filters do not belong in an address. Needs no ability: every number is counted over the fill-ins the caller may see, through the same record store query the lists use, narrowed to the application, so the page agrees with the lists and a plant head sees one plant. A section whose object the caller cannot read at all is null (never a zero) and a month a plant did not report is a gap (a null score, never a zero). The record store gives no total, so the headers are read in pages up to a limit; a number that reached it says atLeast. A section that failed is named in problems and the others are still answered. Months are months in UTC. NOT_FOUND on the platform host, for an application without this page and for an organization without the plan feature; VALIDATION_ERROR for a month, span, plant or form that is not offered. Nothing typed, no score, limit, plant or month is logged or audited.",
@@ -18385,6 +18433,15 @@
         },
         "required" : [ "data" ]
       },
+      "ApiResponseManagementPlantBoard" : {
+        "type" : "object",
+        "properties" : {
+          "data" : {
+            "$ref" : "#/components/schemas/ManagementPlantBoard"
+          }
+        },
+        "required" : [ "data" ]
+      },
       "ApiResponseManagementSummaryView" : {
         "type" : "object",
         "properties" : {
@@ -24098,6 +24155,179 @@
           }
         }
       },
+      "ManagementBoardCell" : {
+        "type" : "object",
+        "properties" : {
+          "fillId" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "month" : {
+            "type" : "string"
+          },
+          "score" : {
+            "type" : "number",
+            "format" : "double"
+          },
+          "status" : {
+            "type" : "string"
+          },
+          "word" : {
+            "type" : "string"
+          }
+        },
+        "required" : [ "month", "status", "word" ]
+      },
+      "ManagementBoardGridRow" : {
+        "type" : "object",
+        "properties" : {
+          "cells" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/ManagementBoardCell"
+            }
+          },
+          "colour" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "current" : {
+            "$ref" : "#/components/schemas/ManagementBoardCell"
+          },
+          "label" : {
+            "type" : "string"
+          },
+          "plant" : {
+            "type" : "string"
+          }
+        },
+        "required" : [ "cells", "colour", "label", "plant" ]
+      },
+      "ManagementBoardPlan" : {
+        "type" : "object",
+        "properties" : {
+          "colour" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "dueOn" : {
+            "type" : "string"
+          },
+          "fillId" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "label" : {
+            "type" : "string"
+          },
+          "month" : {
+            "type" : "string"
+          },
+          "overdueDays" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "planId" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "plant" : {
+            "type" : "string"
+          },
+          "score" : {
+            "type" : "number",
+            "format" : "double"
+          },
+          "sentOn" : {
+            "type" : "string"
+          },
+          "status" : {
+            "type" : "string"
+          },
+          "statusText" : {
+            "type" : "string"
+          },
+          "submittedOn" : {
+            "type" : "string"
+          }
+        },
+        "required" : [ "colour", "fillId", "label", "month", "plant", "status", "statusText" ]
+      },
+      "ManagementBoardPlant" : {
+        "type" : "object",
+        "properties" : {
+          "change" : {
+            "type" : "number",
+            "format" : "double"
+          },
+          "changeMonth" : {
+            "type" : "string"
+          },
+          "colour" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "label" : {
+            "type" : "string"
+          },
+          "latestMonth" : {
+            "type" : "string"
+          },
+          "latestScore" : {
+            "type" : "number",
+            "format" : "double"
+          },
+          "overdue" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "plansSent" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "plansSubmitted" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "plant" : {
+            "type" : "string"
+          },
+          "points" : {
+            "type" : "array",
+            "items" : {
+              "type" : "number",
+              "format" : "double"
+            }
+          },
+          "scoresOf" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "scoresSubmitted" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        },
+        "required" : [ "colour", "label", "overdue", "plansSent", "plansSubmitted", "plant", "points", "scoresOf", "scoresSubmitted" ]
+      },
+      "ManagementBoardTotals" : {
+        "type" : "object",
+        "properties" : {
+          "overdue" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "plansSent" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "plansSubmitted" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        },
+        "required" : [ "overdue", "plansSent", "plansSubmitted" ]
+      },
       "ManagementChartsView" : {
         "type" : "object",
         "properties" : {
@@ -24150,6 +24380,81 @@
           }
         },
         "required" : [ "forms", "plants" ]
+      },
+      "ManagementPlantBoard" : {
+        "type" : "object",
+        "properties" : {
+          "applied" : {
+            "$ref" : "#/components/schemas/ManagementAppliedView"
+          },
+          "atLeast" : {
+            "type" : "boolean"
+          },
+          "currentMonth" : {
+            "type" : "string"
+          },
+          "dueDays" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "filters" : {
+            "$ref" : "#/components/schemas/ManagementFiltersView"
+          },
+          "generatedAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "grid" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/ManagementBoardGridRow"
+            }
+          },
+          "limit" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "month" : {
+            "type" : "string"
+          },
+          "monthChoices" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
+          },
+          "months" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
+          },
+          "plans" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/ManagementBoardPlan"
+            }
+          },
+          "plants" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/ManagementBoardPlant"
+            }
+          },
+          "problems" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
+          },
+          "today" : {
+            "type" : "string"
+          },
+          "totals" : {
+            "$ref" : "#/components/schemas/ManagementBoardTotals"
+          }
+        },
+        "required" : [ "applied", "atLeast", "filters", "generatedAt", "month", "monthChoices", "months", "problems", "today" ]
       },
       "ManagementSummaryRequest" : {
         "type" : "object",

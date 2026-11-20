@@ -27,7 +27,9 @@ import app.platform.sharedkernel.approval.ApprovalOutcome;
 import app.platform.sheets.FillLifecycle;
 import app.platform.sheets.FillRefusal;
 import app.platform.sheets.FillStatus;
+import java.time.Clock;
 import java.time.Instant;
+import java.time.ZoneOffset;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
@@ -60,7 +62,8 @@ class FillApprovalHooksTest {
     private final ApprovalHookWriter writer = mock(ApprovalHookWriter.class);
     private final ReviewerShares reviewerShares = mock(ReviewerShares.class);
     private final FillApprovalHooks hook = new FillApprovalHooks(records, fills, headers, RecordSetsFixture.both(),
-            new FillScores(RecordSetsFixture.both(), records, fills, settings, headers), notices, reviewerShares);
+            new FillScores(RecordSetsFixture.both(), records, fills, settings, headers), notices, reviewerShares,
+            new FillPeriods(Clock.fixed(Instant.parse("2026-11-20T10:00:00Z"), ZoneOffset.UTC)));
 
     private static DataRecord record(String object, UUID id, Map<String, Object> fields) {
         Instant now = Instant.now();
@@ -90,7 +93,7 @@ class FillApprovalHooksTest {
     @Test
     void itServesTheFillInObjectAndMayWriteOnlyTheScoreAndItsResultThroughTheEnginesWriter() {
         assertThat(hook.object()).isEqualTo("InspectionFill");
-        assertThat(hook.writes()).containsExactlyInAnyOrder("score", "result");
+        assertThat(hook.writes()).containsExactlyInAnyOrder("score", "result", "scoredOn");
     }
 
     @Test
@@ -290,6 +293,47 @@ class FillApprovalHooksTest {
     }
 
     @Test
+    void theFirstApprovalStampsTheDayFromTheClockAndALaterOneNeverMovesIt() {
+        headerWithApplication("management-core");
+        scoreIs(calculated("84.00"), 85);
+
+        hook.beforeApprove(deciding(true), writer);
+
+        assertThat(written()).containsEntry("scoredOn", "2026-11-20");
+
+        when(records.find(FILL_OBJECT, FILL)).thenReturn(Optional.of(record(FILL_OBJECT, FILL,
+                Map.of(RecordSets.APPLICATION_FIELD, "management-core", Fills.SCORED_ON, "2026-07-06"))));
+        org.mockito.Mockito.clearInvocations(writer);
+        hook.beforeApprove(deciding(true), writer);
+
+        assertThat(written()).doesNotContainKey("scoredOn");
+    }
+
+    @Test
+    void theFirstSendOfAnActionPlanStampsItsDayAndAFillInThatIsNotOneIsNotStamped() {
+        when(records.find(FILL_OBJECT, FILL)).thenReturn(Optional.of(record(FILL_OBJECT, FILL,
+                Map.of(Fills.TEMPLATE_ID, TEMPLATE.toString(), Fills.PARENT_FILL, UUID.randomUUID().toString()))));
+        template(false);
+
+        hook.onSubmit(submit());
+
+        verify(headers).planSent(FILL_OBJECT, FILL, "2026-11-20");
+    }
+
+    @Test
+    void aSecondSendOfAnActionPlanKeepsItsFirstDayAndAMonthlyFillInIsNotStamped() {
+        when(records.find(FILL_OBJECT, FILL)).thenReturn(Optional.of(record(FILL_OBJECT, FILL,
+                Map.of(Fills.TEMPLATE_ID, TEMPLATE.toString(), Fills.PARENT_FILL, UUID.randomUUID().toString(),
+                        Fills.PLAN_SENT_ON, "2026-07-06"))));
+        template(false);
+        hook.onSubmit(submit());
+        headerOf(TEMPLATE.toString());
+        hook.onSubmit(submit());
+
+        verify(headers, never()).planSent(any(), any(), any());
+    }
+
+    @Test
     void aScoreBelowTheLimitNeedsAnActionPlanAndTellsTheFillerButDoesNotBlockAnEarlierStep() {
         headerWithApplication("management-core");
         scoreIs(calculated("84.99"), 85);
@@ -319,7 +363,7 @@ class FillApprovalHooksTest {
 
         hook.beforeApprove(deciding(true), writer);
 
-        assertThat(written()).containsOnlyKeys("score");
+        assertThat(written()).containsOnlyKeys("score", "scoredOn");
         verify(notices, never()).tell(any(), any());
     }
 

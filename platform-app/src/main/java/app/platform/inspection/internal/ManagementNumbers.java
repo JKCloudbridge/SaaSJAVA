@@ -67,9 +67,17 @@ final class ManagementNumbers {
      * @param result {@code PASS}, {@code ACTION_PLAN} or null
      * @param status {@code DRAFT}, {@code SUBMITTED}, {@code RETURNED} or {@code APPROVED}
      * @param parent the fill-in an Action plan answers, or null for every other fill-in
+     * @param scoredOn the day (UTC) the reviewer's Submit stamped the score, or null (ADR-0266)
+     * @param planSentOn the day (UTC) the plant head first sent an Action plan, or null
      */
     record Row(UUID id, String templateId, String name, String plant, String period, BigDecimal score, String result,
-            String status, UUID parent) {
+            String status, UUID parent, String scoredOn, String planSentOn) {
+
+        /** A row that carries neither day (what the other option reads). */
+        Row(UUID id, String templateId, String name, String plant, String period, BigDecimal score, String result,
+                String status, UUID parent) {
+            this(id, templateId, name, plant, period, score, result, status, parent, null, null);
+        }
 
         boolean isPlan() {
             return parent != null;

@@ -1,281 +1,163 @@
-import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { fakeRouter, setUrl } from "@/test/navigation";
 import { fakeApi, json, type Call } from "@/test/fakeApi";
-import type { ManagementSummary } from "./model";
+import { chooseView, forgetRememberedView, rememberView, storedView, viewFromAddress } from "./homeView";
 import { ManagementHomePage } from "./ManagementHome";
 
 vi.mock("next/navigation", async () => (await import("@/test/navigation")).navigationMock);
 vi.mock("../application", () => ({ useApplication: () => "management-core", useApplicationLabel: () => "Management Core" }));
 
-const MONTHS = ["2026-06", "2026-07", "2026-08", "2026-09", "2026-10", "2026-11"];
+const BOARD = {
+  generatedAt: "2026-11-20T09:30:00Z",
+  month: "2026-11",
+  today: "2026-11-20",
+  months: [],
+  monthChoices: ["2026-11"],
+  filters: { plants: [], forms: [] },
+  applied: {},
+  atLeast: false,
+  plants: [],
+  grid: [],
+  plans: [],
+  totals: { plansSent: 0, plansSubmitted: 0, overdue: 0 },
+  problems: [],
+};
 
-function summary(changes: Partial<ManagementSummary> = {}): ManagementSummary {
-  return {
-    generatedAt: "2026-11-15T09:30:00Z",
-    month: "2026-11",
-    previousMonth: "2026-10",
-    months: MONTHS,
-    monthChoices: ["2026-11", "2026-10", "2026-09", "2026-08"],
-    filters: {
-      plants: [
-        { code: "P1", label: "Plant 1" },
-        { code: "P2", label: "Plant 2" },
-        { code: "P3", label: "Plant 3" },
-      ],
-      forms: [{ id: "11111111-1111-1111-1111-111111111111", name: "Plant activity" }],
-    },
-    applied: {},
-    legend: { limit: 85, excellentAbove: 85, goodAbove: 65 },
-    tiles: {
-      plantsSubmitted: { value: 2, previous: 3, whole: 3, atLeast: false },
-      averageScore: { value: 84.25, previous: 80, atLeast: false },
-      plantsBelowLimit: { value: 1, previous: 0, extra: 1, atLeast: false },
-      waitingForReview: { value: 4, atLeast: false },
-      actionPlansOpen: { value: 3, atLeast: false },
-    },
-    charts: {
-      scoresByPlant: [
-        { plant: "P1", label: "Plant 1", score: 92.5, forms: 1, rank: 1, band: "EXCELLENT", bandWord: "Excellent", needsActionPlan: false, belowCurrentLimit: false },
-        { plant: "P2", label: "Plant 2", score: 76, forms: 1, rank: 2, band: "GOOD", bandWord: "Good", needsActionPlan: true, belowCurrentLimit: true },
-        { plant: "P3", label: "Plant 3", forms: 0, needsActionPlan: false, belowCurrentLimit: false },
-      ],
-      plantsOverMonths: [
-        {
-          plant: "P1",
-          label: "Plant 1",
-          points: MONTHS.map((month, index) => (index === 2 ? { month } : { month, score: 80 + index })),
-        },
-        { plant: "P2", label: "Plant 2", points: MONTHS.map((month, index) => (index < 4 ? { month } : { month, score: 70 })) },
-      ],
-      averageByMonth: MONTHS.map((month, index) => (index === 0 ? { month, plants: 0 } : { month, average: 80 + index, plants: 2 })),
-      actionPlansByPlant: [
-        { plant: "P2", label: "Plant 2", open: 1, sent: 1, approved: 1, owed: 0 },
-        { plant: "P3", label: "Plant 3", open: 0, sent: 0, approved: 0, owed: 2 },
-      ],
-      fillsByMonth: MONTHS.map((month, index) => ({ month, draft: 0, submitted: index === 5 ? 2 : 0, returned: 0, approved: index === 5 ? 1 : 2 })),
-    },
-    problems: [],
-    ...changes,
-  };
-}
+const SUMMARY = {
+  generatedAt: "2026-11-20T09:30:00Z",
+  month: "2026-11",
+  previousMonth: "2026-10",
+  months: [],
+  monthChoices: ["2026-11"],
+  filters: { plants: [], forms: [] },
+  applied: {},
+  legend: {},
+  tiles: {},
+  charts: {},
+  problems: [],
+};
 
 let calls: Call[];
 
-function open(address = "/apps/management-core/s-home", answer: ManagementSummary = summary()) {
-  calls = fakeApi({ "POST /api/v1/management-home/summary": () => json({ data: answer }) });
+function open(address: string) {
+  calls = fakeApi({
+    "POST /api/v1/management-home/plant-board": () => json({ data: BOARD }),
+    "POST /api/v1/management-home/summary": () => json({ data: SUMMARY }),
+  });
   setUrl(address);
   return render(<ManagementHomePage />);
 }
 
+const asked = (path: string) => calls.filter((call) => call.key === `POST /api/v1/management-home/${path}`).length;
+
 beforeEach(() => {
+  window.localStorage.clear();
+  forgetRememberedView();
   fakeRouter.push.mockClear();
+  fakeRouter.replace.mockClear();
 });
 
 afterEach(() => {
+  vi.restoreAllMocks();
   vi.unstubAllGlobals();
 });
 
-describe("the home page of Management Core", () => {
-  it("shows the five numbers with their words and asks the server once", async () => {
-    open();
+describe("the choice between the two layouts of the Management Core home", () => {
+  it("draws Option 1 by default and asks only for the plant board", async () => {
+    open("/apps/management-core/s-home");
 
-    expect(await screen.findByTestId("value-plants-sent")).toHaveTextContent("2 of 3");
-    expect(screen.getByTestId("value-average-score")).toHaveTextContent("84.25%");
-    expect(screen.getByTestId("value-below-limit")).toHaveTextContent("1");
-    expect(screen.getByTestId("tile-below-limit")).toHaveTextContent("1 fill-in has no Action plan yet");
-    expect(screen.getByTestId("value-waiting-review")).toHaveTextContent("4");
-    // The review is one step (2026-11-17): there is no tile for top management any more.
-    expect(screen.queryByTestId("tile-waiting-top")).not.toBeInTheDocument();
-    expect(screen.getByTestId("value-plans-open")).toHaveTextContent("3");
-    expect(calls.filter((call) => call.key === "POST /api/v1/management-home/summary")).toHaveLength(1);
+    expect(await screen.findByTestId("management-board")).toBeInTheDocument();
+    expect(screen.queryByTestId("management-home")).toBeNull();
+    expect(asked("plant-board")).toBe(1);
+    expect(asked("summary")).toBe(0);
   });
 
-  it("sends the month, span, plant and form the address names, and nothing else", async () => {
-    open("/apps/management-core/s-home?month=2026-09&span=12&plant=P2&form=11111111-1111-1111-1111-111111111111");
+  it("offers exactly two choices, Option 1 and Option 2, and marks the one in use", async () => {
+    open("/apps/management-core/s-home");
+    await screen.findByTestId("management-board");
 
-    await screen.findByTestId("value-plants-sent");
-
-    const body = JSON.parse(calls.find((call) => call.key === "POST /api/v1/management-home/summary")!.body);
-    expect(body).toEqual({ month: "2026-09", span: 12, plant: "P2", form: "11111111-1111-1111-1111-111111111111" });
+    const group = screen.getByTestId("view-switch");
+    const buttons = Array.from(group.querySelectorAll("button"));
+    expect(buttons.map((button) => button.textContent)).toEqual(["Option 1", "Option 2"]);
+    expect(buttons[0]).toHaveAttribute("aria-pressed", "true");
+    expect(buttons[1]).toHaveAttribute("aria-pressed", "false");
   });
 
-  it("opens the list a tile counts, already narrowed to its month, its plant and its step", async () => {
-    open();
-    await screen.findByTestId("value-plants-sent");
+  it("draws Option 2, and asks only for its numbers, when the address says view=2", async () => {
+    open("/apps/management-core/s-home?view=2");
 
-    expect(screen.getByTestId("tile-plants-sent")).toHaveAttribute("href", "/apps/management-core/s-fill-ins?period=2026-11&sent=1&plan=none");
-    expect(screen.getByTestId("tile-below-limit")).toHaveAttribute("href", "/apps/management-core/s-fill-ins?period=2026-11&needs=1");
-    expect(screen.getByTestId("tile-waiting-review")).toHaveAttribute("href", "/apps/management-core/s-fill-ins?waiting=review");
-    expect(screen.getByTestId("tile-plans-open")).toHaveAttribute("href", "/apps/management-core/s-fill-ins?plan=open");
+    expect(await screen.findByTestId("management-home")).toBeInTheDocument();
+    expect(asked("summary")).toBe(1);
+    expect(asked("plant-board")).toBe(0);
   });
 
-  it("carries the plant a person chose into the lists the tiles open", async () => {
-    open("/apps/management-core/s-home", summary({ applied: { plant: "P2" } }));
-    await screen.findByTestId("value-plants-sent");
+  it("lets the address win over what the browser remembers", async () => {
+    window.localStorage.setItem("management-home-view", "2");
+    open("/apps/management-core/s-home?view=1");
 
-    expect(screen.getByTestId("tile-waiting-review")).toHaveAttribute("href", "/apps/management-core/s-fill-ins?waiting=review&plant=P2");
+    expect(await screen.findByTestId("management-board")).toBeInTheDocument();
+    expect(asked("summary")).toBe(0);
   });
 
-  it("says the legend in the numbers the server sent, and the limit apart from the bands", async () => {
-    open();
+  it("uses what the browser remembers when the address names nothing", async () => {
+    window.localStorage.setItem("management-home-view", "2");
+    open("/apps/management-core/s-home");
 
-    expect(await screen.findByTestId("legend-words")).toHaveTextContent(
-      "Excellent: above 85%. Good: above 65% up to 85%. Poor: 65% or less. An Action plan is needed below 85%.",
-    );
+    expect(await screen.findByTestId("management-home")).toBeInTheDocument();
   });
 
-  it("writes the score and the band's word at every plant and says no score for a plant that did not report", async () => {
-    open();
-    const card = await screen.findByTestId("chart-plant-scores");
+  it("remembers a click for the next visit and takes a view out of the address so the click counts", async () => {
+    open("/apps/management-core/s-home?view=1&plant=P1");
+    await screen.findByTestId("management-board");
 
-    const bars = within(card).getByTestId("score-bars");
-    expect(within(bars).getByText("Plant 1").closest("div,button")).toHaveAttribute("aria-label", "Plant 1: 92.5%, Excellent. Show only this plant.");
-    expect(bars).toHaveTextContent("92.5%");
-    expect(bars).toHaveTextContent("Excellent");
-    expect(bars).toHaveTextContent("76%");
-    expect(bars).toHaveTextContent("Good");
-    expect(bars).toHaveTextContent("No score");
-    expect(bars).not.toHaveTextContent("0%");
+    fireEvent.click(screen.getByRole("button", { name: "Option 2" }));
+
+    expect(await screen.findByTestId("management-home")).toBeInTheDocument();
+    expect(window.localStorage.getItem("management-home-view")).toBe("2");
+    await waitFor(() => expect(fakeRouter.replace).toHaveBeenCalledWith("/apps/management-core/s-home?plant=P1", { scroll: false }));
   });
 
-  it("draws a gap and not a zero for a month a plant did not report", async () => {
-    open();
-    const card = await screen.findByTestId("chart-plant-lines");
-
-    const first = within(card).getByTestId("line-P1");
-    // Plant 1 has no score in August: five marks for six months, and two separate runs of the line.
-    expect(first.querySelectorAll("title")).toHaveLength(5);
-    expect(first.querySelectorAll("path.score-line")).toHaveLength(2);
-    const second = within(card).getByTestId("line-P2");
-    expect(second.querySelectorAll("title")).toHaveLength(2);
-    expect(card.textContent).not.toMatch(/(^|\D)0%/);
-  });
-
-  it("offers every graph as a table of the very same numbers", async () => {
-    open();
-    const card = await screen.findByTestId("chart-plant-scores");
-
-    fireEvent.click(within(card).getByRole("button", { name: /view as table/i }));
-
-    const table = within(card).getByRole("table");
-    expect(within(table).getByText("92.5%")).toBeInTheDocument();
-    expect(within(table).getByText("Excellent")).toBeInTheDocument();
-    expect(within(table).getByText("Yes")).toBeInTheDocument();
-    expect(within(table).getAllByText("—").length).toBeGreaterThan(0);
-  });
-
-  it("explains in the table a bar the limit now in force would judge otherwise", async () => {
-    const base = summary();
-    open(
-      "/apps/management-core/s-home",
-      summary({
-        charts: {
-          ...base.charts,
-          scoresByPlant: [
-            { plant: "P1", label: "Plant 1", score: 90, forms: 1, rank: 1, band: "GOOD", bandWord: "Good", needsActionPlan: false, belowCurrentLimit: true },
-          ],
-        },
-      }),
-    );
-    const card = await screen.findByTestId("chart-plant-scores");
-
-    fireEvent.click(within(card).getByRole("button", { name: /view as table/i }));
-
-    expect(within(card).getByRole("table")).toHaveTextContent("No (below the limit now; decided under an earlier limit)");
-  });
-
-  it("ranks the plants that have a score, and leaves the one without out of the ranking", async () => {
-    open();
-    const rank = await screen.findByTestId("rank-list");
-
-    expect(within(rank).getAllByRole("listitem")).toHaveLength(2);
-    expect(rank).toHaveTextContent("Plant 1");
-    expect(rank).not.toHaveTextContent("Plant 3");
-  });
-
-  it("says in plain words that no plant has a score instead of drawing an empty graph", async () => {
-    const base = summary();
-    open(
-      "/apps/management-core/s-home",
-      summary({
-        tiles: { ...base.tiles, averageScore: { atLeast: false } },
-        charts: { ...base.charts, scoresByPlant: [], plantsOverMonths: [], averageByMonth: base.months.map((month) => ({ month, plants: 0 })) },
-      }),
-    );
-
-    const card = await screen.findByTestId("chart-plant-scores");
-    expect(card).toHaveTextContent("No plant has an approved fill-in for Nov 2026 yet.");
-    expect(screen.getByTestId("tile-average-score")).toHaveTextContent("No approved fill-in for Nov 2026 yet");
-    expect(screen.queryByTestId("value-average-score")).toBeNull();
-  });
-
-  it("shows the Action plans a plant owes beside the ones it has, and draws every chart in solid colours", async () => {
-    const { container } = open();
-    await screen.findByTestId("plans-by-plant");
-
-    expect(screen.getByTestId("plans-P3")).toHaveAccessibleName("Plant 3: 2 owed and not started, 0 being written or returned, 0 sent, 0 approved");
-    expect(screen.getByTestId("plans-P3")).toHaveTextContent("2 · 0 · 0 · 0");
-    expect(screen.getByTestId("plans-by-plant")).toHaveTextContent("Owed, not started");
-    // No hatch, dot or wave patterns and no dashed lines in Management Core (owner's choice, 2026-11-17).
-    expect(container.querySelector("pattern")).toBeNull();
-    expect(container.querySelector("[fill^='url(']")).toBeNull();
-    container.querySelectorAll<SVGPathElement>(".score-line").forEach((line) => {
-      expect(line.style.strokeDasharray).toBe("");
+  it("works when the browser refuses its storage: the default is used and a click lasts as long as the page", async () => {
+    vi.spyOn(Storage.prototype, "getItem").mockImplementation(() => {
+      throw new Error("blocked");
     });
-  });
-
-  it("draws no tile for a section the server did not send, and no zero in its place", async () => {
-    const base = summary();
-    open("/apps/management-core/s-home", summary({ tiles: { ...base.tiles, waitingForReview: undefined, waitingForTopManagement: undefined } }));
-    await screen.findByTestId("value-plants-sent");
-
-    expect(screen.queryByTestId("tile-waiting-review")).toBeNull();
-    expect(screen.queryByTestId("tile-waiting-top")).toBeNull();
-    expect(screen.queryByTestId("tile-failed")).toBeNull();
-  });
-
-  it("names a section that failed and still draws the others", async () => {
-    const base = summary();
-    open(
-      "/apps/management-core/s-home",
-      summary({
-        tiles: { ...base.tiles, actionPlansOpen: undefined },
-        charts: { ...base.charts, actionPlansByPlant: undefined },
-        problems: ["action-plans"],
-      }),
-    );
-
-    expect(await screen.findByTestId("tile-failed")).toHaveTextContent("Could not be worked out");
-    expect(screen.getByTestId("value-plants-sent")).toHaveTextContent("2 of 3");
-    expect(screen.getByTestId("chart-plans")).toHaveTextContent("This graph could not be worked out");
-  });
-
-  it("says that waiting and Action plan numbers are not narrowed when a form is chosen", async () => {
-    open("/apps/management-core/s-home?form=11111111-1111-1111-1111-111111111111");
-
-    expect(await screen.findByTestId("tile-waiting-review")).toHaveTextContent("Not narrowed by form");
-  });
-
-  it("puts a choice in the address, so a view can be shared", async () => {
-    open();
-    await screen.findByTestId("value-plants-sent");
-
-    fireEvent.change(screen.getByLabelText("Plant"), { target: { value: "P2" } });
-    await waitFor(() => expect(fakeRouter.push).toHaveBeenCalledWith("/apps/management-core/s-home?plant=P2", { scroll: false }));
-    fireEvent.change(screen.getByLabelText("Compare over"), { target: { value: "3" } });
-    await waitFor(() => expect(fakeRouter.push).toHaveBeenCalledWith("/apps/management-core/s-home?span=3&plant=P2", { scroll: false }));
-  });
-
-  it("shows the API's words when the page cannot be had, with a way to try again", async () => {
-    calls = fakeApi({
-      "POST /api/v1/management-home/summary": () =>
-        json({ error: { code: "NOT_FOUND", message: "This application does not exist.", requestId: "r1" } }, 404),
+    vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => {
+      throw new Error("blocked");
     });
-    setUrl("/apps/management-core/s-home");
-    render(<ManagementHomePage />);
+    open("/apps/management-core/s-home");
 
-    expect(await screen.findByTestId("home-failed")).toHaveTextContent("This application does not exist.");
-    expect(screen.getByRole("button", { name: "Try again" })).toBeInTheDocument();
+    expect(await screen.findByTestId("management-board")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Option 2" }));
+    expect(await screen.findByTestId("management-home")).toBeInTheDocument();
+  });
+
+  it("holds no permission and nothing on the server: choosing a layout calls no endpoint of its own", async () => {
+    open("/apps/management-core/s-home");
+    await screen.findByTestId("management-board");
+
+    fireEvent.click(screen.getByRole("button", { name: "Option 2" }));
+    await screen.findByTestId("management-home");
+
+    expect(calls.every((call) => call.key.includes("/management-home/"))).toBe(true);
+  });
+});
+
+describe("the choice, as a rule", () => {
+  it("takes the address first, then the browser, then Option 1; a value that is neither is no choice", () => {
+    expect(viewFromAddress("1")).toBe("1");
+    expect(viewFromAddress("2")).toBe("2");
+    expect(viewFromAddress("3")).toBeUndefined();
+    expect(viewFromAddress(null)).toBeUndefined();
+    expect(chooseView("2", "1")).toBe("2");
+    expect(chooseView(undefined, "2")).toBe("2");
+    expect(chooseView(undefined, null)).toBe("1");
+  });
+
+  it("reads a stored value only when it is one of the two", () => {
+    window.localStorage.setItem("management-home-view", "9");
+    expect(storedView()).toBeNull();
+    rememberView("2");
+    expect(storedView()).toBe("2");
   });
 });

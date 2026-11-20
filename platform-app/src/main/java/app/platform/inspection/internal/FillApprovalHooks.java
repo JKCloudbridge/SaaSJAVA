@@ -47,9 +47,12 @@ class FillApprovalHooks implements ApprovalHooks {
     private final FillScores scores;
     private final ActionPlanNotices actionPlanNotices;
     private final ReviewerShares reviewerShares;
+    private final FillPeriods periods;
 
     FillApprovalHooks(BackgroundRecords records, FillLifecycle fills, FillHeaders headers, RecordSets sets,
-            FillScores scores, ActionPlanNotices actionPlanNotices, ReviewerShares reviewerShares) {
+            FillScores scores, ActionPlanNotices actionPlanNotices, ReviewerShares reviewerShares,
+            FillPeriods periods) {
+        this.periods = periods;
         this.reviewerShares = reviewerShares;
         this.scores = scores;
         this.actionPlanNotices = actionPlanNotices;
@@ -93,6 +96,7 @@ class FillApprovalHooks implements ApprovalHooks {
                     Templates.fit(refusal.getMessage()));
         }
         follow(set, context.recordId(), FillStatus.SUBMITTED);
+        stampPlanSent(set, header);
         // The reviewers chosen for the plant may open the fill-in they are asked about (2026-11-17); a fill-in with
         // no plant has none and nothing is shared.
         reviewerShares.shareWithReviewers(set.fill(), context.recordId(),
@@ -102,7 +106,7 @@ class FillApprovalHooks implements ApprovalHooks {
     /** The fields the hook may set on a header: what the sheet's score means (MC2B, ADR-0261). */
     @Override
     public List<String> writes() {
-        return List.of(Fills.SCORE, Fills.RESULT);
+        return List.of(Fills.SCORE, Fills.RESULT, Fills.SCORED_ON);
     }
 
     /**
@@ -128,6 +132,10 @@ class FillApprovalHooks implements ApprovalHooks {
                     + "so it cannot be approved yet.");
         }
         Map<String, String> changes = scores.changes(header, judgement);
+        if (isBlank(header.fields().get(Fills.SCORED_ON))) {
+            // The first Submit stamps the day, from the platform's clock; a correction later never moves it (ADR-0266).
+            changes.put(Fills.SCORED_ON, periods.today());
+        }
         if (!changes.isEmpty()) {
             try {
                 writer.set(changes);
@@ -152,6 +160,26 @@ class FillApprovalHooks implements ApprovalHooks {
         if (fills.ended(set.fill(), context.recordId(), context.requestId(), result, context.endedBy())) {
             follow(set, context.recordId(), result);
         }
+    }
+
+    /**
+     * The first time a plant head sends an Action plan, its header gets the day (ADR-0266). A plan sent again after a
+     * return keeps its first day; a fill-in that is not an Action plan is not stamped.
+     */
+    private void stampPlanSent(RecordSet set, DataRecord header) {
+        if (isBlank(header.fields().get(Fills.PARENT_FILL)) || !isBlank(header.fields().get(Fills.PLAN_SENT_ON))) {
+            return;
+        }
+        try {
+            headers.planSent(set.fill(), header.id(), periods.today());
+        } catch (BackgroundWriteException refused) {
+            throw new IllegalStateException("The day an Action plan was sent could not be written ("
+                    + refused.reason().key() + ")");
+        }
+    }
+
+    private static boolean isBlank(Object stored) {
+        return !(stored instanceof String text) || text.isBlank();
     }
 
     /** Keeps the copy of the status on the header in step with the fill-in; a failure undoes the decision. */

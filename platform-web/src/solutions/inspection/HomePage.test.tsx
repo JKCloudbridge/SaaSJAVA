@@ -16,6 +16,7 @@ function application(apiName: string, options: Record<string, string>) {
 beforeEach(() => {
   fakeApi({
     "POST /api/v1/management-home/summary": () => json({ error: { code: "NOT_FOUND", message: "none", requestId: "r" } }, 404),
+    "POST /api/v1/management-home/plant-board": () => json({ error: { code: "NOT_FOUND", message: "none", requestId: "r" } }, 404),
     "POST /api/v1/quality-home/summary": () => json({ error: { code: "NOT_FOUND", message: "none", requestId: "r" } }, 404),
     "GET /api/v1/approvals/inbox/summary": () => json({ data: { openTasks: 0, available: false } }),
   });
@@ -34,7 +35,8 @@ describe("the Home page of an application of the kind", () => {
 
     render(<HomePage />);
 
-    expect(await screen.findByTestId("management-home")).toBeInTheDocument();
+    // Option 1, the plant board, is the layout a person gets until they choose the other one (ADR-0266).
+    expect(await screen.findByTestId("management-board")).toBeInTheDocument();
     expect(screen.queryByTestId("quality-home")).toBeNull();
   });
 
@@ -45,6 +47,7 @@ describe("the Home page of an application of the kind", () => {
       setUrl(address);
       const { unmount } = render(<HomePage />);
       expect(await screen.findByTestId("quality-home")).toBeInTheDocument();
+      expect(screen.queryByTestId("management-board")).toBeNull();
       expect(screen.queryByTestId("management-home")).toBeNull();
       unmount();
     }

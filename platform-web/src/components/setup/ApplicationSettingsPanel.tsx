@@ -72,7 +72,7 @@ function SettingForm({ application, setting, onChanged }: {
   const [value, setValue] = useState(String(setting.value));
   const [busy, setBusy] = useState(false);
   const [problem, setProblem] = useState<string | undefined>();
-  const percent = setting.kind === "PERCENT";
+  const unit = setting.kind === "PERCENT" ? " (percent)" : setting.kind === "DAYS" ? " (days)" : "";
   const run = async (work: () => Promise<string | undefined>) => {
     setBusy(true);
     setProblem(undefined);
@@ -93,7 +93,7 @@ function SettingForm({ application, setting, onChanged }: {
       setProblem(problemText(result.error, result.response));
       return undefined;
     }
-    return "The setting was saved. It applies to reviews that end from now on.";
+    return setting.kind === "DAYS" ? "The setting was saved. It applies at once." : "The setting was saved. It applies to reviews that end from now on.";
   });
   const reset = () => run(async () => {
     const result = await api.DELETE("/api/v1/application-settings", {
@@ -108,7 +108,7 @@ function SettingForm({ application, setting, onChanged }: {
   const wholeNumber = /^\d+$/.test(value) && Number(value) >= setting.least && Number(value) <= setting.most;
   return (
     <form className="form" onSubmit={(event) => { event.preventDefault(); void save(); }}>
-      <label className="field">{setting.label}{percent ? " (percent)" : ""}
+      <label className="field">{setting.label}{unit}
         <input
           type="number" inputMode="numeric" min={setting.least} max={setting.most} step={1} value={value}
           aria-describedby={hintId} aria-invalid={problem ? true : undefined}

@@ -1876,6 +1876,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/management-home/plant-board": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * The plant board of the Management Core Home page: tiles, score by month, Action plan tracker
+         * @description The same question as the summary (a month, how many months to compare, one plant, one form) and the same counting rule: every number is made over the fill-ins and Action plans the record store itself returns to the caller, narrowed to the application. It adds the status of every Action plan (Awaiting, Submitted, Late, Overdue N days) from the two days the platform stamped (the day the reviewer's Submit stamped the score and the day the plant head first sent the Action plan), the number of days in the setting actionPlanDueDays and today in UTC from the platform's clock. A plan with no stamped day is NO_DATE and is never guessed. Statuses are shown, never acted on. The sections are null for a caller who may not read fill-ins, and a month a plant did not report is a null score, never a zero. NOT_FOUND on the platform host, for an application without this page and for an organization without the plan feature; VALIDATION_ERROR for a month, span, plant or form that is not offered. Nothing typed, no score, plant, month or day is logged or audited.
+         */
+        post: operations["managementHomePlantBoard"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/management-home/summary": {
         parameters: {
             query?: never;
@@ -6773,6 +6793,9 @@ export interface components {
         ApiResponseLookupLabelsView: {
             data: components["schemas"]["LookupLabelsView"];
         };
+        ApiResponseManagementPlantBoard: {
+            data: components["schemas"]["ManagementPlantBoard"];
+        };
         ApiResponseManagementSummaryView: {
             data: components["schemas"]["ManagementSummaryView"];
         };
@@ -8679,6 +8702,74 @@ export interface components {
             form?: string;
             plant?: string;
         };
+        ManagementBoardCell: {
+            /** Format: uuid */
+            fillId?: string;
+            month: string;
+            /** Format: double */
+            score?: number;
+            status: string;
+            word: string;
+        };
+        ManagementBoardGridRow: {
+            cells: components["schemas"]["ManagementBoardCell"][];
+            /** Format: int32 */
+            colour: number;
+            current?: components["schemas"]["ManagementBoardCell"];
+            label: string;
+            plant: string;
+        };
+        ManagementBoardPlan: {
+            /** Format: int32 */
+            colour: number;
+            dueOn?: string;
+            /** Format: uuid */
+            fillId: string;
+            label: string;
+            month: string;
+            /** Format: int32 */
+            overdueDays?: number;
+            /** Format: uuid */
+            planId?: string;
+            plant: string;
+            /** Format: double */
+            score?: number;
+            sentOn?: string;
+            status: string;
+            statusText: string;
+            submittedOn?: string;
+        };
+        ManagementBoardPlant: {
+            /** Format: double */
+            change?: number;
+            changeMonth?: string;
+            /** Format: int32 */
+            colour: number;
+            label: string;
+            latestMonth?: string;
+            /** Format: double */
+            latestScore?: number;
+            /** Format: int32 */
+            overdue: number;
+            /** Format: int32 */
+            plansSent: number;
+            /** Format: int32 */
+            plansSubmitted: number;
+            plant: string;
+            points: number[];
+            /** Format: int32 */
+            scoresOf: number;
+            /** Format: int32 */
+            scoresSubmitted: number;
+        };
+        ManagementBoardTotals: {
+            /** Format: int32 */
+            overdue: number;
+            /** Format: int32 */
+            plansSent: number;
+            /** Format: int32 */
+            plansSubmitted: number;
+        };
         ManagementChartsView: {
             actionPlansByPlant?: components["schemas"]["PlantPlans"][];
             averageByMonth?: components["schemas"]["MonthAverage"][];
@@ -8689,6 +8780,27 @@ export interface components {
         ManagementFiltersView: {
             forms: components["schemas"]["FormOption"][];
             plants: components["schemas"]["PlantOption"][];
+        };
+        ManagementPlantBoard: {
+            applied: components["schemas"]["ManagementAppliedView"];
+            atLeast: boolean;
+            currentMonth?: string;
+            /** Format: int32 */
+            dueDays?: number;
+            filters: components["schemas"]["ManagementFiltersView"];
+            /** Format: date-time */
+            generatedAt: string;
+            grid?: components["schemas"]["ManagementBoardGridRow"][];
+            /** Format: int32 */
+            limit?: number;
+            month: string;
+            monthChoices: string[];
+            months: string[];
+            plans?: components["schemas"]["ManagementBoardPlan"][];
+            plants?: components["schemas"]["ManagementBoardPlant"][];
+            problems: string[];
+            today: string;
+            totals?: components["schemas"]["ManagementBoardTotals"];
         };
         ManagementSummaryRequest: {
             /** Format: uuid */
@@ -14518,6 +14630,42 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ApiResponseListLicencePoolView"];
+                };
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    managementHomePlantBoard: {
+        parameters: {
+            query: {
+                /** @description The application whose records are counted (its API name). It chooses among the sets of records only: NOT_FOUND, in the same words, for an application that does not exist, that the organization does not have or that has no such page. */
+                application: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["ManagementSummaryRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseManagementPlantBoard"];
                 };
             };
             /** @description Error. The code says what went wrong; the message is safe to show. */

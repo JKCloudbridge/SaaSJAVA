@@ -1,7 +1,7 @@
 "use client";
 
 import { type CSSProperties } from "react";
-import { Swatch } from "../home/ChartCard";
+import { Swatch } from "../../home/ChartCard";
 import {
   formatScore,
   markOf,
@@ -15,7 +15,7 @@ import {
   type MonthStatus,
   type PlantPlans,
   type PlantScore,
-} from "./model";
+} from "../model";
 
 /**
  * The graphs of the Home page that compares the plants (MC3, ADR-0262), drawn from the numbers the server counted: plain

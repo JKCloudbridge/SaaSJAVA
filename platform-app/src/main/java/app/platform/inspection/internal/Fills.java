@@ -34,6 +34,13 @@ final class Fills {
      * plan is started, and unique. Empty for every other fill-in.
      */
     static final String PARENT_FILL = "parentFill";
+    /**
+     * The day (UTC, {@code YYYY-MM-DD}) the reviewer's Submit first stamped the score, written once by the platform
+     * from its clock (ADR-0266); the due day of an Action plan counts from it.
+     */
+    static final String SCORED_ON = "scoredOn";
+    /** The day (UTC) the plant head first sent an Action plan, written once on the Action plan (ADR-0266). */
+    static final String PLAN_SENT_ON = "planSentOn";
     /** The result that says an Action plan is needed. */
     static final String ACTION_PLAN = "ACTION_PLAN";
     /** The result of a score that needs no Action plan. */

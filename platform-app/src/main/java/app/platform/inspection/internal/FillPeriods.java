@@ -1,6 +1,7 @@
 package app.platform.inspection.internal;
 
 import java.time.Clock;
+import java.time.LocalDate;
 import java.time.YearMonth;
 import java.time.ZoneOffset;
 import java.time.format.DateTimeParseException;
@@ -29,6 +30,11 @@ class FillPeriods {
     /** This month, as {@code YYYY-MM}. */
     String current() {
         return YearMonth.now(clock.withZone(ZoneOffset.UTC)).toString();
+    }
+
+    /** Today as {@code YYYY-MM-DD} in UTC: the day a stamp of the dashboard (ADR-0266) is written with. */
+    String today() {
+        return LocalDate.now(clock.withZone(ZoneOffset.UTC)).toString();
     }
 
     /** The month written, or empty when it is not a month written as {@code YYYY-MM}. */

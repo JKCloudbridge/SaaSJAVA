@@ -38,26 +38,29 @@ const FORM = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const CODE = /^[A-Za-z0-9_-]{1,10}$/;
 
 /** The filters an address holds; whatever is not one of the known shapes is "no filter". */
-export function filtersFromParams(params: { get(name: string): string | null } | null | undefined): ManagementFilters {
+export function filtersFromParams(
+  params: { get(name: string): string | null } | null | undefined,
+  defaultSpan: Span = DEFAULT_SPAN,
+): ManagementFilters {
   const month = params?.get("month") ?? "";
   const span = Number(params?.get("span"));
   const plant = params?.get("plant") ?? "";
   const form = params?.get("form") ?? "";
   return {
     month: month === "last" || MONTH.test(month) ? month : "this",
-    span: (SPANS as readonly number[]).includes(span) ? (span as Span) : DEFAULT_SPAN,
+    span: (SPANS as readonly number[]).includes(span) ? (span as Span) : defaultSpan,
     plant: CODE.test(plant) ? plant : "",
     form: FORM.test(form) ? form : "",
   };
 }
 
 /** The address query of the filters, with only what differs from the default. */
-export function paramsFromFilters(filters: ManagementFilters): string {
+export function paramsFromFilters(filters: ManagementFilters, defaultSpan: Span = DEFAULT_SPAN): string {
   const params = new URLSearchParams();
   if (filters.month !== "this") {
     params.set("month", filters.month);
   }
-  if (filters.span !== DEFAULT_SPAN) {
+  if (filters.span !== defaultSpan) {
     params.set("span", String(filters.span));
   }
   if (filters.plant !== "") {
@@ -69,8 +72,8 @@ export function paramsFromFilters(filters: ManagementFilters): string {
   return params.toString();
 }
 
-export function isFiltered(filters: ManagementFilters): boolean {
-  return paramsFromFilters(filters) !== "";
+export function isFiltered(filters: ManagementFilters, defaultSpan: Span = DEFAULT_SPAN): boolean {
+  return paramsFromFilters(filters, defaultSpan) !== "";
 }
 
 // ---- where a number leads ----
@@ -131,15 +134,6 @@ export function formatCount(value: number | null | undefined, atLeast = false): 
   return `${atLeast ? "at least " : ""}${Math.round(value).toLocaleString("en")}`;
 }
 
-/** The legend as the server's numbers say it; an application that declares none has no sentence. */
-export function legendWords(legend: ManagementSummary["legend"]): string | undefined {
-  const { excellentAbove, goodAbove, limit } = legend;
-  if (excellentAbove === undefined || goodAbove === undefined) {
-    return undefined;
-  }
-  const bands = `Excellent: above ${excellentAbove}%. Good: above ${goodAbove}% up to ${excellentAbove}%. Poor: ${goodAbove}% or less.`;
-  return limit === undefined ? bands : `${bands} An Action plan is needed below ${limit}%.`;
-}
 
 // ---- drawing ----
 

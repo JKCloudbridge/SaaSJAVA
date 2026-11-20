@@ -200,6 +200,29 @@ describe("design tokens", () => {
       }
     });
 
+    it("reads at AA (4.5 to 1) for every status pair of the plant board, in both themes (ADR-0266)", () => {
+      for (const [name, block] of [
+        ["light", light],
+        ["dark", dark],
+      ] as const) {
+        const surface = role(block, "--color-surface");
+        const sunken = role(block, "--color-surface-sunken");
+        const muted = role(block, "--color-text-muted");
+        for (const [what, a, b] of [
+          ["success on its surface", role(block, "--color-success"), role(block, "--color-success-surface")],
+          ["warning on its surface", role(block, "--color-warning"), role(block, "--color-warning-surface")],
+          ["danger on its surface", role(block, "--color-danger"), role(block, "--color-danger-surface")],
+          ["success on a panel", role(block, "--color-success"), surface],
+          ["warning on a panel", role(block, "--color-warning"), surface],
+          ["danger on a panel", role(block, "--color-danger"), surface],
+          ["muted words on a panel", muted, surface],
+          ["muted words on the sunken surface", muted, sunken],
+        ] as const) {
+          expect(contrast(a, b), `${name}: ${what}`).toBeGreaterThanOrEqual(4.5);
+        }
+      }
+    });
+
     it("gives the board look white text on its navy band and readable ink on a panel in both themes (FA13C)", () => {
       for (const [name, block] of [
         ["light", light],

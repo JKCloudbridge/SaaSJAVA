@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { api } from "@/lib/api/client";
 import { call } from "@/lib/records/call";
-import { scopeQuery } from "../scope";
-import type { ManagementFilters, ManagementSummary } from "./model";
+import { scopeQuery } from "../../scope";
+import type { ManagementFilters, ManagementSummary } from "../model";
 
 /**
  * The call of the Home page that compares the plants (MC3, ADR-0262). The page asks the server once for everything on

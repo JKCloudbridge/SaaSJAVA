@@ -63,7 +63,9 @@ record SolutionBundle(String key, String feature, String label, String removalNo
         /** How a value is typed and checked. */
         enum Kind {
             /** A whole percent from 1 to 100. */
-            PERCENT(1, 100);
+            PERCENT(1, 100),
+            /** A whole number of days from 1 to 365 (ADR-0266). */
+            DAYS(1, 365);
 
             private final int least;
             private final int most;
