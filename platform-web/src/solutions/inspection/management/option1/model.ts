@@ -13,6 +13,7 @@ export type BoardGridRow = components["schemas"]["ManagementBoardGridRow"];
 export type BoardCell = components["schemas"]["ManagementBoardCell"];
 export type BoardPlan = components["schemas"]["ManagementBoardPlan"];
 export type BoardPending = components["schemas"]["ManagementBoardPending"];
+export type BoardKpis = components["schemas"]["ManagementBoardKpis"];
 
 /** The months compared when the address names none: the board shows a year of months, as the pictures do. */
 export const BOARD_DEFAULT_SPAN = 12;

@@ -3542,6 +3542,56 @@ form + .detail-section {
   overflow-y: auto;
 }
 
+/* The window of the application grid scrolls, but draws no scroll bar; the small arrow below says there is more. */
+.modal-body-quiet {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.modal-body-quiet::-webkit-scrollbar {
+  display: none;
+}
+
+.modal-scroll-hint {
+  position: absolute;
+  left: 50%;
+  bottom: var(--space-3);
+  z-index: 2;
+  transform: translateX(-50%);
+  width: var(--size-control);
+  height: var(--size-control);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--color-accent);
+  background: var(--color-surface);
+  border: var(--border-width) solid var(--color-border);
+  border-radius: var(--radius-pill);
+  box-shadow: var(--shadow-2);
+  cursor: pointer;
+  animation: modal-scroll-hint-nudge 1.8s ease-in-out infinite;
+}
+
+.modal-scroll-hint:hover {
+  background: var(--color-accent-soft);
+}
+
+@keyframes modal-scroll-hint-nudge {
+  0%,
+  100% {
+    transform: translate(-50%, 0);
+  }
+  50% {
+    transform: translate(-50%, 3px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .modal-scroll-hint {
+    animation: none;
+  }
+}
+
 /* The home pages sit in the middle of the page with the same space on both sides. */
 .dash,
 .overview,
@@ -6934,4 +6984,49 @@ a.pb-cell:focus-visible {
 /* Near the top of the chart the tip opens below the dot, so it is never cut off; lower down it opens above. */
 .pb-tip-below {
   transform: translate(-50%, 0.75rem);
+}
+
+/* Four key numbers of equal size in one line; two to a line on a narrow screen, one on a phone. */
+.pb-kpis {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: var(--space-3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.pb-kpi {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  padding: var(--space-3) var(--space-4);
+  border: var(--border-width) solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+}
+
+.pb-kpi-label,
+.pb-kpi-note {
+  color: var(--color-text-muted);
+  font-size: var(--font-size-xs);
+}
+
+.pb-kpi-value {
+  font-size: var(--font-size-xl);
+  font-weight: 600;
+  line-height: 1.2;
+  font-variant-numeric: tabular-nums;
+}
+
+@media (max-width: 48rem) {
+  .pb-kpis {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 30rem) {
+  .pb-kpis {
+    grid-template-columns: minmax(0, 1fr);
+  }
 }

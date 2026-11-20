@@ -108,7 +108,8 @@ final class PlantBoardNumbers {
 
     /** What the board is. */
     record Board(List<ManagementBoardPlant> plants, List<ManagementBoardGridRow> grid,
-            List<ManagementBoardPlan> plans, ManagementBoardTotals totals) {
+            List<ManagementBoardPlan> plans, ManagementBoardTotals totals,
+            ManagementBoardViews.ManagementBoardKpis kpis) {
     }
 
     private PlantBoardNumbers() {
@@ -235,7 +236,52 @@ final class PlantBoardNumbers {
                 .thenComparing(entry -> entry.fill().id()));
         List<ManagementBoardPlan> plans = entries.stream().map(PlantBoardNumbers::planView).toList();
         return new Board(tiles, grid, plans, new ManagementBoardTotals(sent(entries), submitted(entries),
-                overdue(entries)));
+                overdue(entries)), kpis(in, entries, scores));
+    }
+
+    /** The four numbers over the plants shown (ADR-0266). */
+    private static ManagementBoardViews.ManagementBoardKpis kpis(Inputs in, List<Entry> entries,
+            Map<String, Map<String, Double>> scores) {
+        List<Long> days = new ArrayList<>();
+        int onTime = 0;
+        for (Entry entry : entries) {
+            Status status = entry.judgement().status();
+            if ((status == Status.SUBMITTED || status == Status.LATE) && entry.judgement().scoredOn() != null
+                    && entry.judgement().sentOn() != null) {
+                days.add(ChronoUnit.DAYS.between(entry.judgement().scoredOn(), entry.judgement().sentOn()));
+                if (status == Status.SUBMITTED) {
+                    onTime++;
+                }
+            }
+        }
+        Double average = days.isEmpty() ? null : BigDecimal.valueOf(days.stream().mapToLong(Long::longValue).sum())
+                .divide(BigDecimal.valueOf(days.size()), 1, java.math.RoundingMode.HALF_UP).doubleValue();
+        Integer percent = days.isEmpty() ? null : (int) Math.round(onTime * 100.0 / days.size());
+
+        String month = in.current() != null ? in.current()
+                : in.months().isEmpty() ? null : in.months().get(in.months().size() - 1);
+        int sent = month == null ? 0 : (int) in.plants().keySet().stream().filter(plant -> in.fills().stream()
+                .anyMatch(row -> plant.equals(row.plant()) && month.equals(row.period()) && row.sent())).count();
+
+        Integer streak = in.months().isEmpty() ? null : 0;
+        String streakPlant = null;
+        for (String plant : in.plants().keySet()) {
+            int run = 0;
+            for (int at = in.months().size() - 1; at >= 0; at--) {
+                String each = in.months().get(at);
+                boolean passed = scores.get(each).get(plant) != null && needing(in.fills(), plant, each).isEmpty();
+                if (!passed) {
+                    break;
+                }
+                run++;
+            }
+            if (streak != null && run > streak) {
+                streak = run;
+                streakPlant = in.plants().get(plant);
+            }
+        }
+        return new ManagementBoardViews.ManagementBoardKpis(average, days.size(), percent, onTime, sent,
+                in.plants().size(), month, streak, streakPlant);
     }
 
     private record Entry(String plant, String label, int colour, String month, Row fill, Row plan,

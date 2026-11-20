@@ -340,7 +340,8 @@ class ManagementHome {
                 new ManagementAppliedView(chosen.plant(), chosen.form()), more,
                 board == null ? null : board.plants(), board == null ? null : board.grid(),
                 board == null ? null : board.plans(), board == null ? null : board.totals(),
-                board == null ? null : PlantBoardNumbers.pending(pendingRows, shown, colours, today), problems);
+                board == null ? null : PlantBoardNumbers.pending(pendingRows, shown, colours, today),
+                board == null ? null : board.kpis(), problems);
     }
 
     // ---- the filters ----

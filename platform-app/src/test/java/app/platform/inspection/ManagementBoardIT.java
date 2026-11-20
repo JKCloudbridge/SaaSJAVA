@@ -193,6 +193,10 @@ assertThat(objects(board(approver), "pending")).as("decided, so no longer waitin
         assertThat(str(submitted, "plans[0].submittedOn")).isEqualTo(today());
         assertThat(str(submitted, "grid[0].cells[0].status")).isEqualTo("SUBMITTED");
         assertThat(integer(submitted, "plants[0].plansSubmitted")).isEqualTo(1);
+        assertThat(integer(submitted, "kpis.avgDaysOf")).as("a plan with both days").isEqualTo(1);
+        assertThat(decimal(submitted, "kpis.avgDaysToSubmit")).as("scored and sent on the same day").isZero();
+        assertThat(integer(submitted, "kpis.onTimePercent")).isEqualTo(100);
+        assertThat(integer(submitted, "kpis.reportingOf")).isEqualTo(2);
         agrees(approver, 1, 1);
 
         // Its review changes nothing about the days.

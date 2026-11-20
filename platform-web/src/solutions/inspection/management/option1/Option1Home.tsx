@@ -10,6 +10,7 @@ import { ActionPlanTracker } from "./ActionPlanTracker";
 import { useBoard } from "./api";
 import { BOARD_DEFAULT_SPAN, type PlantBoard } from "./model";
 import { PendingReview } from "./PendingReview";
+import { PlantKpis } from "./PlantKpis";
 import { PlantTiles } from "./PlantTiles";
 import { ScoreByMonth } from "./ScoreByMonth";
 
@@ -87,6 +88,7 @@ function Board({ board, application }: { board: PlantBoard; application: string 
   }
   return (
     <>
+      {board.kpis ? <PlantKpis kpis={board.kpis} /> : null}
       {plants.length === 0 ? (
         <p className="pb-empty" role="status">
           No data

@@ -97,6 +97,7 @@ function board(changes: Partial<PlantBoard> = {}): PlantBoard {
       plan("P3", "Plant 3", 3, "2026-01", "LATE", "Submitted late", 79, { sentOn: "2026-02-05", dueOn: "2026-02-15", submittedOn: "2026-02-20" }),
     ],
     totals: { plansSent: 8, plansSubmitted: 6, overdue: 2 },
+    kpis: { avgDaysToSubmit: 7.5, avgDaysOf: 6, onTimePercent: 83, onTimeCount: 5, reportingSent: 1, reportingOf: 3, reportingMonth: "2026-11", streakMonths: 4, streakPlant: "Plant 1" },
     problems: [],
     ...changes,
   };
@@ -266,6 +267,30 @@ describe("Option 1 of the Management Core home: the plant board", () => {
     expect(submitted).toHaveTextContent("Submitted late");
     expect(submitted).not.toHaveTextContent("Overdue");
     expect(within(tracker).getByRole("button", { name: "Submitted" })).toHaveAttribute("aria-pressed", "true");
+  });
+
+  it("shows four key numbers of equal size in one line, and a dash where a number has nothing to be made of", async () => {
+    open();
+    const band = await screen.findByTestId("board-kpis");
+
+    expect(within(band).getAllByRole("listitem")).toHaveLength(4);
+    expect(screen.getByTestId("kpi-avg-days")).toHaveTextContent("7.5");
+    expect(screen.getByTestId("kpi-avg-days")).toHaveTextContent("6 plans");
+    expect(screen.getByTestId("kpi-on-time")).toHaveTextContent("83%");
+    expect(screen.getByTestId("kpi-on-time")).toHaveTextContent("5 of 6");
+    expect(screen.getByTestId("kpi-reporting")).toHaveTextContent("Plants reported, Nov");
+    expect(screen.getByTestId("kpi-reporting")).toHaveTextContent("1 of 3");
+    expect(screen.getByTestId("kpi-streak")).toHaveTextContent("4");
+    expect(screen.getByTestId("kpi-streak")).toHaveTextContent("Plant 1");
+  });
+
+  it("draws a dash for the average and the on-time share when no plan has both days", async () => {
+    open("/apps/management-core/s-home", board({ kpis: { avgDaysOf: 0, onTimeCount: 0, reportingSent: 0, reportingOf: 3, streakMonths: 0 } }));
+    await screen.findByTestId("board-kpis");
+
+    expect(screen.getByTestId("kpi-avg-days")).toHaveTextContent("–");
+    expect(screen.getByTestId("kpi-on-time")).toHaveTextContent("–");
+    expect(screen.getByTestId("kpi-streak")).toHaveTextContent("0");
   });
 
   it("lists the fill-ins that wait for a reviewer, longest first, with no reviewer named", async () => {

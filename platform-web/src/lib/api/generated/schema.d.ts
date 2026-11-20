@@ -8719,6 +8719,24 @@ export interface components {
             label: string;
             plant: string;
         };
+        ManagementBoardKpis: {
+            /** Format: int32 */
+            avgDaysOf: number;
+            /** Format: double */
+            avgDaysToSubmit?: number;
+            /** Format: int32 */
+            onTimeCount: number;
+            /** Format: int32 */
+            onTimePercent?: number;
+            reportingMonth?: string;
+            /** Format: int32 */
+            reportingOf: number;
+            /** Format: int32 */
+            reportingSent: number;
+            /** Format: int32 */
+            streakMonths?: number;
+            streakPlant?: string;
+        };
         ManagementBoardPending: {
             actionPlan: boolean;
             /** Format: int32 */
@@ -8807,6 +8825,7 @@ export interface components {
             /** Format: date-time */
             generatedAt: string;
             grid?: components["schemas"]["ManagementBoardGridRow"][];
+            kpis?: components["schemas"]["ManagementBoardKpis"];
             /** Format: int32 */
             limit?: number;
             month: string;

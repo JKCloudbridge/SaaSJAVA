@@ -43,6 +43,7 @@ public final class ManagementBoardViews {
      * @param plans the Action plans owed and sent, for the detail table, most urgent first
      * @param totals the three numbers on top of the tracker
      * @param pending the fill-ins sent and waiting for their reviewer, longest waiting first
+     * @param kpis four numbers over the plants shown
      * @param problems the sections that could not be worked out, by name
      */
     public record ManagementPlantBoard(@NotNull Instant generatedAt, @NotNull String month, @NotNull String today,
@@ -51,6 +52,7 @@ public final class ManagementBoardViews {
             @NotNull ManagementFiltersView filters, @NotNull ManagementAppliedView applied,
             @NotNull Boolean atLeast, List<ManagementBoardPlant> plants, List<ManagementBoardGridRow> grid,
             List<ManagementBoardPlan> plans, ManagementBoardTotals totals, List<ManagementBoardPending> pending,
+            ManagementBoardKpis kpis,
             @NotNull List<String> problems) {
     }
 
@@ -156,5 +158,25 @@ public final class ManagementBoardViews {
     public record ManagementBoardPending(@NotNull String plant, @NotNull String label, @NotNull Integer colour,
             @NotNull String month, @NotNull String name, Double score, String sentOn, Integer daysWaiting,
             @NotNull Boolean actionPlan, @NotNull UUID fillId) {
+    }
+
+    /**
+     * Four numbers over the plants shown. A number that has nothing to be made of is {@code null}, never zero.
+     *
+     * @param avgDaysToSubmit the mean days from the day the score was stamped to the day the plant head first sent the
+     *        plan, over the plans that have both days; null when none has
+     * @param avgDaysOf how many plans that mean is made of
+     * @param onTimePercent the share of those plans sent on or before the due day, as a whole percent, or null
+     * @param onTimeCount how many of them were on time
+     * @param reportingSent plants with a fill-in sent (waiting or decided) for {@code reportingMonth}
+     * @param reportingOf the plants shown
+     * @param reportingMonth the month in progress, else the latest month shown, or null
+     * @param streakMonths the most consecutive months, ending with the latest month shown, in which a plant passed
+     *        (it scored and no fill-in of it needed an Action plan); null when there are no months
+     * @param streakPlant the plant that holds it, or null when the streak is zero
+     */
+    public record ManagementBoardKpis(Double avgDaysToSubmit, @NotNull Integer avgDaysOf, Integer onTimePercent,
+            @NotNull Integer onTimeCount, @NotNull Integer reportingSent, @NotNull Integer reportingOf,
+            String reportingMonth, Integer streakMonths, String streakPlant) {
     }
 }

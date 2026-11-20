@@ -306,6 +306,52 @@ class PlantBoardNumbersTest {
         assertThat(pending.get(1).colour()).isEqualTo(2);
     }
 
+    @Test
+    void theFourKpisAreMadeOnlyOfWhatHasItsDaysAndNeverGuess() {
+        Row a = low(P1, "2026-01", "82.00", "2026-02-05");
+        Row b = low(P1, "2026-02", "84.00", "2026-03-05");
+        Row c = low(P2, "2026-03", "83.00", "2026-04-06");
+        Row old = low(P2, "2026-04", "80.00", null);
+        Row sentNoDay = low(P2, "2026-05", "80.00", "2026-06-01");
+        List<Row> plans = List.of(planOf(a, "SUBMITTED", "2026-02-12"), planOf(b, "SUBMITTED", "2026-03-20"),
+                planOf(sentNoDay, "SUBMITTED", null), planOf(old, "SUBMITTED", "2026-05-02"));
+
+        var kpis = board(List.of("2026-01", "2026-02", "2026-03", "2026-04", "2026-05"), "2026-11",
+                List.of(a, b, c, old, sentNoDay, fill(P1, "2026-11", null, null, "SUBMITTED", null)), plans).kpis();
+
+        // a: 7 days, on time; b: 15 days, late. c has no plan, old has no scored day, sentNoDay has no sent day.
+        assertThat(kpis.avgDaysOf()).isEqualTo(2);
+        assertThat(kpis.avgDaysToSubmit()).isEqualTo(11.0);
+        assertThat(kpis.onTimeCount()).isEqualTo(1);
+        assertThat(kpis.onTimePercent()).isEqualTo(50);
+        assertThat(kpis.reportingMonth()).isEqualTo("2026-11");
+        assertThat(kpis.reportingSent()).as("only Plant 1 sent a fill-in this month").isEqualTo(1);
+        assertThat(kpis.reportingOf()).isEqualTo(2);
+    }
+
+    @Test
+    void aKpiWithNothingToBeMadeOfIsNullAndNeverZero() {
+        var kpis = board(List.of("2026-10"), null, List.of(ok(P1, "2026-10", "90.00")), List.of()).kpis();
+
+        assertThat(kpis.avgDaysToSubmit()).isNull();
+        assertThat(kpis.onTimePercent()).isNull();
+        assertThat(kpis.avgDaysOf()).isZero();
+        assertThat(kpis.reportingMonth()).as("the latest month shown when none is in progress").isEqualTo("2026-10");
+    }
+
+    @Test
+    void theStreakCountsConsecutiveMonthsEndingWithTheLatestInWhichAPlantPassedAndNamesIt() {
+        List<Row> fills = List.of(ok(P1, "2026-07", "90.00"), low(P1, "2026-08", "70.00", "2026-09-01"),
+                ok(P1, "2026-09", "90.00"), ok(P1, "2026-10", "91.00"),
+                ok(P2, "2026-08", "90.00"), ok(P2, "2026-10", "90.00"));
+
+        var kpis = board(List.of("2026-07", "2026-08", "2026-09", "2026-10"), null, fills, List.of()).kpis();
+
+        assertThat(kpis.streakMonths()).as("Plant 1: September and October; Plant 2 missed September").isEqualTo(2);
+        assertThat(kpis.streakPlant()).isEqualTo("Plant 1");
+        assertThat(board(List.of(), null, List.of(), List.of()).kpis().streakMonths()).isNull();
+    }
+
     // ---- the months ----
 
     @Test

@@ -71,3 +71,12 @@ of the reference.
 
 Delete the folder `platform-web/src/solutions/inspection/management/option1` (or `option2`), its import and its entry in `OPTIONS` in `ManagementHome.tsx`, and for
 Option 1 the block at the end of `globals.css` and the endpoint `plant-board` with `ManagementBoardViews` and `PlantBoardNumbers`.
+
+## Amendments (2026-11-20, after the owner's review)
+
+- **Option 2 was removed from the screens** (decision 5 above no longer applies): there is no switch and no `localStorage` choice; the plant board is the only Management Core
+  Home. The summary endpoint of ADR-0262 remains in the backend, unused by any screen.
+- **Added to the board:** a "Pending with reviewer" table (sent and waiting; no reviewer named; the sent day is the record's last-changed time, display only) and four KPI tiles
+  (average days to submit and on-time share over plans with both stamped days only, plants reported this month, longest run of months passed by the stored result).
+- **Changed:** a score at or above the limit reads "Passed"; the Y axis of Score by month is in steps of 10 up to 100; the end-of-line labels and the highlight were removed and a
+  hovered dot shows a tip (above, or below near the top). The reduced top padding applies to the board only.
