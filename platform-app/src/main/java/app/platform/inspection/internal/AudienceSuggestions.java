@@ -90,6 +90,22 @@ class AudienceSuggestions {
     }
 
     /**
+     * The suggestion that binds the publishing of one version (FA15, ADR-0265): the one its own review made and, when
+     * that review made none (a revised version is reviewed by a change request), the template's most recent one.
+     * Nothing is returned for a template no step ever made a suggestion for, and then nothing limits a publisher.
+     *
+     * @param reviewedRequest the approval request that reviewed the version, or null when none is known
+     * @param templateId the template
+     */
+    Held forVersion(UUID reviewedRequest, UUID templateId) {
+        Held own = reviewedRequest == null ? new Held(List.of(), 0) : held(reviewedRequest);
+        if (!own.places().isEmpty() || own.dropped() > 0) {
+            return own;
+        }
+        return store.latestRequestOfTemplate(templateId).map(this::held).orElse(own);
+    }
+
+    /**
      * A suggestion as it stands today.
      *
      * @param places the places still offered

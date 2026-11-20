@@ -41,8 +41,8 @@ public abstract class SolutionSupport {
     protected static final String MEMBERS = "/api/v1/members";
     protected static final String FILL = "InspectionFill";
     protected static final String REQUEST = "InspectionChangeRequest";
-    protected static final List<String> SHIPPED_POLICIES = List.of("Author", "Approver", "Publisher", "Reader",
-            "Filler", "Reviewer", "Department setup", "Observer");
+    protected static final List<String> SHIPPED_POLICIES = List.of("Author", "Approver", "Publisher",
+            "Publisher anywhere", "Reader", "Filler", "Reviewer", "Department setup", "Observer");
 
     @LocalServerPort
     protected int port;

@@ -115,7 +115,8 @@ class TemplatePublishAuthorityIT extends ChangeRequestReviewSupport {
         List<String> withPublish = JsonPath.read(list.body(), "$.data[?(@.abilities contains 'sheets.publish')].name");
         List<String> withRetire = JsonPath.read(list.body(), "$.data[?(@.abilities contains 'sheets.retire')].name");
 
-        assertThat(withPublish).containsExactly("Publisher");
-        assertThat(withRetire).containsExactly("Publisher");
+        // FA15, ADR-0265: Publisher anywhere is the same policy plus the ability that lifts the location limit.
+        assertThat(withPublish).containsExactlyInAnyOrder("Publisher", "Publisher anywhere");
+        assertThat(withRetire).containsExactlyInAnyOrder("Publisher", "Publisher anywhere");
     }
 }

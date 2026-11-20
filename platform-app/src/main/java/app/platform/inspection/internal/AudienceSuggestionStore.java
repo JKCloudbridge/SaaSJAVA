@@ -3,6 +3,7 @@ package app.platform.inspection.internal;
 import app.platform.inspection.internal.AudienceChoices.Place;
 import app.platform.tenant.TenantContexts;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.stereotype.Repository;
@@ -55,6 +56,18 @@ class AudienceSuggestionStore {
                         + "and request_id = :request and deleted_at is null order by created_at, id")
                 .param("tenant", tenant()).param("request", requestId)
                 .query((rs, row) -> new Place(rs.getString("location"), rs.getString("department"))).list();
+    }
+
+    /**
+     * The request that made the template's most recent suggestion, if any was ever made. A revised version is reviewed
+     * by a change request, which makes no suggestion of its own; the locations an earlier approval chose still bind
+     * the people who publish (FA15, ADR-0265).
+     */
+    Optional<UUID> latestRequestOfTemplate(UUID templateId) {
+        return jdbc.sql("select request_id from inspection_audience_suggestion where tenant_id = :tenant "
+                        + "and template_id = :template and deleted_at is null "
+                        + "order by created_at desc, id desc limit 1")
+                .param("tenant", tenant()).param("template", templateId).query(UUID.class).optional();
     }
 
     private UUID tenant() {

@@ -148,6 +148,13 @@ public final class TemplateViews {
      * @param submitNote a short fixed sentence for the hover of the greyed button, or null when it can be sent
      * @param footerDate whether the footer of this application's sheets carries the day the Revision in use was
      *        published (MC1, ADR-0257); the screen writes the day in the reader's own time zone
+     * @param limitedToSuggested whether the caller may publish only to the locations the approval chose (FA15,
+     *        ADR-0265): they lack the ability to publish to any location and a suggestion exists; the server refuses
+     *        the rest, the screen only offers what this says
+     * @param noPlaceLeft whether a suggestion exists and none of its places is offered any more, so a limited caller
+     *        cannot publish
+     * @param unpublishedPlaces the suggested locations no department of is published to, for a caller who may publish,
+     *        so that a location is not forgotten
      */
     public record TemplateLifecycleView(@NotNull UUID id, @NotNull Boolean retired,
             @NotNull TemplateLifecycle lifecycle, @NotNull List<TemplateAudience> audience,
@@ -157,7 +164,23 @@ public final class TemplateViews {
             @NotNull Integer suggestionDropped, String number, @NotNull Boolean viewOnly,
             @NotNull Boolean allowDownload, @NotNull Boolean canDownload, @NotNull Boolean canSetOptions,
             String revision, Instant lastRevisedAt, @NotNull Boolean canSubmit, String submitNote,
-            @NotNull Boolean footerDate) {
+            @NotNull Boolean footerDate, @NotNull Boolean limitedToSuggested, @NotNull Boolean noPlaceLeft,
+            @NotNull List<UnpublishedPlace> unpublishedPlaces) {
+    }
+
+    /**
+     * A location the approval chose that nothing is published to yet (FA15, ADR-0265).
+     *
+     * @param location the location code
+     * @param locationLabel what people read for the location
+     */
+    public record UnpublishedPlace(@NotNull String location, @NotNull String locationLabel) {
+
+        /** Prints nothing: the codes are the organization's text. */
+        @Override
+        public String toString() {
+            return "UnpublishedPlace[redacted]";
+        }
     }
 
     /**

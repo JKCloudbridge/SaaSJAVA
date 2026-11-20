@@ -76,8 +76,8 @@ class SolutionLoaderTest {
                 "DepartmentGroup");
         assertThat(bundle.sheetOwners()).containsExactly("InspectionTemplate");
         assertThat(bundle.policies()).extracting(SolutionBundle.Policy::name)
-                .containsExactly("Author", "Approver", "Publisher", "Reader", "Filler", "Reviewer",
-                        "Department setup", "Observer");
+                .containsExactly("Author", "Approver", "Publisher", "Publisher anywhere", "Reader", "Filler",
+                        "Reviewer", "Department setup", "Observer");
         // The Observer sees every document, fill-in and change request and changes nothing (MC1.1, ADR-0259).
         assertThat(policy(bundle, "observer").objects()).containsOnlyKeys("InspectionTemplate", "InspectionFill",
                 "InspectionChangeRequest");
@@ -92,6 +92,14 @@ class SolutionLoaderTest {
                 "field-values.add");
         assertThat(policy(bundle, "publisher").abilities()).containsExactlyInAnyOrder("sheets.publish",
                 "sheets.retire");
+        // FA15, ADR-0265: the one policy that lifts the limit to the locations chosen in the approval; the rest of
+        // its rights are the Publisher's.
+        assertThat(policy(bundle, "publisher-anywhere").abilities()).containsExactlyInAnyOrder("sheets.publish",
+                "sheets.retire", "sheets.publish-any-location");
+        assertThat(policy(bundle, "publisher-anywhere").objects()).isEqualTo(policy(bundle, "publisher").objects());
+        assertThat(policy(bundle, "publisher-anywhere").fields()).isEqualTo(policy(bundle, "publisher").fields());
+        assertThat(policy(bundle, "publisher-anywhere").alsoAvailableWith())
+                .isEqualTo(policy(bundle, "publisher").alsoAvailableWith());
         assertThat(policy(bundle, "publisher").objects().get("InspectionTemplate")).containsExactlyInAnyOrder(
                 ObjectAction.READ, ObjectAction.VIEW_ALL);
         // FA6A: the author edits the name, level and document; the identity pair is the approver's to set.

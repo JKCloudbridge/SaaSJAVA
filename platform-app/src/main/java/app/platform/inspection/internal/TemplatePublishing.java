@@ -22,6 +22,7 @@ import app.platform.inspection.internal.TemplateViews.SuggestedAudience;
 import app.platform.inspection.internal.TemplateViews.TemplateAudience;
 import app.platform.inspection.internal.TemplateViews.TemplateLifecycle;
 import app.platform.inspection.internal.TemplateViews.TemplateLifecycleView;
+import app.platform.inspection.internal.TemplateViews.UnpublishedPlace;
 import app.platform.inspection.internal.TemplateViews.VersionReview;
 import app.platform.security.Ability;
 import app.platform.security.Grantee;
@@ -203,6 +204,8 @@ class TemplatePublishing {
             refuse("publish", "nothing_to_publish");
             throw new ApiException(ErrorCode.CONFLICT, "There is no approved revision of this template to publish.");
         }
+        PublishScope scope = scopeOf(set, caller, templateId, wanted);
+        checkScope(scope, request.audiences());
         List<Resolved> resolved = resolve(set, request);
         int replaced = 0;
         if (wanted != summary.active()) {
@@ -217,12 +220,14 @@ class TemplatePublishing {
                     caller.userId());
             publishedNotices.tell(set, header, caller.userId(), wanted);
         }
-        Counts counts = shareWith(set, caller.userId(), templateId, wanted, resolved);
+        Counts counts = shareWith(set, caller.userId(), templateId, wanted, resolved,
+                scope.limited() ? scope.locations() : null);
         Options options = changedOptions(templateId, request.viewOnly(), request.allowDownload(), caller);
         audit.record(base(set, "inspection.template.published", caller, templateId).with("version_no",
                 Integer.toString(wanted)).with("replaced", Integer.toString(replaced))
                 .with("audiences", Integer.toString(resolved.size())).with("shares_made",
                         Integer.toString(counts.made())).with("shares_ended", Integer.toString(counts.ended()))
+                .with("limited", Boolean.toString(scope.limited())).with("kept", Integer.toString(counts.kept()))
                 .with("view_only", Boolean.toString(options.viewOnly()))
                 .with("allow_download", Boolean.toString(options.allowDownload())));
         meters.counter("platform.inspection.template", "act", "publish", "result", "ok").increment();
@@ -257,7 +262,8 @@ class TemplatePublishing {
         store.lock(templateId);
         List<Resolved> resolved = resolvePicks(set, picks);
         int replaced = sheets.publish(set.template(), templateId, versionNo, actor);
-        Counts counts = shareWith(set, actor, templateId, versionNo, resolved);
+        // The last approval of a change request is not limited (FA15, ADR-0265): the choice made there is the publish.
+        Counts counts = shareWith(set, actor, templateId, versionNo, resolved, null);
         optionStore.set(templateId, new Options(viewOnly, allowDownload), actor);
         int revision = stampRevision(set, templateId, versionNo);
         home.recordEvent(set.template(), templateId, revision > 0 ? "REVISED" : "PUBLISHED", versionNo, revision,
@@ -386,18 +392,58 @@ class TemplatePublishing {
     }
 
     /**
+     * What the person may publish to, for the version being published (FA15, ADR-0265). A person who holds the ability
+     * to publish to any location is never limited and the suggestion is not read for them.
+     */
+    private PublishScope scopeOf(RecordSet set, Caller caller, UUID templateId, int versionNo) {
+        if (access.has(caller, Ability.SHEETS_PUBLISH_ANY_LOCATION)) {
+            return PublishScope.unlimited();
+        }
+        UUID reviewed = sheets.reviewRequests(set.template(), templateId).get(versionNo);
+        return PublishScope.of(false, suggestions.forVersion(reviewed, templateId));
+    }
+
+    /** Refuses a publish outside the scope, in fixed words that name the pick by its place and repeat no code. */
+    private void checkScope(PublishScope scope, List<AudiencePick> picks) {
+        if (scope.noneLeft()) {
+            refuse("publish", "none_left");
+            throw new ApiException(ErrorCode.CONFLICT, PublishScope.NONE_LEFT);
+        }
+        List<Integer> outside = scope.outside(picks);
+        if (!outside.isEmpty()) {
+            refuse("publish", "outside_scope");
+            Map<String, List<String>> fields = new LinkedHashMap<>();
+            outside.forEach(index -> fields.put("audiences[" + index + "]", List.of(PublishScope.OUTSIDE)));
+            throw ApiException.validation(fields);
+        }
+    }
+
+    /**
      * Brings the shares to the groups asked for. A group published to and not asked for any more is taken back; a group
      * asked for that is not yet published to is shared with; a group in both stays and its row follows the version.
+     *
+     * <p>With a scope (a person limited to the locations of a suggestion) only the rows of those locations are judged:
+     * a row of another location is never taken back, whoever published it, and only follows the version, because the
+     * new version is the one everybody sees (FA15, ADR-0265).
+     *
+     * @param scope the locations whose rows may change, or null for the whole audience
      */
-    private Counts shareWith(RecordSet set, UUID actor, UUID templateId, int version, List<Resolved> resolved) {
+    private Counts shareWith(RecordSet set, UUID actor, UUID templateId, int version, List<Resolved> resolved,
+            Set<String> scope) {
         Map<UUID, Resolved> desired = new LinkedHashMap<>();
         resolved.forEach(one -> desired.putIfAbsent(one.groupId(), one));
         int made = 0;
         int ended = 0;
+        int kept = 0;
         Set<UUID> already = new HashSet<>();
         for (PublicationStore.Row row : store.live(templateId)) {
             if (desired.containsKey(row.groupId())) {
                 already.add(row.groupId());
+                if (row.versionNo() != version) {
+                    store.moveVersion(row.id(), version, actor);
+                }
+            } else if (scope != null && !scope.contains(row.location())) {
+                kept++;
                 if (row.versionNo() != version) {
                     store.moveVersion(row.id(), version, actor);
                 }
@@ -423,10 +469,10 @@ class TemplatePublishing {
                 made++;
             }
         }
-        return new Counts(made, ended);
+        return new Counts(made, ended, kept);
     }
 
-    private record Counts(int made, int ended) {
+    private record Counts(int made, int ended, int kept) {
     }
 
     // ---- the view ----
@@ -461,15 +507,17 @@ class TemplatePublishing {
         List<VersionReview> reviews = reviews(set, templateId);
         List<SuggestedAudience> suggested = List.of();
         int dropped = 0;
+        PublishScope scope = PublishScope.unlimited();
+        List<UnpublishedPlace> unpublished = List.of();
         if (mayPublishNow && !retired) {
             int next = summary.approved() > 0 ? summary.approved() : summary.active();
             UUID reviewed = reviews.stream().filter(review -> review.versionNo() == next)
                     .map(VersionReview::requestId).findFirst().orElse(null);
-            if (reviewed != null) {
-                AudienceSuggestions.Held held = suggestions.held(reviewed);
-                suggested = suggestedViews(held.places());
-                dropped = held.dropped();
-            }
+            AudienceSuggestions.Held held = suggestions.forVersion(reviewed, templateId);
+            suggested = suggestedViews(held.places());
+            dropped = held.dropped();
+            scope = PublishScope.of(access.has(caller, Ability.SHEETS_PUBLISH_ANY_LOCATION), held);
+            unpublished = unpublishedPlaces(held.places(), audience);
         }
         Optional<TemplateSendRule.Block> send = TemplateSendRule.blocked(summary, retired);
         Options options = optionStore.find(templateId);
@@ -481,7 +529,30 @@ class TemplatePublishing {
                 options.allowDownload() || mayPublish, mayPublish,
                 Templates.revisionShown(header.fields(), summary.active()), Templates.lastRevisedAt(header.fields()),
                 send.isEmpty(), send.map(TemplateSendRule.Block::words).orElse(null),
-                sets.footerDate(header.fields().get(Templates.APPLICATION)));
+                sets.footerDate(header.fields().get(Templates.APPLICATION)), scope.limited(), scope.noneLeft(),
+                unpublished);
+    }
+
+    /**
+     * The locations the approval chose that no department of is published to yet, so that nobody forgets one (FA15,
+     * ADR-0265). Each location appears once, in the order the approval chose them.
+     */
+    private List<UnpublishedPlace> unpublishedPlaces(List<AudienceChoices.Place> places,
+            List<TemplateAudience> audience) {
+        if (places.isEmpty()) {
+            return List.of();
+        }
+        Set<String> published = new HashSet<>();
+        audience.forEach(one -> published.add(one.location()));
+        Map<String, String> labels = audiences.labels(Templates.LOCATION);
+        Map<String, UnpublishedPlace> missing = new LinkedHashMap<>();
+        for (AudienceChoices.Place place : places) {
+            if (!published.contains(place.location())) {
+                missing.putIfAbsent(place.location(), new UnpublishedPlace(place.location(),
+                        labels.getOrDefault(place.location(), place.location())));
+            }
+        }
+        return List.copyOf(missing.values());
     }
 
     private List<SuggestedAudience> suggestedViews(List<AudienceChoices.Place> places) {

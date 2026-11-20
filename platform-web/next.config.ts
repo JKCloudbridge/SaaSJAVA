@@ -14,6 +14,9 @@ const nextConfig: NextConfig = {
   poweredByHeader: false,
   // Assistant instruction files are not generated into the repository (project rule: they are never committed).
   agentRules: false,
+  experimental: {
+    agentUpgrade: "security",
+  },
   async rewrites() {
     return [
       { source: "/api/:path*", destination: `${apiOrigin}/api/:path*` },

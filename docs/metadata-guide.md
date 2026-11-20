@@ -1547,3 +1547,35 @@ An attachment cell may carry a prompt, the text shown with the paperclip, as a Y
 settings of an input cell and type the prompt; left empty, the text the cell already holds becomes the prompt. When a form is uploaded
 and a box holds text and an embedded file together, the cell becomes an attachment cell and its text is the prompt (the upload report
 says how many: "cells that hold text and an embedded file"). No other kind takes a prompt. The prompt is your text: it is never logged.
+
+## 55. Who publishes where: Plant QMS inside the locations Corporate QMS chose (FA15)
+
+Short form for administrators; the decision is ADR-0265 and the contributor view is in [solutions/inspection.md](solutions/inspection.md).
+
+**Set up once, in Setup.**
+
+1. **Access policies.** Give the group **Plant QMS** the policy **Publisher**, and the group **Corporate QMS** the policy **Publisher anywhere**. Both come with the
+   Quality Management System application (and with Document Management and Management Core). Publisher anywhere has everything Publisher has and one ability more,
+   `sheets.publish-any-location`. A group may hold both: they add up, and Publisher anywhere lifts the limit. The Organization administrator holds every
+   ability and publishes anywhere.
+2. **One group for Plant QMS** for the whole organization. There is no group for each plant.
+3. **The step that asks for a choice.** In the approval process of templates, mark the step of Corporate QMS **Asks for a choice** (the process builder box).
+   The approver of that step must tick at least one location; a department is optional.
+4. **Department groups.** Each pair of location and department that may receive a template has its own group in Setup, Departments, with at least one member.
+   Give each pair its own group: a publication row belongs to a group, and a limited publish decides which rows to leave alone by the location stored with the row.
+
+**What each person sees.**
+
+- **Plant QMS** opens **Publish** and sees one section for each location Corporate chose, marked "Chosen by Corporate QMS", with Corporate's departments already
+  ticked. They tick the departments of each location and publish. Plant QMS cannot reach a location Corporate did not choose: the server refuses it with
+  "This location was not chosen for this document." Publishing with some chosen location still without a department is allowed; the summary says "Not yet
+  chosen: ..." and the template page says "Not published yet" until a later publish adds it. A later publish keeps what is there.
+- **Corporate QMS** sees the chosen locations first and all the others under "Other locations", and publishes to any of them.
+- **A template whose approval chose nothing** (a process with no choice step, an older template) has no limit.
+- If the locations chosen are no longer offered (an administrator removed them from the list), Plant QMS cannot publish and is told to ask somebody who may publish to
+  any location.
+
+**To let a Plant QMS person publish somewhere else:** ask Corporate QMS to publish it, or to approve again with the choice. There is no override for Plant QMS.
+
+**The demo groups** (`scripts/demo-setup.mjs`): Corporate QMS and Level 4 hold Publisher anywhere; Plant QMS and Level 3 hold Publisher. The script only adds; a group made
+by an earlier run that still holds Publisher keeps it, which changes nothing.
