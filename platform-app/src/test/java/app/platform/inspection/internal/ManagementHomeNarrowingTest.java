@@ -193,6 +193,102 @@ class ManagementHomeNarrowingTest {
         assertThat(view.charts().scoresByPlant()).as("the plants the rows name").hasSize(1);
     }
 
+    // ---- the plant board (ADR-0266) ----
+
+    private static QueriedRecord scoredFill(String plant, String period, String score, String result,
+            String scoredOn) {
+        QueriedRecord base = fill(plant, period, score, "APPROVED", result);
+        Map<String, Object> fields = new java.util.HashMap<>(base.record().fields());
+        if (scoredOn != null) {
+            fields.put("scoredOn", scoredOn);
+        }
+        DataRecord record = new DataRecord(base.record().id(), "InspectionFill", null, UUID.randomUUID(), fields, 0,
+                Instant.now(), UUID.randomUUID(), Instant.now(), UUID.randomUUID(), null, null);
+        return new QueriedRecord(record, Map.of());
+    }
+
+    @Test
+    void everyQuestionOfThePlantBoardIsNarrowedToTheApplicationAndAsksForTheTwoStampedDays() {
+        everythingMayBeRead(List.of());
+
+        home.board(SET, null);
+
+        ArgumentCaptor<RecordQuery> asked = ArgumentCaptor.forClass(RecordQuery.class);
+        verify(records, org.mockito.Mockito.atLeast(3)).query(anyString(), asked.capture());
+        for (RecordQuery query : asked.getAllValues()) {
+            assertThat(says(query.filter(), "application", APPLICATION))
+                    .as("a question not narrowed to the application would count other applications' records")
+                    .isTrue();
+        }
+        assertThat(asked.getAllValues().stream().filter(query -> query.fields().contains("scoredOn"))
+                .filter(query -> query.fields().contains("planSentOn")).count())
+                .as("the two scans of the fill-ins ask for the days").isEqualTo(2);
+    }
+
+    @Test
+    void theOtherOptionNeverAsksForTheStampedDaysSoAProfileWithoutThemIsNotRefusedThere() {
+        everythingMayBeRead(List.of());
+
+        home.summary(SET, null);
+
+        ArgumentCaptor<RecordQuery> asked = ArgumentCaptor.forClass(RecordQuery.class);
+        verify(records, org.mockito.Mockito.atLeast(3)).query(anyString(), asked.capture());
+        assertThat(asked.getAllValues()).noneMatch(query -> query.fields().contains("scoredOn")
+                || query.fields().contains("planSentOn"));
+    }
+
+    @Test
+    void thePlantBoardIsNotDrawnForAPersonWhoReadsNoFillInAndNoQuestionIsAsked() {
+        everythingMayBeRead(List.of());
+        when(decisions.can(any(UUID.class), eq("InspectionFill"), any(ObjectAction.class)))
+                .thenReturn(Decision.deny(Decision.Reason.OBJECT_NOT_ALLOWED));
+
+        ManagementBoardViews.ManagementPlantBoard board = home.board(SET, null);
+
+        verify(records, org.mockito.Mockito.never()).query(eq("InspectionFill"), any(RecordQuery.class));
+        assertThat(board.plants()).isNull();
+        assertThat(board.grid()).isNull();
+        assertThat(board.plans()).isNull();
+        assertThat(board.totals()).isNull();
+        assertThat(board.problems()).isEmpty();
+    }
+
+    @Test
+    void thePlantBoardJudgesAPlanOnTheDayOfTheClockFromTheStampedDayAndTheDueDays() {
+        everythingMayBeRead(List.of(scoredFill("P1", "2026-10", "80", "ACTION_PLAN", "2026-11-01"),
+                scoredFill("P1", "2026-09", "90", "PASS", "2026-10-01")));
+        when(settings.value(APPLICATION, "actionPlanDueDays")).thenReturn(OptionalInt.of(10));
+
+        ManagementBoardViews.ManagementPlantBoard board = home.board(SET, new ManagementSummaryRequest("this", 3, null,
+                null));
+
+        assertThat(board.today()).isEqualTo("2026-11-15");
+        assertThat(board.limit()).isEqualTo(85);
+        assertThat(board.dueDays()).isEqualTo(10);
+        assertThat(board.months()).containsExactly("2026-09", "2026-10");
+        assertThat(board.currentMonth()).isEqualTo("2026-11");
+        assertThat(board.plans()).hasSize(1);
+        assertThat(board.plans().get(0).status()).isEqualTo("OVERDUE");
+        assertThat(board.plans().get(0).overdueDays()).as("due 11 Nov, today 15 Nov").isEqualTo(4);
+        assertThat(board.plans().get(0).dueOn()).isEqualTo("2026-11-11");
+        assertThat(board.totals().overdue()).isEqualTo(1);
+        assertThat(board.plants()).extracting(ManagementBoardViews.ManagementBoardPlant::plant)
+                .containsExactly("P1");
+        assertThat(board.problems()).isEmpty();
+    }
+
+    @Test
+    void aSectionOfThePlantBoardThatFailsIsNamedAndNothingIsDrawnInItsPlace() {
+        everythingMayBeRead(List.of());
+        when(records.query(eq("InspectionFill"), any(RecordQuery.class))).thenThrow(new IllegalStateException("boom"));
+
+        ManagementBoardViews.ManagementPlantBoard board = home.board(SET, null);
+
+        assertThat(board.problems()).contains("fill-ins");
+        assertThat(board.plants()).isNull();
+        assertThat(board.totals()).isNull();
+    }
+
     @Test
     void anApplicationThatDoesNotAskForThisDashboardHasNoSuchPage() {
         everythingMayBeRead(List.of());

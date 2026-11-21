@@ -3542,17 +3542,68 @@ form + .detail-section {
   overflow-y: auto;
 }
 
+/* The window of the application grid scrolls, but draws no scroll bar; the small arrow below says there is more. */
+.modal-body-quiet {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.modal-body-quiet::-webkit-scrollbar {
+  display: none;
+}
+
+.modal-scroll-hint {
+  position: absolute;
+  left: 50%;
+  bottom: var(--space-3);
+  z-index: 2;
+  transform: translateX(-50%);
+  width: var(--size-control);
+  height: var(--size-control);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--color-accent);
+  background: var(--color-surface);
+  border: var(--border-width) solid var(--color-border);
+  border-radius: var(--radius-pill);
+  box-shadow: var(--shadow-2);
+  cursor: pointer;
+  animation: modal-scroll-hint-nudge 1.8s ease-in-out infinite;
+}
+
+.modal-scroll-hint:hover {
+  background: var(--color-accent-soft);
+}
+
+@keyframes modal-scroll-hint-nudge {
+  0%,
+  100% {
+    transform: translate(-50%, 0);
+  }
+  50% {
+    transform: translate(-50%, 3px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .modal-scroll-hint {
+    animation: none;
+  }
+}
+
 /* The home pages sit in the middle of the page with the same space on both sides. */
 .dash,
 .overview,
-.app-grid-page {
+.app-grid-page,
+.pb {
   width: 100%;
   max-width: 80rem;
   margin-inline: auto;
 }
 
 /* The shell's main area is itself centred on these pages, so both sides have the same space. */
-.shell-main:has(> .dash, > .overview, > .app-grid-page, > .landing-window) {
+.shell-main:has(> .dash, > .overview, > .app-grid-page, > .landing-window, > .pb) {
   margin-inline: auto;
   justify-self: center;
 }
@@ -6406,4 +6457,576 @@ a.board-figure:focus-visible .board-figure-value {
 .dash-notes {
   display: grid;
   gap: var(--space-1);
+}
+
+/* ---- Management Core Home: the plant board (ADR-0266) ----
+   The only layout of the page since 2026-11-20. */
+
+/* Only a small margin below the tabs; the sides are not changed. */
+.shell-main:has(> .pb) {
+  padding-top: var(--space-3);
+}
+
+.pb {
+  display: grid;
+  gap: var(--space-4);
+}
+
+.pb-card,
+.pb-tile {
+  min-width: 0;
+  padding: var(--space-4);
+  border: var(--border-width) solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+}
+
+.pb-title {
+  margin: 0 0 var(--space-3);
+  font-size: var(--font-size-md);
+}
+
+.pb-sub {
+  margin: var(--space-4) 0 var(--space-2);
+  color: var(--color-text-muted);
+  font-size: var(--font-size-xs);
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.pb-tiles {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(var(--pb-tile-min), 1fr));
+  gap: var(--space-3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.pb-tile {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1-5);
+  padding: var(--space-3) var(--space-4);
+}
+
+.pb-tile-name {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-weight: 500;
+}
+
+.pb-dot {
+  display: inline-block;
+  flex: none;
+  width: var(--pb-dot-size);
+  height: var(--pb-dot-size);
+  border-radius: 50%;
+}
+
+.pb-tile-score {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.pb-big {
+  font-size: var(--font-size-stat);
+  font-weight: 600;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+
+.pb-big small {
+  color: var(--color-text-muted);
+  font-size: var(--font-size-sm);
+  font-weight: 400;
+}
+
+.pb-delta {
+  font-size: var(--font-size-sm);
+  font-variant-numeric: tabular-nums;
+}
+
+.pb-delta-up {
+  color: var(--color-success);
+}
+
+.pb-delta-down {
+  color: var(--color-danger);
+}
+
+.pb-facts {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-0-5);
+  margin: 0;
+  padding-top: var(--space-2);
+  border-top: var(--border-width) solid var(--color-border);
+  font-size: var(--font-size-sm);
+}
+
+.pb-facts div {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+
+.pb-facts dt {
+  color: var(--color-text-muted);
+}
+
+.pb-facts dd {
+  margin: 0;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.pb-bad {
+  color: var(--color-danger);
+}
+
+.pb-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1) var(--space-4);
+  margin-bottom: var(--space-1);
+  color: var(--color-text-muted);
+  font-size: var(--font-size-xs);
+}
+
+.pb-cross-key {
+  font-weight: 600;
+}
+
+.pb-chart {
+  overflow-x: auto;
+}
+
+.pb-chart:focus-visible {
+  outline: 2px solid var(--color-focus-ring);
+  outline-offset: 2px;
+}
+
+.pb-chart-svg {
+  display: block;
+  width: 100%;
+  min-width: var(--pb-chart-min);
+  touch-action: pan-y;
+}
+
+.pb-axis,
+.pb-end {
+  font-size: var(--font-size-xs);
+}
+
+.pb-axis {
+  fill: var(--color-text-muted);
+}
+
+.pb-end {
+  font-weight: 600;
+}
+
+.pb-grid {
+  stroke: var(--color-border);
+  stroke-width: 1;
+}
+
+.pb-strip {
+  fill: var(--color-surface-sunken);
+}
+
+
+.pb-line {
+  fill: none;
+  stroke-width: 1.75;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+}
+
+/* The one dotted thing: the thin piece joining the points either side of a month with no score. */
+.pb-bridge {
+  fill: none;
+  stroke-width: 1.5;
+  stroke-linecap: round;
+  stroke-dasharray: var(--pb-bridge-dash);
+  stroke-opacity: var(--pb-bridge-opacity);
+}
+
+.pb-cross {
+  fill: none;
+  stroke-width: 2;
+  stroke-linecap: round;
+}
+
+.pb-point {
+  stroke: var(--color-surface);
+  stroke-width: 1.5;
+}
+
+.pb-readout {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1) var(--space-4);
+  min-height: var(--space-6);
+  margin-top: var(--space-2);
+  font-size: var(--font-size-sm);
+  font-variant-numeric: tabular-nums;
+}
+
+.pb-muted {
+  color: var(--color-text-muted);
+}
+
+.pb-stats {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: var(--space-2) var(--space-6);
+  margin-bottom: var(--space-4);
+  text-align: center;
+}
+
+.pb-stat {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.pb-stat b {
+  font-size: var(--font-size-xl);
+  font-weight: 600;
+  line-height: 1.1;
+  font-variant-numeric: tabular-nums;
+}
+
+.pb-stat span {
+  color: var(--color-text-muted);
+  font-size: var(--font-size-xs);
+}
+
+.pb-stat-bad b {
+  color: var(--color-danger);
+}
+
+.pb-scroll {
+  overflow-x: auto;
+}
+
+.pb-grid-table {
+  border-collapse: separate;
+  border-spacing: var(--space-1);
+  min-width: 100%;
+  font-variant-numeric: tabular-nums;
+}
+
+.pb-grid-table th {
+  padding: 0;
+  color: var(--color-text-muted);
+  font-size: var(--font-size-xs);
+  font-weight: 500;
+  text-align: center;
+}
+
+.pb-grid-table td {
+  padding: 0;
+}
+
+.pb-grid-table .pb-who {
+  position: sticky;
+  left: 0;
+  z-index: 1;
+  padding-right: var(--space-2);
+  background: var(--color-surface);
+  color: var(--color-text);
+  font-size: var(--font-size-sm);
+  font-weight: 500;
+  text-align: left;
+  white-space: nowrap;
+}
+
+.pb-grid-table .pb-dot {
+  margin-right: var(--space-1-5);
+}
+
+.pb-cell {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-width: var(--pb-cell-min);
+  padding: var(--space-1) var(--space-0-5);
+  border: var(--border-width) solid transparent;
+  border-radius: var(--radius-sm);
+  color: inherit;
+  line-height: 1.2;
+  text-decoration: none;
+}
+
+.pb-cell b {
+  font-size: var(--font-size-md);
+  font-weight: 600;
+}
+
+.pb-cell small {
+  font-size: var(--font-size-xs);
+}
+
+a.pb-cell:focus-visible {
+  outline: 2px solid var(--color-focus-ring);
+  outline-offset: 2px;
+}
+
+.pb-cell-ok {
+  border-color: var(--color-border);
+  color: var(--color-text-muted);
+}
+
+.pb-cell-done {
+  background: var(--color-success-surface);
+  color: var(--color-success);
+}
+
+.pb-cell-late {
+  background: var(--color-warning-surface);
+  color: var(--color-warning);
+}
+
+.pb-cell-over {
+  border-color: var(--color-danger);
+  background: var(--color-danger-surface);
+  color: var(--color-danger);
+}
+
+.pb-cell-wait {
+  border: var(--border-width) dashed var(--color-warning);
+  color: var(--color-warning);
+}
+
+.pb-cell-none {
+  border: var(--border-width) dashed var(--color-text-muted);
+  color: var(--color-text-muted);
+}
+
+.pb-cell-tbd {
+  border-color: var(--color-border);
+  background: var(--color-surface-sunken);
+  color: var(--color-text-muted);
+}
+
+.pb-key {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-1-5) var(--space-3);
+  margin: var(--space-2) 0 var(--space-4);
+  font-size: var(--font-size-xs);
+}
+
+.pb-key .pb-cell {
+  display: inline-flex;
+  flex-direction: row;
+  min-width: 0;
+  padding: var(--space-0-5) var(--space-2);
+}
+
+.pb-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1-5);
+  margin-bottom: var(--space-2);
+}
+
+.pb-chips button {
+  padding: var(--space-1) var(--space-3);
+  border: var(--border-width) solid var(--color-border);
+  border-radius: var(--radius-pill);
+  background: var(--color-surface);
+  color: var(--color-text);
+  font: inherit;
+  font-size: var(--font-size-sm);
+  cursor: pointer;
+}
+
+.pb-chips button[aria-pressed="true"] {
+  border-color: var(--color-text);
+  background: var(--color-text);
+  color: var(--color-surface);
+}
+
+.pb-chips button:focus-visible {
+  outline: 2px solid var(--color-focus-ring);
+  outline-offset: 2px;
+}
+
+.pb-plans {
+  width: 100%;
+  border-collapse: collapse;
+  font-variant-numeric: tabular-nums;
+}
+
+.pb-plans th,
+.pb-plans td {
+  padding: var(--space-2) var(--space-2-5);
+  border-bottom: var(--border-width) solid var(--color-border);
+  text-align: left;
+  white-space: nowrap;
+}
+
+.pb-plans th {
+  color: var(--color-text-muted);
+  font-size: var(--font-size-xs);
+  font-weight: 500;
+}
+
+.pb-plans tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+.pb-plans .pb-dot {
+  margin-right: var(--space-1-5);
+}
+
+.pb-num {
+  text-align: right;
+}
+
+.pb-low {
+  color: var(--color-warning);
+  font-weight: 600;
+}
+
+.pb-pill {
+  display: inline-block;
+  padding: var(--space-0-5) var(--space-2);
+  border-radius: var(--radius-pill);
+  background: var(--color-surface-sunken);
+  color: var(--color-text);
+  font-size: var(--font-size-xs);
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.pb-pill-done {
+  background: var(--color-success-surface);
+  color: var(--color-success);
+}
+
+.pb-pill-late,
+.pb-pill-wait {
+  background: var(--color-warning-surface);
+  color: var(--color-warning);
+}
+
+.pb-pill-over {
+  background: var(--color-danger-surface);
+  color: var(--color-danger);
+}
+
+.pb-empty {
+  margin: 0;
+  padding: var(--space-3) 0;
+  color: var(--color-text-muted);
+}
+
+.pb-chips-spaced {
+  margin-top: var(--space-2);
+}
+
+.pb-tracker-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-2) var(--space-6);
+  margin-bottom: var(--space-3);
+}
+
+.pb-tracker-head .pb-title {
+  margin: 0;
+}
+
+.pb-tracker-head .pb-stats {
+  margin-bottom: 0;
+  justify-content: flex-end;
+}
+
+.pb-chart-inner {
+  position: relative;
+  min-width: var(--pb-chart-min);
+}
+
+.pb-chart-inner .pb-chart-svg {
+  min-width: 0;
+}
+
+.pb-tip {
+  position: absolute;
+  z-index: 2;
+  display: grid;
+  gap: var(--space-0-5);
+  padding: var(--space-2) var(--space-3);
+  border: var(--border-width) solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-2);
+  font-size: var(--font-size-sm);
+  font-variant-numeric: tabular-nums;
+  pointer-events: none;
+  transform: translate(-50%, calc(-100% - 0.75rem));
+  white-space: nowrap;
+}
+
+/* Near the top of the chart the tip opens below the dot, so it is never cut off; lower down it opens above. */
+.pb-tip-below {
+  transform: translate(-50%, 0.75rem);
+}
+
+/* Four key numbers of equal size in one line; two to a line on a narrow screen, one on a phone. */
+.pb-kpis {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: var(--space-3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.pb-kpi {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  padding: var(--space-3) var(--space-4);
+  border: var(--border-width) solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+}
+
+.pb-kpi-label,
+.pb-kpi-note {
+  color: var(--color-text-muted);
+  font-size: var(--font-size-xs);
+}
+
+.pb-kpi-value {
+  font-size: var(--font-size-xl);
+  font-weight: 600;
+  line-height: 1.2;
+  font-variant-numeric: tabular-nums;
+}
+
+@media (max-width: 48rem) {
+  .pb-kpis {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 30rem) {
+  .pb-kpis {
+    grid-template-columns: minmax(0, 1fr);
+  }
 }

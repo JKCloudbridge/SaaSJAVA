@@ -18,7 +18,7 @@ class FillInFieldsInPoliciesTest {
 
     private static final String FILL = "InspectionFill";
     private static final Set<String> COPIED = Set.of("application", "plant", "period", "score", "result",
-            "parentFill");
+            "parentFill", "scoredOn", "planSentOn");
 
     @Test
     void everyShippedPolicyThatListsFieldsOfTheFillInListsTheFieldsTheClusterPutsOnIt() {

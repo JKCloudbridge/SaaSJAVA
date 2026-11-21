@@ -87,6 +87,12 @@ class FillHeaders {
                 new Assignment(Fills.RESULT, result == null ? new Value.Copied(null) : new Value.Literal(result))));
     }
 
+    /** Stamps the day an Action plan was first sent (ADR-0266); the caller has checked that it was not stamped. */
+    void planSent(String fillObject, UUID fillId, String day) {
+        writes.update(Source.solution("fill.sent", fillId), fillObject, fillId,
+                List.of(new Assignment(Fills.PLAN_SENT_ON, new Value.Literal(day))));
+    }
+
     /** Follows a move of the fill-in on its header. */
     void status(String fillObject, UUID fillId, FillStatus status) {
         writes.update(Source.solution("fill.status", fillId), fillObject, fillId,

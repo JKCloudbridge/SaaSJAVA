@@ -82,6 +82,8 @@ EnvironmentFill.period TEXT indexed platformWritten
 EnvironmentFill.score DECIMAL indexed platformWritten
 EnvironmentFill.result TEXT indexed platformWritten
 EnvironmentFill.parentFill TEXT indexed platformWritten
+EnvironmentFill.scoredOn TEXT platformWritten
+EnvironmentFill.planSentOn TEXT platformWritten
 EnvironmentTemplate managedBy=none requiresFeature=environment-management retainRecords sharingDefault=PRIVATE
 EnvironmentTemplate.name TEXT
 EnvironmentTemplate.level PICKLIST codeValues organizationValues
@@ -112,6 +114,8 @@ InspectionFill.period TEXT indexed platformWritten
 InspectionFill.score DECIMAL indexed platformWritten
 InspectionFill.result TEXT indexed platformWritten
 InspectionFill.parentFill TEXT indexed platformWritten
+InspectionFill.scoredOn TEXT platformWritten
+InspectionFill.planSentOn TEXT platformWritten
 InspectionTemplate managedBy=none requiresFeature=inspection retainRecords sharingDefault=PRIVATE
 InspectionTemplate.name TEXT
 InspectionTemplate.level PICKLIST codeValues organizationValues

@@ -112,3 +112,21 @@ fields:
     platformWritten: true
     indexed: true
     settings: { maxLength: 36 }
+
+  # Dashboard for Management Core (ADR-0266): two days the platform writes once, as year-month-day in UTC, from its own
+  # clock. scoredOn is the day the reviewer's Submit stamped the score (the due day of an Action plan is this day plus
+  # the setting actionPlanDueDays). planSentOn is the day the plant head first sent an Action plan. Both are empty for a
+  # fill-in made before they existed, and never typed.
+  - apiName: scoredOn
+    label: Scored on
+    description: The day the reviewer's Submit stamped the score, as year-month-day. Empty when not stamped.
+    type: TEXT
+    platformWritten: true
+    settings: { maxLength: 10 }
+
+  - apiName: planSentOn
+    label: Action plan sent on
+    description: The day the plant head first sent this Action plan, as year-month-day. Empty for every other fill-in.
+    type: TEXT
+    platformWritten: true
+    settings: { maxLength: 10 }
