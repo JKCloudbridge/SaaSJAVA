@@ -6643,7 +6643,7 @@ a.board-figure:focus-visible .board-figure-value {
 
 .pb-line {
   fill: none;
-  stroke-width: 2.25;
+  stroke-width: 1.75;
   stroke-linejoin: round;
   stroke-linecap: round;
 }

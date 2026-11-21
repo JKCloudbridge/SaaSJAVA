@@ -387,7 +387,7 @@ describe("Option 1 of the Management Core home: the plant board", () => {
 
     expect(container.querySelector("pattern")).toBeNull();
     container.querySelectorAll<SVGElement>("circle:not(.pb-hit), .pb-line").forEach((mark) => {
-      expect(mark.getAttribute("fill") ?? mark.getAttribute("stroke") ?? "").toMatch(/var\(--series-\d\)|none/);
+      expect(mark.getAttribute("fill") ?? mark.getAttribute("stroke") ?? "").toMatch(/var\(--plant-\d\)|none/);
     });
   });
 });

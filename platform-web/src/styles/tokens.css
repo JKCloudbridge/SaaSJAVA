@@ -142,6 +142,13 @@
   --series-4: #1f7a4d;
   --series-5: #c2255c;
   --series-6: #5b5fc7;
+  /* the plants of the Management Core board: blue, orange and teal first, so neighbouring lines never look alike */
+  --plant-1: #2f6fdb;
+  --plant-2: #c9701a;
+  --plant-3: #12877a;
+  --plant-4: #c2255c;
+  --plant-5: #5b5fc7;
+  --plant-6: #1f7a4d;
 
   /* the second look of the home page (FA9): a warm canvas, flat white cards, a serif for the title and the numbers */
   /* the light edge and faint shadow that give a bar a little depth */
@@ -240,6 +247,12 @@
     --series-4: #5fd08a;
     --series-5: #f07aa3;
     --series-6: #9ea2f0;
+    --plant-1: #6aa2ff;
+    --plant-2: #f0a04b;
+    --plant-3: #3fc5b3;
+    --plant-4: #f07aa3;
+    --plant-5: #9ea2f0;
+    --plant-6: #5fd08a;
     --bar-sheen-top: rgb(255 255 255 / 14%);
     --bar-sheen-edge: rgb(255 255 255 / 16%);
     --bar-shadow: rgb(0 0 0 / 40%);

@@ -38,7 +38,7 @@ export function ScoreByMonth({ months, plants, loading }: { months: readonly str
   const scale = fitScale(plants.flatMap((plant) => plant.points));
   const inner = WIDTH - LEFT - RIGHT - 2 * EDGE;
   const x = (index: number, plant: number) =>
-    LEFT + EDGE + (count <= 1 ? inner / 2 : (index * inner) / (count - 1)) + (plant - (plants.length - 1) / 2) * 3;
+    LEFT + EDGE + (count <= 1 ? inner / 2 : (index * inner) / (count - 1)) + (plant - (plants.length - 1) / 2) * 5;
   const y = (score: number) => TOP + ((scale.high - score) / (scale.high - scale.low)) * PLOT;
   const stripY = TOP + PLOT + 6 + (STRIP - 6) / 2;
 
@@ -136,7 +136,7 @@ export function ScoreByMonth({ months, plants, loading }: { months: readonly str
                       onPointerEnter={() => setTip({ index, px: x(index, k), py: y(score) })}
                       onPointerLeave={() => setTip(undefined)}
                     >
-                      <circle cx={x(index, k)} cy={y(score)} r={4.5} fill={colour} className="pb-point" />
+                      <circle cx={x(index, k)} cy={y(score)} r={3.75} fill={colour} className="pb-point" />
                       <circle cx={x(index, k)} cy={y(score)} r={10} fill="transparent" className="pb-hit" />
                     </g>
                   ),

@@ -76,10 +76,10 @@ describe("the words and days of the plant board", () => {
   });
 
   it("gives a plant a colour place that every widget uses, and starts again after the sixth", () => {
-    expect(seriesVar(1)).toBe("var(--series-1)");
-    expect(seriesVar(3)).toBe("var(--series-3)");
-    expect(seriesVar(7)).toBe("var(--series-1)");
-    expect(seriesVar(0)).toBe("var(--series-1)");
+    expect(seriesVar(1)).toBe("var(--plant-1)");
+    expect(seriesVar(3)).toBe("var(--plant-3)");
+    expect(seriesVar(7)).toBe("var(--plant-1)");
+    expect(seriesVar(0)).toBe("var(--plant-1)");
   });
 });
 

@@ -170,7 +170,7 @@ export function nearestMonth(position: number, count: number): number {
 
 /** The class of a plant's colour: a plant keeps its place in the colours in every widget; further places repeat. */
 export function seriesVar(colour: number): string {
-  return `var(--series-${((Math.max(colour, 1) - 1) % 6) + 1})`;
+  return `var(--plant-${((Math.max(colour, 1) - 1) % 6) + 1})`;
 }
 
 // ---- the tracker ----

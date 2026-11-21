@@ -223,6 +223,22 @@ describe("design tokens", () => {
       }
     });
 
+    it("defines six plant colours for the Management Core board that read as marks (3 to 1) in both themes", () => {
+      for (const [name, block] of [
+        ["light", light],
+        ["dark", dark],
+      ] as const) {
+        const surface = role(block, "--color-surface");
+        const seen = new Set<string>();
+        for (let n = 1; n <= 6; n += 1) {
+          const colour = role(block, `--plant-${n}`);
+          seen.add(colour);
+          expect(contrast(colour, surface), `${name}: plant ${n}`).toBeGreaterThanOrEqual(3);
+        }
+        expect(seen.size, `${name}: six different colours`).toBe(6);
+      }
+    });
+
     it("gives the board look white text on its navy band and readable ink on a panel in both themes (FA13C)", () => {
       for (const [name, block] of [
         ["light", light],
