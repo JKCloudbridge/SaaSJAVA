@@ -12,6 +12,8 @@ const traceCollectorOrigin = process.env.PLATFORM_TRACE_COLLECTOR_ORIGIN;
 const nextConfig: NextConfig = {
   reactStrictMode: true,
   poweredByHeader: false,
+  // A self-contained server for the container image (platform-web/Dockerfile); the development server is unchanged.
+  output: "standalone",
   // Assistant instruction files are not generated into the repository (project rule: they are never committed).
   agentRules: false,
   experimental: {

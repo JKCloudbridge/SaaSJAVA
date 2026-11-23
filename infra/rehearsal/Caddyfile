@@ -1,0 +1,53 @@
+# The rehearsal's ingress: it stands in for the load balancer of a real environment and must behave the way that one
+# will be configured (docs/production-transition-plan.md, sections 4.2 and 4.3).
+#
+#   - It keeps the ORIGINAL host name (the host is the tenant) and sets the forwarded headers itself, overwriting
+#     whatever a client sent, so PLATFORM_TRUST_FORWARDED_HOST and _FOR may be on in the application.
+#   - /api goes to the platform application, everything else to the web application (one host: no CORS, first-party cookies).
+#   - The management port (8081) is not routed and /actuator is answered 404 here.
+#   - Request size limits per path (the application bounds only the announced length).
+#   - One wildcard certificate for the platform domain and every organization under it, from the proxy's own local
+#     authority (the real environment uses a certificate from the cloud provider, renewed by it).
+
+{$BASE_DOMAIN}, *.{$BASE_DOMAIN} {
+	tls internal
+	encode zstd gzip
+
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		-Server
+	}
+
+	@management path /actuator /actuator/*
+	respond @management 404
+
+	# The API: files up to 25 MiB, imports 5 MB, bulk 8 MiB; 30 MB is the ceiling of the path.
+	@api path /api/*
+	handle @api {
+		request_body {
+			max_size 30MB
+		}
+		reverse_proxy backend:8080 {
+			header_up Host {host}
+			header_up X-Forwarded-Host {host}
+			header_up X-Forwarded-For {remote_host}
+			header_up X-Forwarded-Proto {scheme}
+			transport http {
+				response_header_timeout 120s
+			}
+		}
+	}
+
+	# Pages and static files: nothing here takes a large body.
+	handle {
+		request_body {
+			max_size 1MB
+		}
+		reverse_proxy web:3000 {
+			header_up Host {host}
+			header_up X-Forwarded-Host {host}
+			header_up X-Forwarded-For {remote_host}
+			header_up X-Forwarded-Proto {scheme}
+		}
+	}
+}
