@@ -30,7 +30,7 @@ const plexMono = localFont({
 });
 
 export const metadata: Metadata = {
-  title: "Platform",
+  title: "V Way Sync",
   description: "Multi-tenant application platform",
 };
 

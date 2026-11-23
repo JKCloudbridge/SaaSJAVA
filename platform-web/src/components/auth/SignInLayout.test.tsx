@@ -18,7 +18,7 @@ describe("the sign-in layout (FA6D)", () => {
     const brand = screen.getByTestId("sign-in-brand-half");
     expect(within(form).getByRole("heading", { name: "Sign in" })).toBeInTheDocument();
     expect(within(form).getByRole("form", { name: "the form" })).toBeInTheDocument();
-    expect(within(brand).getByRole("img", { name: "Platform logo" })).toHaveAttribute("src", expect.stringContaining("logo.png"));
+    expect(within(brand).getByRole("img", { name: "V Way Sync logo" })).toHaveAttribute("src", expect.stringContaining("way-logo.svg"));
     expect(form.compareDocumentPosition(brand) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 
@@ -26,8 +26,8 @@ describe("the sign-in layout (FA6D)", () => {
     render(<SignInLayout title="Welcome">content</SignInLayout>);
 
     expect(screen.getByRole("img").getAttribute("alt")).not.toBe("");
-    const file = readFileSync(path.resolve(__dirname, "..", "..", "..", "public", "logo.png"));
-    expect(file.subarray(1, 4).toString()).toBe("PNG");
+    const file = readFileSync(path.resolve(__dirname, "..", "..", "..", "public", "way-logo.svg"));
+    expect(file.subarray(0, 4).toString()).toBe("<svg");
   });
 
   it("colours the panel with a token and splits to one column on a narrow screen, without a literal colour", () => {

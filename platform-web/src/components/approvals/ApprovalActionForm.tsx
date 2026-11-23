@@ -152,7 +152,7 @@ export function ApprovalActionForm({
         }
       }}
     >
-      <p data-testid="approval-explain">{explain}</p>
+      {explain ? <p data-testid="approval-explain">{explain}</p> : null}
       {choiceForm}
       {needsChoice && !choiceForm ? (
         <p className="form-message" role="alert" data-testid="approval-choice-unavailable">

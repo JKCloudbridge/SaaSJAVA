@@ -15,6 +15,7 @@ import type { components } from "@/lib/api/generated/schema";
 import { historyText, personText, reasonText } from "@/lib/approvals/words";
 import { humanize } from "@/lib/builder/approvalModel";
 import { call } from "@/lib/records/call";
+import { log } from "@/lib/log";
 
 type PanelView = components["schemas"]["RecordApprovalView"];
 type InstanceView = components["schemas"]["ApprovalInstanceView"];
@@ -90,7 +91,18 @@ export function useRecordApproval({
       mayOverride: outcome.data.data.actions.canCancel,
       mayApprove: outcome.data.data.actions.canApprove,
     });
-    setProcess((chosen) => chosen || outcome.data.data.processes[0]?.apiName || "");
+    // Diagnostic (F12 console): which processes the server offers for this record. Names and identifiers only.
+    log("info", "approval panel read", {
+      objectApiName,
+      recordId,
+      offeredProcesses: outcome.data.data.processes.map((one) => one.apiName).join(","),
+    });
+    // Keep a choice only while the server still offers it for THIS record. A choice left over from another record (the
+    // page is reused when a fill-in is followed by its Action plan) would be sent by name and refused by the engine.
+    setProcess((chosen) => {
+      const offered = outcome.data.data.processes.map((one) => one.apiName);
+      return offered.includes(chosen) ? chosen : (offered[0] ?? "");
+    });
   }, [objectApiName, recordId, onState]);
 
   useEffect(() => {
@@ -100,6 +112,14 @@ export function useRecordApproval({
   async function submit() {
     setBusy(true);
     setFailure(undefined);
+    // Diagnostic (F12 console): the process name this click sends. A name that is not in "offeredProcesses" is the cause of
+    // "does not meet the entry criteria".
+    log("info", "approval submit sent", {
+      objectApiName,
+      recordId,
+      processSent: process === "" ? "(none: the server chooses)" : process,
+      offeredProcesses: panel?.processes.map((one) => one.apiName).join(",") ?? "(panel not read)",
+    });
     const outcome = await call(() =>
       api.POST("/api/v1/objects/{objectApiName}/records/{id}/approval", {
         params: { path: { objectApiName, id: recordId } },
@@ -115,11 +135,12 @@ export function useRecordApproval({
       await load();
       onChanged();
     } else {
+      log("warn", "approval submit refused", { objectApiName, recordId, message: outcome.failure.message });
       setFailure(outcome.failure.message);
     }
   }
 
-  const done = (text: string) => {
+  const done =(text: string) => {
     const kind = acting && acting !== "submit" ? acting : undefined;
     setActing(undefined);
     setNotice(text);
@@ -140,7 +161,7 @@ export type RecordApproval = ReturnType<typeof useRecordApproval>;
 function explain(kind: ApprovalActionKind): string {
   switch (kind) {
     case "approve":
-      return "You approve this record at the step it is waiting at. If your approval completes the step, the request goes on or ends; the record stays locked until it ends.";
+      return "";
     case "reject":
       return "You reject this record. This ends the whole request and unlocks the record.";
     case "recall":

@@ -57,7 +57,7 @@ function LauncherWindow({ current, onClose }: { current?: string; onClose: () =>
   // A list that could not be had is drawn as it stands (nothing, or what was loaded before): no error text.
   const status: GridStatus = { kind: known || state.status === "error" ? "ready" : "loading" };
   return (
-    <Modal title="Applications" onClose={onClose} wide testId="launcher-window">
+    <Modal title="Applications" onClose={onClose} wide launcher testId="launcher-window">
       <ApplicationGrid
         applications={state.applications}
         status={status}

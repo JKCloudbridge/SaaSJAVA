@@ -1,3 +1,4 @@
+import Image from "next/image";
 import Link from "next/link";
 import type { ReactNode } from "react";
 import { NotificationBell } from "@/components/notifications/NotificationBell";
@@ -34,9 +35,7 @@ export function AppShell({ children }: { children: ReactNode }) {
       </a>
       <header className="shell-header">
         <Link href="/" className="shell-brand">
-          <span className="shell-brand-mark" aria-hidden="true">
-            {PLATFORM_BRAND_NAME.charAt(0)}
-          </span>
+          <Image src="/logo.png" alt="" width={117} height={97} className="shell-brand-logo" unoptimized priority />
           {PLATFORM_BRAND_NAME}
         </Link>
         <div className="shell-context" aria-label="Session">

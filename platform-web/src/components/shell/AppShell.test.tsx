@@ -50,7 +50,7 @@ describe("AppShell", () => {
   it("has the landmarks of the application frame and renders its content", async () => {
     renderShell(<p>page content</p>);
 
-    expect(screen.getByRole("banner")).toHaveTextContent("Platform");
+    expect(screen.getByRole("banner")).toHaveTextContent("V Way Sync");
     expect(screen.getByRole("main")).toHaveTextContent("page content");
     // There is no permanent list of links beside the content any more (UA1): the strip, rail and header carry them.
     expect(screen.queryByRole("navigation", { name: "Main" })).toBeNull();
@@ -61,7 +61,7 @@ describe("AppShell", () => {
   it("leads the brand to the start page, which sends each person where they land", async () => {
     renderShell("content");
 
-    expect(screen.getByRole("link", { name: /Platform/ })).toHaveAttribute("href", "/");
+    expect(screen.getByRole("link", { name: /V Way Sync/ })).toHaveAttribute("href", "/");
     await screen.findByText("Not signed in");
   });
 

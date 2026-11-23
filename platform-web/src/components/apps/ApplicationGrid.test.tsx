@@ -1,7 +1,7 @@
 import { fireEvent, render, screen, within } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { MyApplication, NavigationEntry } from "@/lib/applications/entries";
-import { ApplicationGrid, type GridStatus } from "./ApplicationGrid";
+import { ApplicationGrid, SHOW_GROUP_FILTERS, SHOW_RECENT, type GridStatus } from "./ApplicationGrid";
 
 function page(label: string, pageKey: string, placeholder = false): NavigationEntry {
   return { type: "PLATFORM", label, pageKey, available: true, placeholder: placeholder ? true : undefined };
@@ -119,7 +119,7 @@ describe("the grid of applications", () => {
     expect(tilesOf()).toHaveLength(3);
   });
 
-  it("narrows to one group with the chips, and back with All", () => {
+  it.skipIf(!SHOW_GROUP_FILTERS)("narrows to one group with the chips, and back with All", () => {
     renderGrid();
 
     fireEvent.click(screen.getByRole("button", { name: "Supply chain" }));
@@ -165,7 +165,7 @@ describe("the grid of applications", () => {
     expect(document.activeElement).toBe(screen.getByRole("searchbox"));
   });
 
-  it("offers the applications opened last above the grid, and forgets the ones the person no longer has", () => {
+  it.skipIf(!SHOW_RECENT)("offers the applications opened last above the grid, and forgets the ones the person no longer has", () => {
     window.localStorage.setItem("platform.recent-applications", JSON.stringify(["gone", "stores"]));
     renderGrid();
 
