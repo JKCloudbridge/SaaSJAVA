@@ -319,7 +319,10 @@ final class PlantBoardNumbers {
         // status and the word do not change); everywhere else the month's score is.
         Row plan = planOf.get(about.id());
         boolean sentIn = worst == Status.SUBMITTED || worst == Status.LATE;
-        Double shown = sentIn && plan != null && plan.score() != null ? plan.score().doubleValue() : score;
+        Double shown = score;
+        if (sentIn && plan != null && plan.score() != null) {
+            shown = plan.score().doubleValue();
+        }
         return new ManagementBoardCell(month, shown, worst.name(), worst.word(), about.id());
     }
 
