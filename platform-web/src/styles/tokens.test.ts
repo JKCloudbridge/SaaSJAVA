@@ -200,6 +200,45 @@ describe("design tokens", () => {
       }
     });
 
+    it("reads at AA (4.5 to 1) for every status pair of the plant board, in both themes (ADR-0266)", () => {
+      for (const [name, block] of [
+        ["light", light],
+        ["dark", dark],
+      ] as const) {
+        const surface = role(block, "--color-surface");
+        const sunken = role(block, "--color-surface-sunken");
+        const muted = role(block, "--color-text-muted");
+        for (const [what, a, b] of [
+          ["success on its surface", role(block, "--color-success"), role(block, "--color-success-surface")],
+          ["warning on its surface", role(block, "--color-warning"), role(block, "--color-warning-surface")],
+          ["danger on its surface", role(block, "--color-danger"), role(block, "--color-danger-surface")],
+          ["success on a panel", role(block, "--color-success"), surface],
+          ["warning on a panel", role(block, "--color-warning"), surface],
+          ["danger on a panel", role(block, "--color-danger"), surface],
+          ["muted words on a panel", muted, surface],
+          ["muted words on the sunken surface", muted, sunken],
+        ] as const) {
+          expect(contrast(a, b), `${name}: ${what}`).toBeGreaterThanOrEqual(4.5);
+        }
+      }
+    });
+
+    it("defines six plant colours for the Management Core board that read as marks (3 to 1) in both themes", () => {
+      for (const [name, block] of [
+        ["light", light],
+        ["dark", dark],
+      ] as const) {
+        const surface = role(block, "--color-surface");
+        const seen = new Set<string>();
+        for (let n = 1; n <= 6; n += 1) {
+          const colour = role(block, `--plant-${n}`);
+          seen.add(colour);
+          expect(contrast(colour, surface), `${name}: plant ${n}`).toBeGreaterThanOrEqual(3);
+        }
+        expect(seen.size, `${name}: six different colours`).toBe(6);
+      }
+    });
+
     it("gives the board look white text on its navy band and readable ink on a panel in both themes (FA13C)", () => {
       for (const [name, block] of [
         ["light", light],

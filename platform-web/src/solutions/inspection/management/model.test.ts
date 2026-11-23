@@ -4,7 +4,6 @@ import {
   formatCount,
   formatScore,
   isFiltered,
-  legendWords,
   managementLinks,
   markOf,
   monthName,
@@ -77,14 +76,6 @@ describe("the words", () => {
     expect(formatScore(undefined)).toBe("—");
     expect(formatCount(1234, true)).toBe("at least 1,234");
     expect(formatCount(undefined)).toBe("—");
-  });
-
-  it("says the legend in the numbers the server sent, and nothing where the application declares none", () => {
-    expect(legendWords({ limit: 85, excellentAbove: 85, goodAbove: 65 })).toBe(
-      "Excellent: above 85%. Good: above 65% up to 85%. Poor: 65% or less. An Action plan is needed below 85%.",
-    );
-    expect(legendWords({})).toBeUndefined();
-    expect(legendWords({ excellentAbove: 90, goodAbove: 70 })).toBe("Excellent: above 90%. Good: above 70% up to 90%. Poor: 70% or less.");
   });
 });
 

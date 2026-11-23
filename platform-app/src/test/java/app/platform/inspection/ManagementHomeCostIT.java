@@ -131,9 +131,13 @@ class ManagementHomeCostIT extends ManagementHomeSupport {
         long second = System.nanoTime();
         Response warm = approver.postJson(HOME, "{\"span\":12}");
         long warmMillis = (System.nanoTime() - second) / 1_000_000;
+        long third = System.nanoTime();
+        Response boardAnswer = approver.postJson(BOARD, "{\"span\":12}");
+        long boardMillis = (System.nanoTime() - third) / 1_000_000;
 
         assertThat(cold.status()).as(cold.body()).isEqualTo(200);
         assertThat(warm.status()).as(warm.body()).isEqualTo(200);
+        assertThat(boardAnswer.status()).as(boardAnswer.body()).isEqualTo(200);
         String report = "fill-in headers: " + ROWS + " (" + PLANTS + " plants, " + FORMS + " forms, " + MONTHS
                 + " months)\n"
                 + "answer for 6 months: " + coldMillis + " ms, " + cold.body().length() + " bytes\n"
@@ -161,5 +165,10 @@ class ManagementHomeCostIT extends ManagementHomeSupport {
                 .as("the load has the same number of fill-ins in each month").isEqualTo(PLANTS * FORMS);
         assertThat(coldMillis).as(report).isLessThan(MOST_MILLIS);
         assertThat(warmMillis).as(report).isLessThan(MOST_MILLIS);
+        assertThat(JsonPath.<List<Object>>read(boardAnswer.body(), "$.data.problems")).as(report).isEmpty();
+        assertThat(JsonPath.<List<Object>>read(boardAnswer.body(), "$.data.plants")).as("the load and the two plants")
+                .hasSize(PLANTS + 2);
+        assertThat(JsonPath.<List<Object>>read(boardAnswer.body(), "$.data.grid")).hasSize(PLANTS + 2);
+        assertThat(boardMillis).as(report).isLessThan(MOST_MILLIS);
     }
 }

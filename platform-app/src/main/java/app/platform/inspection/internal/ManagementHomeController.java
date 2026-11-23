@@ -1,5 +1,6 @@
 package app.platform.inspection.internal;
 
+import app.platform.inspection.internal.ManagementBoardViews.ManagementPlantBoard;
 import app.platform.inspection.internal.ManagementHomeViews.ManagementSummaryRequest;
 import app.platform.inspection.internal.ManagementHomeViews.ManagementSummaryView;
 import app.platformapi.ApiPaths;
@@ -53,5 +54,29 @@ class ManagementHomeController {
                     + "that does not exist, that the organization does not have or that has no such page.")
             String application, @RequestBody(required = false) ManagementSummaryRequest request) {
         return ApiResponse.of(home.summary(sets.require(application), request));
+    }
+
+    @PostMapping(ApiPaths.V1 + "/management-home/plant-board")
+    @Operation(
+            operationId = "managementHomePlantBoard",
+            summary = "The plant board of the Management Core Home page: tiles, score by month, Action plan tracker",
+            description = "The same question as the summary (a month, how many months to compare, one plant, one "
+                    + "form) and the same counting rule: every number is made over the fill-ins and Action plans "
+                    + "the record store itself returns to the caller, narrowed to the application. It adds the "
+                    + "status of every Action plan (Awaiting, Submitted, Late, Overdue N days) from the two days the "
+                    + "platform stamped (the day the reviewer's Submit stamped the score and the day the plant head "
+                    + "first sent the Action plan), the number of days in the setting actionPlanDueDays and today "
+                    + "in UTC from the platform's clock. A plan with no stamped day is NO_DATE and is never "
+                    + "guessed. Statuses are shown, never acted on. The sections are null for a caller who may not "
+                    + "read fill-ins, and a month a plant did not report is a null score, never a zero. NOT_FOUND "
+                    + "on the platform host, for an application without this page and for an organization without "
+                    + "the plan feature; VALIDATION_ERROR for a month, span, plant or form that is not offered. "
+                    + "Nothing typed, no score, plant, month or day is logged or audited.")
+    ApiResponse<ManagementPlantBoard> plantBoard(
+            @RequestParam @Parameter(description = "The application whose records are counted (its API name). It "
+                    + "chooses among the sets of records only: NOT_FOUND, in the same words, for an application "
+                    + "that does not exist, that the organization does not have or that has no such page.")
+            String application, @RequestBody(required = false) ManagementSummaryRequest request) {
+        return ApiResponse.of(home.board(sets.require(application), request));
     }
 }

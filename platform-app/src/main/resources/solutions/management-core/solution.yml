@@ -73,6 +73,13 @@ settings:
     kind: PERCENT
     default: 65
     below: excellentAbove
+  # ADR-0266: how many days the plant head has to send an Action plan, counted from the day the reviewer's Submit stamped
+  # the score. The dashboard shows Awaiting, Submitted, Late and Overdue from it; nothing acts on them.
+  - key: actionPlanDueDays
+    label: Action plan due after
+    description: The plant head has this many days after the score is submitted to send the Action plan.
+    kind: DAYS
+    default: 10
 application:
   apiName: management-core
   label: Management Core

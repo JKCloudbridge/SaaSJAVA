@@ -15,6 +15,7 @@ import java.time.ZoneOffset;
 abstract class ManagementHomeSupport extends PlantsSupport {
 
     protected static final String HOME = "/api/v1/management-home/summary?application=" + CORE;
+    protected static final String BOARD = "/api/v1/management-home/plant-board?application=" + CORE;
     protected static final String CURRENT = YearMonth.now(ZoneOffset.UTC).toString();
     protected static final String PREVIOUS = YearMonth.now(ZoneOffset.UTC).minusMonths(1).toString();
 

@@ -61,3 +61,17 @@ fields:
     platformWritten: true
     indexed: true
     settings: { maxLength: 20 }
+
+  - apiName: scoredOn
+    label: Scored on
+    description: The day the score was stamped.
+    type: TEXT
+    platformWritten: true
+    settings: { maxLength: 10 }
+
+  - apiName: planSentOn
+    label: Action plan sent on
+    description: The day an Action plan was first sent.
+    type: TEXT
+    platformWritten: true
+    settings: { maxLength: 10 }

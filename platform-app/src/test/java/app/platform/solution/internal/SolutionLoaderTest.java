@@ -481,12 +481,19 @@ class SolutionLoaderTest {
                 .findFirst().orElseThrow();
 
         assertThat(bundle.settings()).extracting(SolutionBundle.Setting::key)
-                .containsExactly("scoreLimit", "excellentAbove", "goodAbove");
+                .containsExactly("scoreLimit", "excellentAbove", "goodAbove", "actionPlanDueDays");
         assertThat(bundle.settings().get(0).defaultValue()).isEqualTo(85);
         assertThat(bundle.settings().get(1).defaultValue()).isEqualTo(85);
         assertThat(bundle.settings().get(2).defaultValue()).isEqualTo(65);
         assertThat(bundle.settings().get(2).below()).as("Good stays below Excellent").isEqualTo("excellentAbove");
         assertThat(bundle.settings().get(0).below()).isNull();
+        SolutionBundle.Setting days = bundle.settings().get(3);
+        assertThat(days.kind()).isEqualTo(SolutionBundle.Setting.Kind.DAYS);
+        assertThat(days.defaultValue()).isEqualTo(10);
+        assertThat(days.kind().accepts(0)).isFalse();
+        assertThat(days.kind().accepts(1)).isTrue();
+        assertThat(days.kind().accepts(365)).isTrue();
+        assertThat(days.kind().accepts(366)).isFalse();
         assertThat(bundle.options()).containsEntry("dashboard", "management");
     }
 

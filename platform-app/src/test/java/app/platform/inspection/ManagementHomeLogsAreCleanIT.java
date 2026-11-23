@@ -62,6 +62,11 @@ class ManagementHomeLogsAreCleanIT extends ManagementHomeSupport {
         answers.add(approver.postJson(HOME, "{\"month\":\"" + CURRENT + "\",\"span\":12,\"plant\":\"PLANT1\"}"));
         answers.add(plants.head1().browser().postJson(HOME, "{}"));
         answers.add(plants.head2().browser().postJson(HOME, "{}"));
+        // The plant board (ADR-0266) asks the same records and must be as quiet.
+        answers.add(approver.postJson(BOARD, "{}"));
+        answers.add(approver.postJson(BOARD, "{\"month\":\"last\",\"span\":3}"));
+        answers.add(approver.postJson(BOARD, "{\"span\":12,\"plant\":\"PLANT1\"}"));
+        answers.add(plants.head1().browser().postJson(BOARD, "{}"));
         assertThat(admin.request("PUT", "/api/v1/application-settings",
                 "{\"application\":\"management-core\",\"key\":\"scoreLimit\",\"value\":93}").status()).isEqualTo(200);
         assertThat(admin.request("PUT", "/api/v1/application-settings",
@@ -70,6 +75,8 @@ class ManagementHomeLogsAreCleanIT extends ManagementHomeSupport {
         answers.add(approver.postJson(HOME, "{}"));
         List<Response> refusals = new ArrayList<>();
         refusals.add(approver.postJson(HOME, "{\"plant\":\"" + junkPlant + "\"}"));
+        refusals.add(approver.postJson(BOARD, "{\"plant\":\"" + junkPlant + "\"}"));
+        refusals.add(approver.postJson(BOARD, "{\"month\":\"" + junkMonth + "\"}"));
         refusals.add(approver.postJson(HOME, "{\"month\":\"" + junkMonth + "\"}"));
         refusals.add(approver.postJson(HOME, "{\"form\":\"" + junkForm + "\"}"));
         refusals.add(admin.request("PUT", "/api/v1/application-settings",

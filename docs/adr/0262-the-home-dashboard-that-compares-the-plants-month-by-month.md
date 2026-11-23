@@ -122,3 +122,5 @@ library, the generic Dashboards feature (D8), the KPI management, Management Rev
   only owes one is listed. The graph draws it first, in the danger colour, beside being written, sent and approved.
 - **Solid colours.** The Management Core graphs draw solid fills and solid lines (the points keep their shapes); the hatch patterns of the fill-ins by
   month and status are gone here. The Quality Management System dashboard (`home/ChartCard.tsx`) is unchanged.
+
+- **Note (2026-11-20, ADR-0266):** this dashboard is now Option 2 of the Home page; a second layout, the plant board, sits beside it. Its explaining sentences were removed. Its numbers and behaviour are unchanged.

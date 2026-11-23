@@ -41,6 +41,27 @@ describe("ApplicationSettingsPanel", () => {
     expect(JSON.parse(put.body)).toEqual({ application: "management-core", key: "scoreLimit", value: 90 });
   });
 
+  it("writes the unit of a setting of days, takes only the server's range and says it applies at once (ADR-0266)", async () => {
+    const days = {
+      key: "actionPlanDueDays", label: "Action plan due after", description: "Days to send the plan.", kind: "DAYS",
+      value: 10, defaultValue: 10, least: 1, most: 365, changed: false, version: null as number | null,
+    };
+    const calls = fakeApi({
+      "GET /api/v1/application-settings": () => json(listing(days)),
+      "PUT /api/v1/application-settings": () => json(listing({ ...days, value: 14, changed: true, version: 0 })),
+    });
+    render(<ApplicationSettingsPanel />);
+    const input = await screen.findByLabelText("Action plan due after (days)");
+    fireEvent.change(input, { target: { value: "366" } });
+    expect(screen.getByRole("button", { name: "Save" })).toBeDisabled();
+    fireEvent.change(input, { target: { value: "14" } });
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+    await screen.findByText(/It applies at once/);
+    expect(JSON.parse(calls.find((call) => call.key.startsWith("PUT "))!.body)).toEqual({
+      application: "management-core", key: "actionPlanDueDays", value: 14,
+    });
+  });
+
   it("does not offer a value outside the server's range and shows the server's refusal", async () => {
     fakeApi({
       "GET /api/v1/application-settings": () => json(listing()),
