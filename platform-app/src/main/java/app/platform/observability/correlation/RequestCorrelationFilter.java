@@ -2,6 +2,7 @@ package app.platform.observability.correlation;
 
 import app.platform.sharedkernel.logging.LogContext;
 import app.platformapi.ApiHeaders;
+import app.platformapi.ApiPaths;
 import io.micrometer.tracing.Span;
 import io.micrometer.tracing.Tracer;
 import jakarta.servlet.FilterChain;
@@ -96,6 +97,21 @@ class RequestCorrelationFilter extends OncePerRequestFilter {
     }
 
     private static String abbreviate(String path) {
-        return path.length() > MAX_LOGGED_PATH ? path.substring(0, MAX_LOGGED_PATH) : path;
+        String shown = publicApiRoute(path);
+        return shown.length() > MAX_LOGGED_PATH ? shown.substring(0, MAX_LOGGED_PATH) : shown;
+    }
+
+    /**
+     * A call of the public API logs its route only (for example {@code /api/public/v1/objects}), never what follows:
+     * the object, field and record names of a customer are part of the address, and a call that fails before it is
+     * routed (a refused token) is logged here too. The status and the request ID say what happened.
+     */
+    private static String publicApiRoute(String path) {
+        if (!ApiPaths.isPublicApiPath(path)) {
+            return path;
+        }
+        String rest = path.substring(ApiPaths.PUBLIC_V1.length());
+        int next = rest.indexOf('/', 1);
+        return next < 0 ? path : ApiPaths.PUBLIC_V1 + rest.substring(0, next);
     }
 }
