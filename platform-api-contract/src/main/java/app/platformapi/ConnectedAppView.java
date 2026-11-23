@@ -33,4 +33,9 @@ public record ConnectedAppView(@NotNull UUID id, @NotNull String clientId, @NotN
         @NotNull String description, @NotNull String state, boolean running, String stoppedReason, String actsAs,
         boolean actsAsYou, @NotNull List<String> scopes, List<String> objects, int tokenMinutes, int activeSecrets,
         @NotNull Instant createdAt, Instant lastUsedAt, long version) {
+
+    public ConnectedAppView {
+        scopes = List.copyOf(scopes);
+        objects = objects == null ? null : List.copyOf(objects);
+    }
 }

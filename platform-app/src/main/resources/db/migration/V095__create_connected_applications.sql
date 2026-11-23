@@ -165,7 +165,8 @@ begin
             raise exception 'client secret guard: the end of an overlap cannot be taken back'
                 using errcode = 'check_violation';
         end if;
-        if new.expires_at > now() + interval '24 hours' then
+        -- One minute of tolerance for the difference between the application's clock and the database's.
+        if new.expires_at > now() + interval '24 hours 1 minute' then
             raise exception 'client secret guard: an overlap is at most 24 hours' using errcode = 'check_violation';
         end if;
         if old.expires_at is not null and new.expires_at > old.expires_at then

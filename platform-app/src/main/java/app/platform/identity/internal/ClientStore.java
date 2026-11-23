@@ -84,9 +84,8 @@ class ClientStore {
     // ---- applications ----
 
     int count() {
-        Integer count = jdbc.sql("select count(*) from oauth_client where deleted_at is null")
+        return jdbc.sql("select count(*) from oauth_client where deleted_at is null")
                 .query(Integer.class).single();
-        return count == null ? 0 : count;
     }
 
     UUID insert(String clientId, String name, String description, UUID membershipId, UUID userId, List<String> scopes,

@@ -18,10 +18,10 @@ import org.junit.jupiter.api.Test;
 
 /**
  * Who may reach the management of connected applications (Sprint 31, ADR-0267, ADR-0270, ADR-0271): every endpoint
- * tried as an administrator, as members who hold one ability or both, as an administrator of another organization, with a
- * forged tenant header, as a platform administrator, without signing in, with the token of an application, without the
- * plan feature and without the request forgery header. The three mechanisms stay apart: being a member decides whether
- * there is a door, the ability decides who, the plan feature decides whether.
+ * tried as an administrator, as members who hold one ability or both, as an administrator of another organization,
+ * with a forged tenant header, as a platform administrator, without signing in, with the token of an application,
+ * without the plan feature and without the request forgery header. The three mechanisms stay apart: being a member
+ * decides whether there is a door, the ability decides who, the plan feature decides whether.
  */
 @PlatformIntegrationTest
 class ClientAccessIT extends ClientSupport {

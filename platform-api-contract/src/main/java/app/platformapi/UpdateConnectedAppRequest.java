@@ -25,4 +25,15 @@ public record UpdateConnectedAppRequest(
         @Size(max = 50) List<@Pattern(regexp = "^[A-Za-z][A-Za-z0-9_]{0,79}$") String> objects,
         @NotNull Integer tokenMinutes,
         long version) {
+
+    public UpdateConnectedAppRequest {
+        scopes = scopes == null ? null : List.copyOf(scopes);
+        objects = objects == null ? null : List.copyOf(objects);
+    }
+
+    /** Prints nothing typed: the name and the description are an administrator's words. */
+    @Override
+    public String toString() {
+        return "UpdateConnectedAppRequest[redacted]";
+    }
 }

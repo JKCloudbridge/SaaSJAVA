@@ -22,4 +22,15 @@ public record CreateConnectedAppRequest(
         @NotNull @Size(min = 1, max = 10) List<@NotBlank @Size(max = 40) String> scopes,
         @Size(max = 50) List<@Pattern(regexp = "^[A-Za-z][A-Za-z0-9_]{0,79}$") String> objects,
         Integer tokenMinutes) {
+
+    public CreateConnectedAppRequest {
+        scopes = scopes == null ? null : List.copyOf(scopes);
+        objects = objects == null ? null : List.copyOf(objects);
+    }
+
+    /** Prints nothing typed: the name and the description are an administrator's words. */
+    @Override
+    public String toString() {
+        return "CreateConnectedAppRequest[redacted]";
+    }
 }

@@ -5,6 +5,7 @@ import io.micrometer.core.instrument.MeterRegistry;
 import jakarta.servlet.http.HttpServletRequest;
 import java.time.Clock;
 import java.util.List;
+import java.util.Optional;
 import org.springframework.security.authentication.AuthenticationProvider;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.oauth2.core.ClientAuthenticationMethod;
@@ -78,7 +79,8 @@ final class ClientAuthenticationProvider implements AuthenticationProvider {
             return null;
         }
         String clientId = String.valueOf(token.getPrincipal());
-        String presented = token.getCredentials() == null ? null : token.getCredentials().toString();
+        Object credentials = token.getCredentials();
+        String presented = credentials == null ? null : credentials.toString();
         String source = source();
 
         if (!properties.enabled()) {
@@ -89,7 +91,8 @@ final class ClientAuthenticationProvider implements AuthenticationProvider {
             meters.counter("platform.clients.auth.failures", "reason", "limited").increment();
             throw new OAuth2AuthenticationException(new OAuth2Error(LIMITED));
         }
-        ClientStore.ClientRow row = transaction.execute(status -> store.findByClientId(clientId)).orElse(null);
+        Optional<ClientStore.ClientRow> found = transaction.execute(status -> store.findByClientId(clientId));
+        ClientStore.ClientRow row = found == null ? null : found.orElse(null);
         if (row == null) {
             ClientSecrets.matchesNothing(presented);
             throw refused(null, clientId, "unknown_client", source, false);

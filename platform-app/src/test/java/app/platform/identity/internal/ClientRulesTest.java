@@ -17,7 +17,8 @@ class ClientRulesTest {
     private static ClientStore.ClientRow row(String state, List<String> scopes, List<String> objects,
             String userStatus, String membershipStatus) {
         return new ClientStore.ClientRow(UUID.randomUUID(), "ca_abcdefghijklmnopqrstuvwx", "Name", "",
-                UUID.randomUUID(), UUID.randomUUID(), state, scopes, objects, 900, 0, Instant.parse("2026-01-01T00:00:00Z"), "User A",
+                UUID.randomUUID(), UUID.randomUUID(), state, scopes, objects, 900, 0,
+                Instant.parse("2026-01-01T00:00:00Z"), "User A",
                 userStatus, membershipStatus, 1, null);
     }
 

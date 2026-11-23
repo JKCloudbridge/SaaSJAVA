@@ -12,5 +12,5 @@ import jakarta.validation.constraints.Min;
  * @param endTokensNow whether the tokens already issued with the older secrets stop now as well; by default they live
  *        until they end (they are short)
  */
-public record RotateClientSecretRequest(@Min(0) @Max(24) Integer overlapHours, boolean endTokensNow) {
+public record RotateClientSecretRequest(@Min(0) @Max(24) Integer overlapHours, Boolean endTokensNow) {
 }

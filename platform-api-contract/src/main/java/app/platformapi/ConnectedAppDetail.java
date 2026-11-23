@@ -10,4 +10,8 @@ import java.util.List;
  * @param secrets its secrets, newest first, ended ones included for a while; never a value
  */
 public record ConnectedAppDetail(@NotNull ConnectedAppView app, @NotNull List<ClientSecretView> secrets) {
+
+    public ConnectedAppDetail {
+        secrets = List.copyOf(secrets);
+    }
 }

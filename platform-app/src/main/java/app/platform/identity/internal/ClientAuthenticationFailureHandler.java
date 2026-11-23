@@ -45,7 +45,9 @@ final class ClientAuthenticationFailureHandler implements AuthenticationFailureH
                     + "Try again later.\"}";
         } else if (!OAuth2ErrorCodes.INVALID_CLIENT.equals(code)) {
             response.setStatus(HttpStatus.BAD_REQUEST.value());
-            body = "{\"error\":\"invalid_request\",\"error_description\":\"The request is not valid.\"}";
+            // The protocol's own code (invalid_grant for a wrong verifier, invalid_request, ...), never a text.
+            String shown = code.matches("[a-z_]{1,40}") ? code : "invalid_request";
+            body = "{\"error\":\"" + shown + "\",\"error_description\":\"The request is not valid.\"}";
         } else {
             response.setStatus(HttpStatus.UNAUTHORIZED.value());
             response.setHeader(HttpHeaders.WWW_AUTHENTICATE, "Basic realm=\"platform\"");

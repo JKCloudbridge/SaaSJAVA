@@ -23,6 +23,10 @@ public record ConnectedAppCatalogue(@NotNull List<ClientScopeView> scopes, @NotN
         int defaultTokenMinutes, int minTokenMinutes, int maxTokenMinutes, int maxOverlapHours, int maxObjects,
         @NotNull String actingNote, @NotNull String stoppedNote, @NotNull String tokenRequestExample) {
 
+    public ConnectedAppCatalogue {
+        scopes = List.copyOf(scopes);
+    }
+
     /**
      * One scope.
      *

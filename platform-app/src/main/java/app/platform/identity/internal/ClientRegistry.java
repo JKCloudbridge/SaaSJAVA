@@ -182,7 +182,7 @@ class ClientRegistry {
                 throw ApiException.validation("overlapHours", "Is more than the longest overlap allowed.");
             }
             List<ClientStore.SecretRow> older = store.workingSecrets(id);
-            boolean endTokens = request != null && request.endTokensNow();
+            boolean endTokens = request != null && Boolean.TRUE.equals(request.endTokensNow());
             int ended = 0;
             int stillWorking = 0;
             Instant endsAt = clock.instant().plus(overlap);

@@ -28,8 +28,8 @@ import org.springframework.web.filter.OncePerRequestFilter;
  *
  * <p>The filter also tells the rest of the request who the caller is: the public identifier of the application goes
  * into the logging context and onto the request, so the request's log line and every audit record written while it
- * is handled name the application next to the member. A person's own token passes through unchanged. Not a bean: it belongs to the
- * API filter chain.
+ * is handled name the application next to the member. A person's own token passes through unchanged. Not a bean:
+ * it belongs to the API filter chain.
  */
 final class ClientTokenAccessFilter extends OncePerRequestFilter {
 
