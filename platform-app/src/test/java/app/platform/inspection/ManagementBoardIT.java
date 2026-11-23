@@ -206,6 +206,27 @@ assertThat(objects(board(approver), "pending")).as("decided, so no longer waitin
         assertThat(integer(board(approver), "totals.overdue")).isZero();
     }
 
+    @Test
+    void theMonthInProgressAppearsInTheTilesAndTheChartAsSoonAsItsFillInIsApprovedAndScored() {
+        Plants plants = scored();
+        TestBrowser approver = plants.world().approver().browser();
+        String oneStep = oneStepProcess(plants);
+        String fill = startedMonth(plants.head1().browser(), plants.template(), "PLANT1", CURRENT);
+        saved(plants.head1().browser(), fill, values("94", "100"));
+        String request = sent(plants.head1().browser(), fill, oneStep);
+
+        Response waiting = board(approver);
+        assertThat(strings(waiting, "months")).as("sent, not yet approved").doesNotContain(CURRENT);
+
+        assertThat(approve(plants.reviewerA().browser(), request).status()).isEqualTo(200);
+        Response done = board(approver);
+        assertThat(strings(done, "months")).contains(CURRENT);
+        assertThat(str(done, "plants[0].latestMonth")).isEqualTo(CURRENT);
+        assertThat(decimal(done, "plants[0].latestScore")).isEqualTo(94.0);
+        assertThat(integer(done, "plants[0].scoresSubmitted")).as("n counts ended months only").isZero();
+        assertThat(absent(done, "grid[0].current")).as("no second column for the month").isTrue();
+    }
+
     // ---- overdue, and the days are a setting ----
 
     @Test

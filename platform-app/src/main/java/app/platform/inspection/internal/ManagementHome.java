@@ -321,7 +321,11 @@ class ManagementHome {
         pendingRows.addAll(plans);
         String now0 = current.toString();
         List<String> ended = window.stream().filter(month -> month.compareTo(now0) < 0).toList();
-        List<String> months = PlantBoardNumbers.trimmed(ended, fills);
+        List<String> months = new ArrayList<>(PlantBoardNumbers.trimmed(ended, fills));
+        // The month in progress joins the chart and the tiles as soon as a plant has an approved score in it.
+        if (window.contains(now0) && fills.stream().anyMatch(row -> row.scored() && now0.equals(row.period()))) {
+            months.add(now0);
+        }
         String currentMonth = window.contains(now0) ? now0 : null;
         Integer dueDays = setting(set, DUE_DAYS);
 

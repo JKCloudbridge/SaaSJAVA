@@ -199,7 +199,7 @@ final class PlantBoardNumbers {
         in.plans().stream().filter(Row::isPlan).forEach(row -> planOf.putIfAbsent(row.parent(), row));
         Map<String, Map<String, Double>> scores = new LinkedHashMap<>();
         List<String> shown = new ArrayList<>(in.months());
-        if (in.current() != null) {
+        if (in.current() != null && !shown.contains(in.current())) {
             shown.add(in.current());
         }
         shown.forEach(month -> scores.put(month, ManagementNumbers.plantScores(in.fills(), month)));
@@ -213,10 +213,10 @@ final class PlantBoardNumbers {
             List<ManagementBoardCell> cells = new ArrayList<>();
             List<Double> points = new ArrayList<>();
             for (String month : in.months()) {
-                cells.add(cell(in, planOf, scores, code, month, false));
+                cells.add(cell(in, planOf, scores, code, month, month.equals(in.current())));
                 points.add(scores.get(month).get(code));
             }
-            ManagementBoardCell current = in.current() == null ? null
+            ManagementBoardCell current = in.current() == null || in.months().contains(in.current()) ? null
                     : cell(in, planOf, scores, code, in.current(), true);
             grid.add(new ManagementBoardGridRow(code, plant.getValue(), colour, cells, current));
 
@@ -229,7 +229,7 @@ final class PlantBoardNumbers {
                 }
             }
             entries.addAll(mine);
-            tiles.add(tile(code, plant.getValue(), colour, in.months(), points, mine));
+            tiles.add(tile(code, plant.getValue(), colour, in.months(), points, mine, in.current()));
         }
         entries.sort(Comparator.comparingInt((Entry entry) -> entry.judgement().status().urgency())
                 .thenComparing(Entry::month, Comparator.reverseOrder()).thenComparing(Entry::label)
@@ -315,11 +315,16 @@ final class PlantBoardNumbers {
                 about = fill;
             }
         }
-        return new ManagementBoardCell(month, score, worst.name(), worst.word(), about.id());
+        // Where the Action plan was sent in by the plant head and has its own score, that score is the one drawn (the
+        // status and the word do not change); everywhere else the month's score is.
+        Row plan = planOf.get(about.id());
+        boolean sentIn = worst == Status.SUBMITTED || worst == Status.LATE;
+        Double shown = sentIn && plan != null && plan.score() != null ? plan.score().doubleValue() : score;
+        return new ManagementBoardCell(month, shown, worst.name(), worst.word(), about.id());
     }
 
     private static ManagementBoardPlant tile(String plant, String label, int colour, List<String> months,
-            List<Double> points, List<Entry> mine) {
+            List<Double> points, List<Entry> mine, String inProgress) {
         int last = months.size() - 1;
         Double latest = last < 0 ? null : points.get(last);
         Double change = null;
@@ -333,9 +338,11 @@ final class PlantBoardNumbers {
                 }
             }
         }
-        int submitted = (int) points.stream().filter(score -> score != null).count();
+        // The month in progress shows its score as soon as it has one, but "n of m" counts the months that ended only.
+        int ended = months.size() - (inProgress != null && months.contains(inProgress) ? 1 : 0);
+        int submitted = (int) points.subList(0, ended).stream().filter(score -> score != null).count();
         return new ManagementBoardPlant(plant, label, colour, last < 0 ? null : months.get(last), latest, change,
-                changeMonth, points, submitted, months.size(), sent(mine), submitted(mine), overdue(mine));
+                changeMonth, points, submitted, ended, sent(mine), submitted(mine), overdue(mine));
     }
 
     private static ManagementBoardPlan planView(Entry entry) {

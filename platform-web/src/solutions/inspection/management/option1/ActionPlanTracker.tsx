@@ -53,7 +53,7 @@ export function ActionPlanTracker({ board, application }: { board: PlantBoard; a
   const totals = board.totals;
   const grid = board.grid ?? [];
   const plans = filterPlans(board.plans ?? [], filter);
-  const columns = [...board.months, ...(board.currentMonth ? [board.currentMonth] : [])];
+  const columns = [...board.months, ...(board.currentMonth && !board.months.includes(board.currentMonth) ? [board.currentMonth] : [])];
   const limit = board.limit;
   return (
     <section className="pb-card" aria-labelledby="pb-tracker-title" data-testid="board-tracker">

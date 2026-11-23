@@ -352,7 +352,52 @@ class PlantBoardNumbersTest {
         assertThat(board(List.of(), null, List.of(), List.of()).kpis().streakMonths()).isNull();
     }
 
+    @Test
+    void aCellShowsTheActionPlansOwnScoreOnlyWhereThePlanWasSentInAndHasOneAndTheStatusIsUnchanged() {
+        Row sentIn = low(P1, "2026-03", "83.00", "2026-04-06");
+        Row scored = new Row(UUID.randomUUID(), "t", "Plan", P1, "2026-03", new BigDecimal("92.50"), "PASS",
+                "APPROVED", sentIn.id(), null, "2026-04-10");
+        Row noScore = low(P2, "2026-03", "84.00", "2026-04-06");
+        Row waiting = low(P1, "2026-04", "80.00", "2026-11-18");
+        Row notSent = low(P2, "2026-04", "81.00", "2026-04-06");
+
+        Board board = board(List.of("2026-03", "2026-04"), null, List.of(sentIn, noScore, waiting, notSent),
+                List.of(scored, planOf(noScore, "SUBMITTED", "2026-04-10")));
+
+        ManagementBoardCell shown = board.grid().get(0).cells().get(0);
+        assertThat(shown.score()).as("the plan's score, not 83").isEqualTo(92.5);
+        assertThat(shown.status()).isEqualTo("SUBMITTED");
+        assertThat(board.grid().get(1).cells().get(0).score()).as("sent in, no score yet").isEqualTo(84.0);
+        assertThat(board.grid().get(0).cells().get(1).score()).as("awaiting: the month's score").isEqualTo(80.0);
+        assertThat(board.grid().get(1).cells().get(1).score()).as("overdue: the month's score").isEqualTo(81.0);
+        assertThat(board.plants().get(0).points()).as("the chart and the tile keep the month's scores")
+                .containsExactly(83.0, 80.0);
+    }
+
+    @Test
+    void theMonthInProgressJoinsTheTilesAndTheChartOnceScoredButNHasOnlyTheMonthsThatEnded() {
+        Row oct = ok(P1, "2026-10", "90.00");
+        Row nov = ok(P1, "2026-11", "94.58");
+        Row sentOnly = fill(P2, "2026-11", null, null, "SUBMITTED", null);
+
+        Board board = board(List.of("2026-10", "2026-11"), "2026-11", List.of(oct, nov, sentOnly), List.of());
+        ManagementBoardPlant one = board.plants().get(0);
+
+        assertThat(one.points()).containsExactly(90.0, 94.58);
+        assertThat(one.latestMonth()).isEqualTo("2026-11");
+        assertThat(one.latestScore()).isEqualTo(94.58);
+        assertThat(one.change()).isEqualTo(4.58);
+        assertThat(one.scoresSubmitted()).as("ended months only").isEqualTo(1);
+        assertThat(one.scoresOf()).isEqualTo(1);
+        // No second November column, and a plant with nothing approved still says In review.
+        assertThat(board.grid().get(0).current()).isNull();
+        assertThat(board.grid().get(0).cells().get(1).score()).isEqualTo(94.58);
+        assertThat(board.grid().get(1).cells().get(1).status()).isEqualTo("IN_REVIEW");
+        assertThat(board.grid().get(1).current()).isNull();
+    }
+
     // ---- the months ----
+
 
     @Test
     void leadingMonthsInWhichNothingWasRecordedAreLeftOutAndAGapInTheMiddleIsKept() {
