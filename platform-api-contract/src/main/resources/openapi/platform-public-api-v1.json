@@ -1,7 +1,7 @@
 {
   "openapi" : "3.1.0",
   "info" : {
-    "description" : "The public API of the platform: create, read, change, delete, restore, query and bulk-write the records of the objects of an organization, for the software of that organization. Standard and custom objects are used in exactly the same way. Every successful body is {\"data\": ...} (a page adds \"pagination\"); every failure is {\"error\": {code, message, fields?, requestId, traceId?}}; branch on the code, never on the message. Inside version v1 a change only adds; a breaking change is a new version beside this one, and anything that is retired is announced at least 12 months before it goes. Who may see or change what is decided on every request by the permissions of the user the token belongs to, exactly as in the application.",
+    "description" : "The public API of the platform: create, read, change, delete, restore, query and bulk-write the records of the objects of an organization, for the software of that organization. Standard and custom objects are used in exactly the same way. Every successful body is {\"data\": ...} (a page adds \"pagination\"); every failure is {\"error\": {code, message, fields?, requestId, traceId?}}; branch on the code, never on the message. Inside version v1 a change only adds; a breaking change is a new version beside this one, and anything that is retired is announced at least 12 months before it goes. Who may see or change what is decided on every request by the permissions of the member the token stands for, exactly as in the application: a scope only lets a request reach an operation, and never gives a right the member does not have. Software gets its tokens with a client identifier and a client secret (OAuth client credentials, see the security scheme clientCredentials); a person's own token works too.",
     "title" : "Public API",
     "version" : "v1"
   },
@@ -10,6 +10,8 @@
   } ],
   "security" : [ {
     "bearerAuth" : [ ]
+  }, {
+    "clientCredentials" : [ "objects.read", "records.read", "records.write" ]
   } ],
   "tags" : [ {
     "description" : "Which objects exist for the caller, and their fields.",
@@ -77,6 +79,31 @@
               }
             }
           },
+          "403" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "The token does not hold the scope this operation needs, or the member the token stands for may not do this. The words never say which.",
+            "headers" : {
+              "API-Version" : {
+                "description" : "The major version of the public API that answered.",
+                "schema" : {
+                  "type" : "string",
+                  "example" : "v1"
+                }
+              },
+              "X-Request-ID" : {
+                "description" : "Identifies the request. Send your own (8 to 64 letters, digits, dot, underscore or hyphen) or one is made. Quote it when asking for support.",
+                "schema" : {
+                  "type" : "string"
+                }
+              }
+            }
+          },
           "404" : {
             "content" : {
               "application/json" : {
@@ -203,6 +230,11 @@
             }
           }
         },
+        "security" : [ {
+          "bearerAuth" : [ ]
+        }, {
+          "clientCredentials" : [ "objects.read" ]
+        } ],
         "summary" : "The objects the caller may read",
         "tags" : [ "Objects" ]
       }
@@ -270,6 +302,31 @@
               }
             }
           },
+          "403" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "The token does not hold the scope this operation needs, or the member the token stands for may not do this. The words never say which.",
+            "headers" : {
+              "API-Version" : {
+                "description" : "The major version of the public API that answered.",
+                "schema" : {
+                  "type" : "string",
+                  "example" : "v1"
+                }
+              },
+              "X-Request-ID" : {
+                "description" : "Identifies the request. Send your own (8 to 64 letters, digits, dot, underscore or hyphen) or one is made. Quote it when asking for support.",
+                "schema" : {
+                  "type" : "string"
+                }
+              }
+            }
+          },
           "404" : {
             "content" : {
               "application/json" : {
@@ -396,6 +453,11 @@
             }
           }
         },
+        "security" : [ {
+          "bearerAuth" : [ ]
+        }, {
+          "clientCredentials" : [ "objects.read" ]
+        } ],
         "summary" : "One object and the fields of it the caller may read",
         "tags" : [ "Objects" ]
       }
@@ -732,6 +794,11 @@
             }
           }
         },
+        "security" : [ {
+          "bearerAuth" : [ ]
+        }, {
+          "clientCredentials" : [ "records.write" ]
+        } ],
         "summary" : "Create a record",
         "tags" : [ "Records" ]
       }
@@ -1068,6 +1135,11 @@
             }
           }
         },
+        "security" : [ {
+          "bearerAuth" : [ ]
+        }, {
+          "clientCredentials" : [ "records.write" ]
+        } ],
         "summary" : "Create, change or delete many records of an object in one call",
         "tags" : [ "Records" ]
       }
@@ -1154,6 +1226,31 @@
               }
             },
             "description" : "No valid bearer token was sent, or it has expired or was revoked.",
+            "headers" : {
+              "API-Version" : {
+                "description" : "The major version of the public API that answered.",
+                "schema" : {
+                  "type" : "string",
+                  "example" : "v1"
+                }
+              },
+              "X-Request-ID" : {
+                "description" : "Identifies the request. Send your own (8 to 64 letters, digits, dot, underscore or hyphen) or one is made. Quote it when asking for support.",
+                "schema" : {
+                  "type" : "string"
+                }
+              }
+            }
+          },
+          "403" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "The token does not hold the scope this operation needs, or the member the token stands for may not do this. The words never say which.",
             "headers" : {
               "API-Version" : {
                 "description" : "The major version of the public API that answered.",
@@ -1346,6 +1443,11 @@
             }
           }
         },
+        "security" : [ {
+          "bearerAuth" : [ ]
+        }, {
+          "clientCredentials" : [ "records.read" ]
+        } ],
         "summary" : "Ask a question of the records of an object: filter, order, fields, links, one page at a time",
         "tags" : [ "Records" ]
       }
@@ -1576,6 +1678,11 @@
             }
           }
         },
+        "security" : [ {
+          "bearerAuth" : [ ]
+        }, {
+          "clientCredentials" : [ "records.write" ]
+        } ],
         "summary" : "Move a record to the recycle bin",
         "tags" : [ "Records" ]
       },
@@ -1633,6 +1740,31 @@
               }
             },
             "description" : "No valid bearer token was sent, or it has expired or was revoked.",
+            "headers" : {
+              "API-Version" : {
+                "description" : "The major version of the public API that answered.",
+                "schema" : {
+                  "type" : "string",
+                  "example" : "v1"
+                }
+              },
+              "X-Request-ID" : {
+                "description" : "Identifies the request. Send your own (8 to 64 letters, digits, dot, underscore or hyphen) or one is made. Quote it when asking for support.",
+                "schema" : {
+                  "type" : "string"
+                }
+              }
+            }
+          },
+          "403" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "The token does not hold the scope this operation needs, or the member the token stands for may not do this. The words never say which.",
             "headers" : {
               "API-Version" : {
                 "description" : "The major version of the public API that answered.",
@@ -1775,6 +1907,11 @@
             }
           }
         },
+        "security" : [ {
+          "bearerAuth" : [ ]
+        }, {
+          "clientCredentials" : [ "records.read" ]
+        } ],
         "summary" : "Read one record",
         "tags" : [ "Records" ]
       },
@@ -2118,6 +2255,11 @@
             }
           }
         },
+        "security" : [ {
+          "bearerAuth" : [ ]
+        }, {
+          "clientCredentials" : [ "records.write" ]
+        } ],
         "summary" : "Change some values of a record",
         "tags" : [ "Records" ]
       }
@@ -2369,6 +2511,11 @@
             }
           }
         },
+        "security" : [ {
+          "bearerAuth" : [ ]
+        }, {
+          "clientCredentials" : [ "records.write" ]
+        } ],
         "summary" : "Take a record out of the recycle bin",
         "tags" : [ "Records" ]
       }
@@ -2422,6 +2569,31 @@
               }
             },
             "description" : "The document has not changed since the ETag you sent.",
+            "headers" : {
+              "API-Version" : {
+                "description" : "The major version of the public API that answered.",
+                "schema" : {
+                  "type" : "string",
+                  "example" : "v1"
+                }
+              },
+              "X-Request-ID" : {
+                "description" : "Identifies the request. Send your own (8 to 64 letters, digits, dot, underscore or hyphen) or one is made. Quote it when asking for support.",
+                "schema" : {
+                  "type" : "string"
+                }
+              }
+            }
+          },
+          "403" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "The token does not hold the scope this operation needs, or the member the token stands for may not do this. The words never say which.",
             "headers" : {
               "API-Version" : {
                 "description" : "The major version of the public API that answered.",
@@ -3322,9 +3494,23 @@
     },
     "securitySchemes" : {
       "bearerAuth" : {
-        "description" : "The access token of a signed-in user, sent as `Authorization: Bearer <token>`. The organization is always the one the host name of the request names; a token never chooses it. Tokens for software itself (client credentials, scopes) are added by a later release; no static key exists or will.",
+        "description" : "An access token, sent as `Authorization: Bearer <token>`: the token of a signed-in person, or the token of a connected application (see clientCredentials). The organization is always the one the host name of the request names; a token never chooses it. No static key exists or will: a client secret is only ever exchanged for a short-lived token and is never accepted as a credential here.",
         "scheme" : "bearer",
         "type" : "http"
+      },
+      "clientCredentials" : {
+        "description" : "Software that is not a person gets a token by asking the token address of the organization's own host with its client identifier and client secret (HTTP Basic, or client_id and client_secret in the form body), grant_type=client_credentials and optionally scope=<scopes separated by spaces>; with no scope it gets every scope it holds. The token is opaque, lives 5 to 60 minutes (15 by default; expires_in says), and is sent as a bearer token. There is no refresh token: ask again. Errors are the standard ones: invalid_client (401, one answer for every cause), invalid_scope (400) and temporarily_unavailable (429 with Retry-After, after too many failed attempts). The application acts as one member and can only narrow what that member may do.",
+        "flows" : {
+          "clientCredentials" : {
+            "scopes" : {
+              "objects.read" : "List the objects the member may read and describe their fields. Reads no record.",
+              "records.read" : "Read one record and query records. Does not include describing objects or writing.",
+              "records.write" : "Create, change, delete and restore records, one at a time or in bulk. Does not include reading records or describing objects."
+            },
+            "tokenUrl" : "/api/v1/oauth2/token"
+          }
+        },
+        "type" : "oauth2"
       }
     }
   }

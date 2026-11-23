@@ -9,8 +9,11 @@ import app.platformapi.ApiPaths;
 import app.platformapi.ApiResponse;
 import app.platformapi.BulkRecordsRequest;
 import app.platformapi.BulkRecordsResponse;
+import app.platform.sharedkernel.access.ApiScopes;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
+import io.swagger.v3.oas.annotations.security.SecurityRequirements;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import org.springframework.http.CacheControl;
@@ -44,6 +47,8 @@ class PublicBulkController {
     }
 
     @PostMapping(ApiPaths.PUBLIC_OBJECTS + "/{object}/records/bulk")
+    @SecurityRequirements({@SecurityRequirement(name = PublicApiConfiguration.BEARER),
+        @SecurityRequirement(name = PublicApiConfiguration.CLIENT_CREDENTIALS, scopes = ApiScopes.RECORDS_WRITE)})
     @Operation(
             operationId = "bulkRecords",
             summary = "Create, change or delete many records of an object in one call",
@@ -90,7 +95,7 @@ class PublicBulkController {
             response = bulk.run(object, request);
         } else {
             IdempotencyKeys.require(key);
-            IdempotentWrites.Claim claim = new IdempotentWrites.Claim(caller.membership(),
+            IdempotentWrites.Claim claim = new IdempotentWrites.Claim(caller.idempotencyKeySpace(),
                     IdempotencyKeys.keyHash(key), IdempotencyKeys.requestHash("BULK_RECORDS", object, body),
                     properties.idempotency().retention());
             IdempotentWrites.BulkOutcome outcome = writes.bulk(claim, object, request);

@@ -43,6 +43,18 @@ class AbilityTest {
     }
 
     @Test
+    void theAbilitiesOfConnectedApplicationsAreTheirOwnAndNeverShowASecret() {
+        assertThat(Ability.fromKey("clients.view")).contains(Ability.CLIENTS_VIEW);
+        assertThat(Ability.fromKey("clients.manage")).contains(Ability.CLIENTS_MANAGE);
+        assertThat(List.of(Ability.CLIENTS_VIEW, Ability.CLIENTS_MANAGE)).doesNotContainAnyElementsOf(List.of(
+                Ability.INTEGRATIONS_VIEW, Ability.INTEGRATIONS_MANAGE, Ability.CREDENTIALS_VIEW,
+                Ability.CREDENTIALS_MANAGE));
+        assertThat(Ability.CLIENTS_VIEW.description()).as("no ability can show a secret")
+                .contains("can never be seen");
+        assertThat(Ability.CLIENTS_MANAGE.description()).contains("it acts as you").contains("view connected");
+    }
+
+    @Test
     void everyKeyIsUniqueDocumentedAndHasTheShapeTheDatabaseAccepts() {
         List<String> keys = Arrays.stream(Ability.values()).map(Ability::key).toList();
 

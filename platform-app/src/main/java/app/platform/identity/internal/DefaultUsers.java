@@ -205,7 +205,7 @@ class DefaultUsers implements Users {
             }
             moveTo(current, target, actor);
             if (revokeReason != null) {
-                revocation.revokeAll(userId, revokeReason, actor);
+                revocation.revokeAllIncludingApplications(userId, revokeReason, actor);
             }
             return found(userId);
         });

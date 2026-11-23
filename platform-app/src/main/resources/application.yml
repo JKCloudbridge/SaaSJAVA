@@ -343,6 +343,13 @@ platform:
           public-key-file: ${PLATFORM_SIGNING_PUBLIC_KEY_FILE:}
     seed:
       password: ${LOCAL_SEED_PASSWORD:}
+    # Connected applications (Sprint 31, ADR-0267 to ADR-0273): other people's software that asks for short-lived tokens
+    # with a client identity and secret (OAuth client credentials) and acts as one member. false is the kill switch: the
+    # token endpoint refuses client credentials like a wrong secret, the management endpoints answer NOT_FOUND and live
+    # tokens stop working. Every other number has a safe default (the keys: tokens.default-life, tokens.min, tokens.max,
+    # max-active-secrets, max-overlap, max-per-organization, failures.*, last-used-interval, kept-ended-secrets).
+    clients:
+      enabled: ${PLATFORM_CLIENTS_ENABLED:true}
   publicapi:
     # The public API (Sprint 30, ADR-0244): a small, stable interface for other people's software under
     # /api/public/v1. false answers the whole prefix, the description included, with NOT_FOUND (the kill switch).

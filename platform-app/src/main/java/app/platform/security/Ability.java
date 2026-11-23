@@ -281,7 +281,24 @@ public enum Ability {
      */
     MAPPINGS_MANAGE("mappings.manage", "Manage mappings",
             "Draft, try with a sample, publish and stop the mapping of an object to a connection. Needs the "
-                    + "abilities to view integrations and to view mappings as well.");
+                    + "abilities to view integrations and to view mappings as well."),
+
+    /**
+     * See the connected applications of the organization: their names, states, scopes and the dates of their secrets
+     * (Sprint 31, ADR-0267). Never a secret: no ability can show one.
+     */
+    CLIENTS_VIEW("clients.view", "View connected applications",
+            "See the connected applications of the organization, what each may do, whom it acts as, and when its "
+                    + "secrets were made and last used. A secret can never be seen by anyone."),
+
+    /**
+     * Register, change, switch on and off, rotate the secret of and remove connected applications (Sprint 31,
+     * ADR-0267). A new application acts as the person who registers it; nobody can change whom an application acts as.
+     */
+    CLIENTS_MANAGE("clients.manage", "Manage connected applications",
+            "Register a connected application (it acts as you), change what it may do, switch it off and on, make "
+                    + "a new secret for it, end a secret, or remove it. Applies to every connected application of "
+                    + "the organization. Needs the ability to view connected applications as well.");
 
     private final String key;
     private final String title;

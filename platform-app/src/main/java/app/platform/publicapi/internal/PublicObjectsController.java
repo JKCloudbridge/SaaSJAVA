@@ -3,9 +3,13 @@ package app.platform.publicapi.internal;
 import app.platform.data.ObjectDescriptions;
 import app.platform.publicapi.PublicObjectDescription;
 import app.platform.publicapi.PublicObjectSummary;
+import app.platform.sharedkernel.access.ConnectedAppCaller;
 import app.platformapi.ApiPaths;
 import app.platformapi.ApiResponse;
+import app.platform.sharedkernel.access.ApiScopes;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
+import io.swagger.v3.oas.annotations.security.SecurityRequirements;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import java.util.List;
 import org.springframework.http.CacheControl;
@@ -27,12 +31,16 @@ class PublicObjectsController {
             + "all four answer alike. ";
 
     private final ObjectDescriptions objects;
+    private final ConnectedAppCaller connectedApp;
 
-    PublicObjectsController(ObjectDescriptions objects) {
+    PublicObjectsController(ObjectDescriptions objects, ConnectedAppCaller connectedApp) {
         this.objects = objects;
+        this.connectedApp = connectedApp;
     }
 
     @GetMapping(ApiPaths.PUBLIC_OBJECTS)
+    @SecurityRequirements({@SecurityRequirement(name = PublicApiConfiguration.BEARER),
+        @SecurityRequirement(name = PublicApiConfiguration.CLIENT_CREDENTIALS, scopes = ApiScopes.OBJECTS_READ)})
     @Operation(
             operationId = "listObjects",
             summary = "The objects the caller may read",
@@ -41,11 +49,16 @@ class PublicObjectsController {
                     + "address of every other operation takes. Objects the platform itself owns, and objects the "
                     + "caller may not read, are not listed. NOT_FOUND on the platform host.")
     ResponseEntity<ApiResponse<List<PublicObjectSummary>>> list() {
-        List<PublicObjectSummary> summaries = objects.readable().stream().map(PublicRecordMapper::summary).toList();
+        // A connected application limited to some objects sees only those (Sprint 31): the list only ever narrows.
+        List<PublicObjectSummary> summaries = objects.readable().stream()
+                .filter(described -> connectedApp.mayUse(described.apiName()))
+                .map(PublicRecordMapper::summary).toList();
         return ResponseEntity.ok().cacheControl(CacheControl.noStore()).body(ApiResponse.of(summaries));
     }
 
     @GetMapping(ApiPaths.PUBLIC_OBJECTS + "/{object}")
+    @SecurityRequirements({@SecurityRequirement(name = PublicApiConfiguration.BEARER),
+        @SecurityRequirement(name = PublicApiConfiguration.CLIENT_CREDENTIALS, scopes = ApiScopes.OBJECTS_READ)})
     @Operation(
             operationId = "describeObject",
             summary = "One object and the fields of it the caller may read",

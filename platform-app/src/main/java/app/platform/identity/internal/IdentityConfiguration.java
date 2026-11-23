@@ -38,7 +38,7 @@ import app.platformapi.ApiPaths;
  * one first-party client of the authorization server and its token generator.
  */
 @Configuration
-@EnableConfigurationProperties(IdentityProperties.class)
+@EnableConfigurationProperties({IdentityProperties.class, ClientProperties.class})
 class IdentityConfiguration {
 
     private static final String CLIENT_NAME = "platform-web";
@@ -144,7 +144,8 @@ class IdentityConfiguration {
      * one, this host's callback, is checked by {@link CallbackRedirectValidator}.
      */
     @Bean
-    RegisteredClientRepository registeredClientRepository(IdentityProperties properties) {
+    RegisteredClientRepository registeredClientRepository(IdentityProperties properties, ClientStore clientStore,
+            TransactionTemplate transaction) {
         IdentityProperties.Tokens tokens = properties.tokens();
         RegisteredClient client = RegisteredClient.withId(UUID.nameUUIDFromBytes(CLIENT_NAME.getBytes(
                 java.nio.charset.StandardCharsets.UTF_8)).toString())
@@ -165,6 +166,9 @@ class IdentityConfiguration {
                         .idTokenSignatureAlgorithm(SignatureAlgorithm.ES256)
                         .build())
                 .build();
-        return new InMemoryRegisteredClientRepository(client);
+        // The platform's own web client first, then the connected applications of the organization the host names
+        // (Sprint 31, ADR-0267): one repository, two sources, so the web client's flow is exactly what it was.
+        return new CompositeRegisteredClients(List.of(new InMemoryRegisteredClientRepository(client),
+                new PersistentRegisteredClients(clientStore, transaction)));
     }
 }

@@ -868,6 +868,158 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/connected-apps": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The organization's connected applications
+         * @description Needs clients.view. Name, state, scopes, whom each acts as, whether it runs, and when it was last used. Never a secret. NOT_FOUND on the platform host, for an application of another organization, and when connected applications are switched off.
+         */
+        get: operations["listConnectedApps"];
+        put?: never;
+        /**
+         * Register a connected application
+         * @description Needs clients.manage and clients.view. The application acts as the member who asks, and that can never be changed. The answer carries the client secret, this once: it is kept only as a hash and cannot be shown again. CONFLICT when the organization has the most applications it may have or the plan lacks the feature. NOT_FOUND on the platform host, for an application of another organization, and when connected applications are switched off.
+         */
+        post: operations["registerConnectedApp"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/connected-apps/catalogue": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * What a connected application can be given
+         * @description Needs clients.view. The scopes with what each allows, the lifetimes a token may have, the address software asks for a token at, a worked request, and the words that explain whom an application acts as. NOT_FOUND on the platform host, for an application of another organization, and when connected applications are switched off.
+         */
+        get: operations["getConnectedAppCatalogue"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/connected-apps/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * One connected application with its secrets
+         * @description Needs clients.view. The secrets are described (number, state, when made, when last used, when they end); no answer ever carries one. NOT_FOUND on the platform host, for an application of another organization, and when connected applications are switched off.
+         */
+        get: operations["getConnectedApp"];
+        /**
+         * Change what a connected application may do
+         * @description Needs clients.manage and clients.view. Carries the version read. The member it acts as cannot be changed. A change that narrows the scopes, the objects or the token life ends the tokens already issued. CONCURRENT_MODIFICATION when the version is not current. NOT_FOUND on the platform host, for an application of another organization, and when connected applications are switched off.
+         */
+        put: operations["updateConnectedApp"];
+        post?: never;
+        /**
+         * Remove a connected application
+         * @description Needs clients.manage and clients.view. Its secrets end and its tokens end now; it cannot be brought back. NOT_FOUND on the platform host, for an application of another organization, and when connected applications are switched off.
+         */
+        delete: operations["removeConnectedApp"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/connected-apps/{id}/disable": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Switch a connected application off
+         * @description Needs clients.manage and clients.view. Its tokens end now and it cannot ask for another until it is switched on. NOT_FOUND on the platform host, for an application of another organization, and when connected applications are switched off.
+         */
+        post: operations["disableConnectedApp"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/connected-apps/{id}/enable": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Switch a connected application on
+         * @description Needs clients.manage and clients.view. Its secrets that still work work again. NOT_FOUND on the platform host, for an application of another organization, and when connected applications are switched off.
+         */
+        post: operations["enableConnectedApp"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/connected-apps/{id}/secrets/rotate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Make a new secret and end the older ones
+         * @description Needs clients.manage and clients.view. The older secrets stop working at once, or after an overlap of up to 24 hours chosen in the request. Tokens already issued live until they end unless the request says to end them now. The answer carries the new secret, this once. CONFLICT when the application would have more secrets at once than it may. NOT_FOUND on the platform host, for an application of another organization, and when connected applications are switched off.
+         */
+        post: operations["rotateConnectedAppSecret"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/connected-apps/{id}/secrets/{secretId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * End one secret now
+         * @description Needs clients.manage and clients.view. The secret stops working at once and the tokens it made end now. Ending a secret that has ended changes nothing. NOT_FOUND on the platform host, for an application of another organization, and when connected applications are switched off.
+         */
+        delete: operations["revokeConnectedAppSecret"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/credentials": {
         parameters: {
             query?: never;
@@ -6535,6 +6687,12 @@ export interface components {
         ApiResponseCircuitView: {
             data: components["schemas"]["CircuitView"];
         };
+        ApiResponseConnectedAppCatalogue: {
+            data: components["schemas"]["ConnectedAppCatalogue"];
+        };
+        ApiResponseConnectedAppDetail: {
+            data: components["schemas"]["ConnectedAppDetail"];
+        };
         ApiResponseCredentialView: {
             data: components["schemas"]["CredentialView"];
         };
@@ -6654,6 +6812,9 @@ export interface components {
         };
         ApiResponseListChangeSetView: {
             data: components["schemas"]["ChangeSetView"][];
+        };
+        ApiResponseListConnectedAppView: {
+            data: components["schemas"]["ConnectedAppView"][];
         };
         ApiResponseListConnectorTypeView: {
             data: components["schemas"]["ConnectorTypeView"][];
@@ -6810,6 +6971,9 @@ export interface components {
         };
         ApiResponseMemberAccessView: {
             data: components["schemas"]["MemberAccessView"];
+        };
+        ApiResponseNewClientSecret: {
+            data: components["schemas"]["NewClientSecret"];
         };
         ApiResponseNotificationOpenView: {
             data: components["schemas"]["NotificationOpenView"];
@@ -7702,6 +7866,24 @@ export interface components {
             state: string;
             words: string;
         };
+        ClientScopeView: {
+            description: string;
+            key: string;
+            title: string;
+        };
+        ClientSecretView: {
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            endsAt?: string;
+            /** Format: uuid */
+            id: string;
+            /** Format: date-time */
+            lastUsedAt?: string;
+            /** Format: int32 */
+            number?: number;
+            state: string;
+        };
         CompleteSignUpRequest: {
             displayName: string;
             password: string;
@@ -7709,6 +7891,51 @@ export interface components {
         };
         CompleteSwitchRequest: {
             token: string;
+        };
+        ConnectedAppCatalogue: {
+            actingNote: string;
+            /** Format: int32 */
+            defaultTokenMinutes?: number;
+            /** Format: int32 */
+            maxObjects?: number;
+            /** Format: int32 */
+            maxOverlapHours?: number;
+            /** Format: int32 */
+            maxTokenMinutes?: number;
+            /** Format: int32 */
+            minTokenMinutes?: number;
+            scopes: components["schemas"]["ClientScopeView"][];
+            stoppedNote: string;
+            tokenPath: string;
+            tokenRequestExample: string;
+        };
+        ConnectedAppDetail: {
+            app: components["schemas"]["ConnectedAppView"];
+            secrets: components["schemas"]["ClientSecretView"][];
+        };
+        ConnectedAppView: {
+            /** Format: int32 */
+            activeSecrets?: number;
+            actsAs?: string;
+            actsAsYou?: boolean;
+            clientId: string;
+            /** Format: date-time */
+            createdAt: string;
+            description: string;
+            /** Format: uuid */
+            id: string;
+            /** Format: date-time */
+            lastUsedAt?: string;
+            name: string;
+            objects?: string[];
+            running?: boolean;
+            scopes: string[];
+            state: string;
+            stoppedReason?: string;
+            /** Format: int32 */
+            tokenMinutes?: number;
+            /** Format: int64 */
+            version?: number;
         };
         ConnectorChoice: {
             key: string;
@@ -7774,6 +8001,14 @@ export interface components {
         CreateChangeSetRequest: {
             description?: string;
             name: string;
+        };
+        CreateConnectedAppRequest: {
+            description?: string;
+            name: string;
+            objects?: string[];
+            scopes: string[];
+            /** Format: int32 */
+            tokenMinutes?: number;
         };
         CreateCustomPageRequest: {
             definition: components["schemas"]["CustomPageDefinition"];
@@ -9079,6 +9314,10 @@ export interface components {
             rowId?: string;
             text: string;
         };
+        NewClientSecret: {
+            clientSecret: string;
+            detail: components["schemas"]["ConnectedAppDetail"];
+        };
         NewSheetVersionRequest: {
             /** Format: int32 */
             basedOn?: number;
@@ -9904,6 +10143,11 @@ export interface components {
             name: string;
             /** Format: uuid */
             parentId?: string;
+        };
+        RotateClientSecretRequest: {
+            endTokensNow?: boolean;
+            /** Format: int32 */
+            overlapHours?: number;
         };
         RoutingApplicationView: {
             application: string;
@@ -10880,6 +11124,16 @@ export interface components {
             steps: components["schemas"]["ApprovalStepSpec"][];
             /** Format: int64 */
             version: number;
+        };
+        UpdateConnectedAppRequest: {
+            description?: string;
+            name: string;
+            objects?: string[];
+            scopes: string[];
+            /** Format: int32 */
+            tokenMinutes: number;
+            /** Format: int64 */
+            version?: number;
         };
         UpdateCustomPageRequest: {
             definition: components["schemas"]["CustomPageDefinition"];
@@ -12730,6 +12984,323 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ApiResponseChangeRequestView"];
+                };
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    listConnectedApps: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseListConnectedAppView"];
+                };
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    registerConnectedApp: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateConnectedAppRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseNewClientSecret"];
+                };
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    getConnectedAppCatalogue: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseConnectedAppCatalogue"];
+                };
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    getConnectedApp: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseConnectedAppDetail"];
+                };
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    updateConnectedApp: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateConnectedAppRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseConnectedAppDetail"];
+                };
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    removeConnectedApp: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseBoolean"];
+                };
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    disableConnectedApp: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseConnectedAppDetail"];
+                };
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    enableConnectedApp: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseConnectedAppDetail"];
+                };
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    rotateConnectedAppSecret: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["RotateClientSecretRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseNewClientSecret"];
+                };
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    revokeConnectedAppSecret: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+                secretId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseConnectedAppDetail"];
                 };
             };
             /** @description Error. The code says what went wrong; the message is safe to show. */

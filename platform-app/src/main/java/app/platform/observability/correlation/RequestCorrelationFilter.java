@@ -89,8 +89,12 @@ class RequestCorrelationFilter extends OncePerRequestFilter {
             event.addKeyValue("http_method", request.getMethod())
                     .addKeyValue("http_path", abbreviate(request.getRequestURI()))
                     .addKeyValue("http_status", status)
-                    .addKeyValue("duration_ms", (System.nanoTime() - startedAt) / 1_000_000)
-                    .log("request completed");
+                    .addKeyValue("duration_ms", (System.nanoTime() - startedAt) / 1_000_000);
+            // A request made through a connected application names it (Sprint 31): the public identifier only.
+            if (request.getAttribute(LogContext.CLIENT_ID_ATTRIBUTE) instanceof String client) {
+                event.addKeyValue("client_id", client);
+            }
+            event.log("request completed");
         } finally {
             tenantScope.close();
         }

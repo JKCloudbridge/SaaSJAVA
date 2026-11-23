@@ -61,6 +61,45 @@ class AuthAudit {
         write(AuditRecord.of("auth.password.change_refused", AuditOutcome.FAILURE).forUser(userId).because(reason));
     }
 
+    // ---- connected applications (Sprint 31, ADR-0272): identifiers and counts, never a secret or typed text ----
+
+    void clientRegistered(UUID actor, String clientId, int scopes, boolean limitedToObjects) {
+        write(AuditRecord.of("clients.created", AuditOutcome.SUCCESS).forUser(actor).with("client", clientId)
+                .with("scopes", Integer.toString(scopes)).with("limited", Boolean.toString(limitedToObjects)));
+    }
+
+    void clientChanged(UUID actor, String clientId, boolean narrowed) {
+        write(AuditRecord.of("clients.updated", AuditOutcome.SUCCESS).forUser(actor).with("client", clientId)
+                .with("narrowed", Boolean.toString(narrowed)));
+    }
+
+    void clientSecretMade(UUID actor, String clientId, boolean rotation, int overlapHours, int ended) {
+        write(AuditRecord.of(rotation ? "clients.secret_rotated" : "clients.secret_created", AuditOutcome.SUCCESS)
+                .forUser(actor).with("client", clientId).with("overlap_hours", Integer.toString(overlapHours))
+                .with("ended", Integer.toString(ended)));
+    }
+
+    void clientSecretRevoked(UUID actor, String clientId, int tokensEnded) {
+        write(AuditRecord.of("clients.secret_revoked", AuditOutcome.SUCCESS).forUser(actor).with("client", clientId)
+                .with("tokens_ended", Integer.toString(tokensEnded)));
+    }
+
+    void clientSwitched(UUID actor, String clientId, boolean enabled, int tokensEnded) {
+        write(AuditRecord.of(enabled ? "clients.enabled" : "clients.disabled", AuditOutcome.SUCCESS).forUser(actor)
+                .with("client", clientId).with("tokens_ended", Integer.toString(tokensEnded)));
+    }
+
+    void clientRemoved(UUID actor, String clientId, int tokensEnded) {
+        write(AuditRecord.of("clients.removed", AuditOutcome.SUCCESS).forUser(actor).with("client", clientId)
+                .with("tokens_ended", Integer.toString(tokensEnded)));
+    }
+
+    /** A known application was refused at the token endpoint; the true reason is kept from the caller. */
+    void clientTokenRefused(UUID userId, String clientId, String reason, String source) {
+        write(AuditRecord.of("clients.token_refused", AuditOutcome.DENIED).forUser(userId).because(reason)
+                .with("client", clientId).with("source", source));
+    }
+
     void tokenIssued(UUID userId, String grant, String clientId) {
         write(AuditRecord.of("auth.token.issued", AuditOutcome.SUCCESS).forUser(userId)
                 .with("grant", grant).with("client", clientId));

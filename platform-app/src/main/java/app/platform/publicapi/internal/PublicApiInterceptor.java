@@ -1,5 +1,6 @@
 package app.platform.publicapi.internal;
 
+import app.platform.sharedkernel.access.ConnectedAppCaller;
 import app.platform.tenant.TenantContexts;
 import app.platformapi.ApiException;
 import app.platformapi.ApiPaths;
@@ -9,9 +10,11 @@ import io.micrometer.core.instrument.Timer;
 import io.swagger.v3.oas.annotations.Operation;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import java.util.Map;
 import org.springframework.stereotype.Component;
 import org.springframework.web.method.HandlerMethod;
 import org.springframework.web.servlet.HandlerInterceptor;
+import org.springframework.web.servlet.HandlerMapping;
 import org.springframework.web.servlet.config.annotation.InterceptorRegistry;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 
@@ -37,12 +40,17 @@ class PublicApiInterceptor implements HandlerInterceptor, WebMvcConfigurer {
     /** The words the tenant module gives an address that names no organization (kept the same on purpose). */
     static final String NO_ORGANIZATION = "No organization exists at this address.";
 
+    /** The words of an object that does not exist, the same as the record store's on purpose (ADR-0244). */
+    static final String NO_OBJECT = "This object does not exist.";
+
     private final TenantContexts contexts;
     private final MeterRegistry meters;
+    private final ConnectedAppCaller connectedApp;
 
-    PublicApiInterceptor(TenantContexts contexts, MeterRegistry meters) {
+    PublicApiInterceptor(TenantContexts contexts, MeterRegistry meters, ConnectedAppCaller connectedApp) {
         this.contexts = contexts;
         this.meters = meters;
+        this.connectedApp = connectedApp;
     }
 
     @Override
@@ -59,6 +67,13 @@ class PublicApiInterceptor implements HandlerInterceptor, WebMvcConfigurer {
         if (!description && contexts.current().isEmpty()) {
             // The platform host: no organization, so nothing here exists. The words are those of an unknown host.
             throw new ApiException(ErrorCode.NOT_FOUND, NO_ORGANIZATION);
+        }
+        if (!description && request.getAttribute(HandlerMapping.URI_TEMPLATE_VARIABLES_ATTRIBUTE)
+                instanceof Map<?, ?> variables && variables.get("object") instanceof String object
+                && !connectedApp.mayUse(object)) {
+            // A connected application limited to some objects (Sprint 31, ADR-0270): an object outside its list is
+            // answered exactly like an object that does not exist, whatever its member may do. The list only narrows.
+            throw new ApiException(ErrorCode.NOT_FOUND, NO_OBJECT);
         }
         return true;
     }

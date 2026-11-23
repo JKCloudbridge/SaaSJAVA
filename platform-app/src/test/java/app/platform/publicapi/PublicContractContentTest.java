@@ -37,10 +37,57 @@ class PublicContractContentTest {
     }
 
     @Test
-    void noInternalPathAppears() throws IOException {
+    void noInternalPathAppearsExceptTheOneTokenAddressOfTheClientCredentialsFlow() throws IOException {
+        // Sprint 31 (ADR-0270): software must be told where to ask for a token. It is the only internal address a
+        // customer needs, it is written relative to the host the document is served from, and it appears once.
         String document = Files.readString(PUBLIC);
 
-        assertThat(document).doesNotContain("\"/api/v1/").doesNotContain("/api/v1/");
+        assertThat(document.split("/api/v1/", -1).length - 1).as("occurrences of an internal prefix").isEqualTo(1);
+        assertThat(document).contains("\"tokenUrl\" : \"/api/v1/oauth2/token\"");
+        assertThat(JSON.readTree(document).path("components").path("securitySchemes").path("clientCredentials")
+                .path("flows").path("clientCredentials").path("tokenUrl").asString()).isEqualTo("/api/v1/oauth2/token");
+    }
+
+    @Test
+    void theClientCredentialsFlowIsDocumentedWithItsErrorsScopesAndNoHost() throws IOException {
+        JsonNode scheme = JSON.readTree(Files.readString(PUBLIC)).path("components").path("securitySchemes")
+                .path("clientCredentials");
+
+        assertThat(scheme.path("type").asString()).isEqualTo("oauth2");
+        String description = scheme.path("description").asString();
+        assertThat(description).contains("invalid_client").contains("invalid_scope")
+                .contains("temporarily_unavailable").contains("Retry-After").contains("There is no refresh token")
+                .contains("5 to 60 minutes").contains("client_credentials").doesNotContainPattern("https?://");
+        Set<String> scopes = new HashSet<>();
+        scheme.path("flows").path("clientCredentials").path("scopes").properties()
+                .forEach(scope -> scopes.add(scope.getKey()));
+        assertThat(scopes).containsExactlyInAnyOrder("objects.read", "records.read", "records.write");
+        assertThat(scheme.path("flows").size()).as("no other flow: no code, no implicit, no password").isEqualTo(1);
+    }
+
+    @Test
+    void everyOperationNamesTheOneScopeItNeedsAndTheDescriptionNamesNone() throws IOException {
+        JsonNode paths = JSON.readTree(Files.readString(PUBLIC)).path("paths");
+        Set<String> known = Set.of("objects.read", "records.read", "records.write");
+
+        paths.properties().forEach(path -> path.getValue().properties().forEach(method -> {
+            String where = method.getKey() + " " + path.getKey();
+            Set<String> scopes = new HashSet<>();
+            method.getValue().path("security").forEach(requirement ->
+                    requirement.path("clientCredentials").forEach(scope -> scopes.add(scope.asString())));
+            if ("getPublicApiDescription".equals(method.getValue().path("operationId").asString())) {
+                assertThat(scopes).as(where).isEmpty();
+            } else {
+                assertThat(scopes).as(where).hasSize(1).isSubsetOf(known);
+            }
+        }));
+    }
+
+    @Test
+    void theScopesOfThePublicTableAreTheScopesOfTheSharedCatalogue() {
+        assertThat(app.platform.sharedkernel.access.ApiScopes.ALL.stream()
+                .map(app.platform.sharedkernel.access.ApiScopes.Scope::key).toList())
+                .containsExactly("objects.read", "records.read", "records.write");
     }
 
     @Test
@@ -109,7 +156,8 @@ class PublicContractContentTest {
         assertThat(document.path("components").path("securitySchemes").path("bearerAuth").path("scheme").asString())
                 .isEqualTo("bearer");
         assertThat(document.path("components").path("securitySchemes").size())
-                .as("only what is true today: a bearer token").isEqualTo(1);
+                .as("only what is true today: a bearer token and the client-credentials flow").isEqualTo(2);
+        assertThat(document.path("components").path("securitySchemes").has("clientCredentials")).isTrue();
     }
 
     @Test

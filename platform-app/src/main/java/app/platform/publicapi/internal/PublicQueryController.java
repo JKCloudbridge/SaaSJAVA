@@ -7,7 +7,10 @@ import app.platform.publicapi.PublicRecord;
 import app.platformapi.ApiPageResponse;
 import app.platformapi.ApiPaths;
 import app.platformapi.Pagination;
+import app.platform.sharedkernel.access.ApiScopes;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
+import io.swagger.v3.oas.annotations.security.SecurityRequirements;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import java.util.List;
@@ -34,6 +37,8 @@ class PublicQueryController {
     }
 
     @PostMapping(ApiPaths.PUBLIC_OBJECTS + "/{object}/records/query")
+    @SecurityRequirements({@SecurityRequirement(name = PublicApiConfiguration.BEARER),
+        @SecurityRequirement(name = PublicApiConfiguration.CLIENT_CREDENTIALS, scopes = ApiScopes.RECORDS_READ)})
     @Operation(
             operationId = "queryRecords",
             summary = "Ask a question of the records of an object: filter, order, fields, links, one page at a time",

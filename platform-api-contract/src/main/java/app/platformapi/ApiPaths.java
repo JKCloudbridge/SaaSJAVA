@@ -316,6 +316,12 @@ public final class ApiPaths {
     public static final String PUBLIC_OBJECTS = PUBLIC_V1 + "/objects";
 
     /**
+     * The connected applications of the organization the host names: register, list, change, switch off and on, make
+     * and end secrets, remove (Sprint 31, ADR-0267). Internal; a token of a connected application never reaches it.
+     */
+    public static final String CONNECTED_APPS = V1 + "/connected-apps";
+
+    /**
      * Whether the path belongs to an API of the platform that resolves the organization from the host and takes part
      * in the limits of an organization: the internal API and the public API. Every rule that used to look for the
      * internal prefix alone asks this, so a new prefix cannot be forgotten in one of them (Sprint 30, ADR-0244).

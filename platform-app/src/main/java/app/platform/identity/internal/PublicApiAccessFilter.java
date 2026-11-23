@@ -25,9 +25,10 @@ import org.springframework.web.filter.OncePerRequestFilter;
 final class PublicApiAccessFilter extends OncePerRequestFilter {
 
     /**
-     * The attribute a token carries once tokens are granted API scopes (Sprint 31). No token has it today. It is not
-     * the standard {@code scope} claim: the tokens of the web application carry that one for their sign-in, and it
-     * says nothing about what the public API may be asked.
+     * The attribute a token carries when it was granted API scopes: the token of a connected application has it
+     * (Sprint 31, ADR-0270), a signed-in person's own token does not and reaches every operation. It is not the
+     * standard {@code scope} claim: the tokens of the web application carry that one for their sign-in, and it says
+     * nothing about what the public API may be asked.
      */
     static final String SCOPE_ATTRIBUTE = "api_scopes";
 
@@ -57,7 +58,7 @@ final class PublicApiAccessFilter extends OncePerRequestFilter {
         chain.doFilter(request, response);
     }
 
-    /** The scopes the token carries; empty for a token without any (every token today). */
+    /** The scopes the token carries; empty for a token without any (a signed-in person's own token). */
     static Optional<Set<String>> scopesOf(Authentication authentication) {
         if (!(authentication instanceof BearerTokenAuthentication token)) {
             return Optional.empty();

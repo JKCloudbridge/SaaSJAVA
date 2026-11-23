@@ -46,6 +46,18 @@ final class TokenAuthentication {
     /** The attribute that is true when the caller presented the token of a custom page's script (ADR-0127). */
     static final String EMBEDDED_ATTRIBUTE = "embedded";
 
+    /**
+     * The attribute that carries the public client identifier when the caller presented the token of a connected
+     * application (Sprint 31, ADR-0269). Not a secret. A token without it is a person's own.
+     */
+    static final String CLIENT_ATTRIBUTE = "cid";
+
+    /** The attribute that carries the registration (the row) of the connected application behind the token. */
+    static final String CLIENT_ROW_ATTRIBUTE = "crid";
+
+    /** The attribute that carries the objects a connected application is limited to; absent when it has no list. */
+    static final String OBJECTS_ATTRIBUTE = "api_objects";
+
     private TokenAuthentication() {
     }
 
@@ -158,15 +170,18 @@ final class TokenAuthentication {
         private final PlatformRoleRepository platformRoles;
         private final Clock clock;
         private final Duration platformSessionMax;
+        private final MachineTokens machine;
 
         Introspector(AuthorizationStore store, MembershipGate gate, AuthAudit audit,
-                PlatformRoleRepository platformRoles, Clock clock, Duration platformSessionMax) {
+                PlatformRoleRepository platformRoles, Clock clock, Duration platformSessionMax,
+                MachineTokens machine) {
             this.store = store;
             this.gate = gate;
             this.audit = audit;
             this.platformRoles = platformRoles;
             this.clock = clock;
             this.platformSessionMax = platformSessionMax;
+            this.machine = machine;
         }
 
         @Override
@@ -198,6 +213,19 @@ final class TokenAuthentication {
                 // nothing says why to the caller.
                 audit.bindingRefused(found.userId(), "platform_session_too_old");
                 throw new BadOpaqueTokenException("The token is not valid.");
+            }
+            if (found.machine()) {
+                // A connected application: the registration, the switch and the plan feature are judged now, and
+                // the scopes and the object list only ever narrow (ADR-0269, ADR-0270).
+                MachineTokens.Live live = machine.check(found)
+                        .orElseThrow(() -> new BadOpaqueTokenException("The token is not valid."));
+                attributes.put("scope", List.copyOf(live.scopes()));
+                attributes.put(PublicApiAccessFilter.SCOPE_ATTRIBUTE, List.copyOf(live.scopes()));
+                attributes.put(CLIENT_ATTRIBUTE, found.clientId());
+                attributes.put(CLIENT_ROW_ATTRIBUTE, found.clientRowId().toString());
+                if (live.objects() != null) {
+                    attributes.put(OBJECTS_ATTRIBUTE, List.copyOf(live.objects()));
+                }
             }
             return new DefaultOAuth2AuthenticatedPrincipal(found.userId().toString(), attributes, none);
         }

@@ -34,6 +34,14 @@ class SessionRevocation {
         return count;
     }
 
+    /** Like {@link #revokeAll} and also ends the tokens of connected applications that act as the user. */
+    int revokeAllIncludingApplications(UUID userId, String reason, ActorId actor) {
+        int count = loginSessions.revokeAll(userId, actor)
+                + authorizations.revokeAllIncludingApplications(userId, reason, actor.value());
+        audit.sessionRevoked(userId, reason, count);
+        return count;
+    }
+
     /**
      * Ends everything a user holds for one organization: the sign-in sessions and the grants bound to that
      * organization's host. Used when a membership ends (ADR-0026); the person's other organizations keep working.

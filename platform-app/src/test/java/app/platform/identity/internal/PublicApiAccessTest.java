@@ -115,6 +115,47 @@ class PublicApiAccessTest {
         assertThat(PublicApiAccessFilter.scopesOf(token(Map.of("scope", List.of("openid"))))).isEmpty();
     }
 
+    @Test
+    void aTokenWithoutApiScopesStillReachesTheTableWhateverItsSignInScopeSays() {
+        PublicApiAccess.Operation write = PublicApiAccess.operationOf("POST", OBJECTS + "/E__c/records").orElseThrow();
+
+        Optional<Set<String>> scopes = PublicApiAccessFilter.scopesOf(token(Map.of("scope", List.of("openid"))));
+
+        assertThat(scopes).isEmpty();
+        assertThat(PublicApiAccess.permits(write, scopes)).isTrue();
+    }
+
+    @Test
+    void aTokenWithTheScopeAttributeAndOnlyThatIsHeldToIt() {
+        PublicApiAccess.Operation write = PublicApiAccess.operationOf("POST", OBJECTS + "/E__c/records").orElseThrow();
+
+        Optional<Set<String>> scopes = PublicApiAccessFilter.scopesOf(
+                token(Map.of("api_scopes", List.of("records.read"), "scope", List.of("records.write"))));
+
+        assertThat(PublicApiAccess.permits(write, scopes)).as("the sign-in scope is not the API scope").isFalse();
+    }
+
+    @Test
+    void everyOperationNeedsExactlyTheScopeOfItsKindAndNoScopeImpliesAnother() {
+        for (PublicApiAccess.Operation operation : PublicApiAccess.OPERATIONS) {
+            if (operation.scope() == null) {
+                continue;
+            }
+            for (String held : List.of("objects.read", "records.read", "records.write")) {
+                assertThat(PublicApiAccess.permits(operation, Optional.of(Set.of(held))))
+                        .as(operation.name() + " with only " + held).isEqualTo(held.equals(operation.scope()));
+            }
+        }
+    }
+
+    @Test
+    void anEmptyScopeSetOfATokenReachesOnlyTheDescription() {
+        long reachable = PublicApiAccess.OPERATIONS.stream()
+                .filter(operation -> PublicApiAccess.permits(operation, Optional.of(Set.of()))).count();
+
+        assertThat(reachable).isEqualTo(1);
+    }
+
     private static BearerTokenAuthentication token(Map<String, Object> attributes) {
         Map<String, Object> all = new java.util.HashMap<>(attributes);
         all.put("sub", "user-a");
