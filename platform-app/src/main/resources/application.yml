@@ -361,3 +361,18 @@ platform:
     limits:
       max-body-bytes: 1048576
       max-bulk-body-bytes: 8388608
+  webhooks:
+    # Webhooks (Sprint 32, ADR-0274 to ADR-0279): an organization is told, at an address of its own software, with a
+    # small signed message of identifiers, when records change. false is the kill switch: nothing is queued and nothing
+    # is sent by this instance, and the screens still work. Every other number has a safe default (the keys:
+    # max-subscriptions, disable-after, max-overlap, worker.*, delivery.*, retry.*, circuit.*, queue.*, retention.*,
+    # test.*).
+    enabled: ${PLATFORM_WEBHOOKS_ENABLED:true}
+  limits:
+    # The limits on the public API (Sprint 32, ADR-0280 to ADR-0283): a rate a minute for each connected application
+    # and each member's own token, and a rate a minute and a quota a day for the organization as a whole. false is the
+    # kill switch: the rate-limit headers disappear and no request is refused for a limit (read at start, so it needs a
+    # restart of the application and nothing else). The defaults are generous on purpose; the platform console can set
+    # other numbers for one organization. (Not the same switch as the requests in progress of ADR-0108.)
+    public-api:
+      enabled: ${PLATFORM_RATE_LIMITS_ENABLED:true}

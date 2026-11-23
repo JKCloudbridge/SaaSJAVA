@@ -13,6 +13,11 @@
  * {@code data} (the platform's own reads and writes of records), {@code metadata} (the fields of an object) and the new
  * edge to {@code expression} (the transformations of a mapping): mapping, the links between a record and what it is on
  * the other side, the outbound sends and the public receiver of signed changes (ADR-0216 to ADR-0224).
+ *
+ * <p>Sprint 32 adds the webhooks (ADR-0274 to ADR-0279): standing instructions of an organization to be told, at an
+ * address of its own, with a small signed message of identifiers, when records change. They are not connectors: a
+ * subscription is a tenant row of its own, its deliveries are queued work like the sends of Sprint 29 (the same pure
+ * classes), and the call goes through the one outbound client. No module edge was added.
  */
 @ApplicationModule(
         displayName = "Integration",

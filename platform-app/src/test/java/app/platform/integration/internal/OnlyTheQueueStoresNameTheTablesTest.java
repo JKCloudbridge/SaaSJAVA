@@ -25,7 +25,10 @@ class OnlyTheQueueStoresNameTheTablesTest {
             "integration_attempt", "AttemptStore.java",
             "integration_flow_state", "FlowStateStore.java",
             "integration_poll", "PollStore.java",
-            "integration_file", "FileLedgerStore.java");
+            "integration_file", "FileLedgerStore.java",
+            "webhook_subscription", "WebhookSubscriptionStore.java",
+            "webhook_delivery", "WebhookDeliveryStore.java",
+            "webhook_attempt", "WebhookAttemptStore.java");
 
     @Test
     void noOtherClassOfTheModuleWritesAStatementAgainstAQueueTable() throws IOException {

@@ -20,6 +20,19 @@ public final class ApiHeaders {
     public static final String API_VERSION = "API-Version";
 
     /**
+     * The limits that apply to a request of the public API, one item for each window, in the form of the IETF draft on
+     * rate limit headers: {@code "minute";q=600;w=60, "day";q=500000;w=86400} (Sprint 32, ADR-0282).
+     */
+    public static final String RATE_LIMIT_POLICY = "RateLimit-Policy";
+
+    /**
+     * What is left of those limits and when each window ends, for the answer that carries it: {@code
+     * "minute";r=120;t=33, "day";r=499000;t=40000}, where {@code r} is what remains and {@code t} the seconds until
+     * the window ends (Sprint 32, ADR-0282).
+     */
+    public static final String RATE_LIMIT = "RateLimit";
+
+    /**
      * The caller's own key for a create or a bulk call of the public API (Sprint 30, ADR-0246): the same key with the
      * same request makes one record, whatever the number of attempts.
      */

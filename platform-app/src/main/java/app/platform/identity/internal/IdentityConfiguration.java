@@ -38,7 +38,7 @@ import app.platformapi.ApiPaths;
  * one first-party client of the authorization server and its token generator.
  */
 @Configuration
-@EnableConfigurationProperties({IdentityProperties.class, ClientProperties.class})
+@EnableConfigurationProperties({IdentityProperties.class, ClientProperties.class, RateLimitProperties.class})
 class IdentityConfiguration {
 
     private static final String CLIENT_NAME = "platform-web";

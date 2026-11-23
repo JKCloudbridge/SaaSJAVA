@@ -49,7 +49,14 @@ public enum SystemScope {
      * and for the claim, and no other table does. The send itself always runs inside the organization's own tenant
      * context.
      */
-    INTEGRATION_DISPATCH("integration_dispatch", false);
+    INTEGRATION_DISPATCH("integration_dispatch", false),
+
+    /**
+     * The webhook worker (Sprint 32, ADR-0279): finds the webhook deliveries of every organization that are due and
+     * claims them, and counts the queue. The policies of {@code webhook_delivery} admit it for reading and for the
+     * claim, and no other table does. The call itself always runs inside the organization's own tenant context.
+     */
+    WEBHOOK_DISPATCH("webhook_dispatch", false);
 
     private final String settingValue;
     private final boolean audited;

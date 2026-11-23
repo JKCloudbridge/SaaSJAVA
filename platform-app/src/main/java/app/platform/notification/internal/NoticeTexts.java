@@ -180,6 +180,9 @@ class NoticeTexts {
             if (kind == NoticeKind.APPROVAL_TASK || kind == NoticeKind.APPROVAL_REMINDER) {
                 return "/approvals";
             }
+            if (kind == NoticeKind.WEBHOOK_STOPPED) {
+                return "/setup/webhooks";
+            }
             if ((kind == NoticeKind.CHANGE_REQUEST || kind == NoticeKind.DOCUMENT_PUBLISHED
                     || kind == NoticeKind.DOCUMENT_AT_PLANT || kind == NoticeKind.ACTION_PLAN_NEEDED)
                     && row.recordId() != null) {

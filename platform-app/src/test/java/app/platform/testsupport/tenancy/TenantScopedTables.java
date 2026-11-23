@@ -792,6 +792,36 @@ public final class TenantScopedTables {
                     ActorId.SYSTEM.value(), ActorId.SYSTEM.value()));
 
     /**
+     * A webhook subscription of an organization (Sprint 32, V096). A probe row needs a user and a membership of the
+     * tenant, which it creates.
+     */
+    public static final TenantScopedTable WEBHOOK_SUBSCRIPTION = new TenantScopedTable("webhook_subscription",
+            (connection, tenant) -> probeWebhook(connection, tenant));
+
+    /** One event a webhook must be told about (Sprint 32). A probe row creates its subscription. */
+    public static final TenantScopedTable WEBHOOK_DELIVERY = new TenantScopedTable("webhook_delivery",
+            (connection, tenant) -> probeWebhookDelivery(connection, tenant));
+
+    /** One attempt to send a webhook delivery (Sprint 32). A probe row creates its delivery. */
+    public static final TenantScopedTable WEBHOOK_ATTEMPT = new TenantScopedTable("webhook_attempt",
+            (connection, tenant) -> {
+                UUID subscription = probeWebhook(connection, tenant);
+                UUID delivery = UUID.randomUUID();
+                insertDelivery(connection, tenant, subscription, delivery);
+                TenantFixtures.update(connection,
+                        "insert into webhook_attempt (tenant_id, delivery_id, subscription_id, generation, "
+                                + "attempt_no, started_at, outcome, created_by, updated_by) "
+                                + "values (?, ?, ?, 1, 1, now(), 'SUCCESS', ?, ?)",
+                        tenant, delivery, subscription, ActorId.SYSTEM.value(), ActorId.SYSTEM.value());
+            });
+
+    /** The numbers of the limits on the public API that the platform set for one organization (Sprint 32). */
+    public static final TenantScopedTable RATE_LIMIT_OVERRIDE = new TenantScopedTable("rate_limit_override",
+            (connection, tenant) -> TenantFixtures.update(connection,
+                    "insert into rate_limit_override (tenant_id, organization_per_minute, created_by, updated_by) "
+                            + "values (?, 100, ?, ?)", tenant, ActorId.SYSTEM.value(), ActorId.SYSTEM.value()));
+
+    /**
      * A connected application of an organization (Sprint 31, V095). A probe row needs a user and a membership of the
      * tenant, which it creates, and its own client identifier.
      */
@@ -1138,9 +1168,46 @@ public final class TenantScopedTables {
             INSPECTION_AUDIENCE_SUGGESTION, INSPECTION_TEMPLATE_OPTION, INSPECTION_CHANGE_REGISTER,
             INSPECTION_FILL_DEPARTMENT, INSPECTION_TEMPLATE_EVENT, INSPECTION_DOCUMENT_ROUTING,
             INSPECTION_PLANT_PUBLICATION, INSPECTION_PLANT_REVIEWER, INSPECTION_FILL_PERIOD,
-            APPLICATION_SETTING, INSPECTION_ACTION_PLAN_LINK);
+            APPLICATION_SETTING, INSPECTION_ACTION_PLAN_LINK,
+            WEBHOOK_SUBSCRIPTION, WEBHOOK_DELIVERY, WEBHOOK_ATTEMPT, RATE_LIMIT_OVERRIDE);
 
     private TenantScopedTables() {
+    }
+
+    /** A webhook subscription (switched off) of a member made for the purpose; returns the subscription. */
+    private static UUID probeWebhook(java.sql.Connection connection, UUID tenant) throws java.sql.SQLException {
+        UUID user = UUID.randomUUID();
+        UUID membership = UUID.randomUUID();
+        UUID subscription = UUID.randomUUID();
+        TenantFixtures.update(connection,
+                "insert into platform_user (id, email, display_name, created_by, updated_by) "
+                        + "values (?, ?, 'Probe', ?, ?)",
+                user, "probe-" + user + "@example.test", ActorId.SYSTEM.value(), ActorId.SYSTEM.value());
+        TenantFixtures.update(connection,
+                "insert into membership (id, tenant_id, user_id, created_by, updated_by) values (?, ?, ?, ?, ?)",
+                membership, tenant, user, ActorId.SYSTEM.value(), ActorId.SYSTEM.value());
+        TenantFixtures.update(connection,
+                "insert into webhook_subscription (id, tenant_id, name, address, events, membership_id, user_id, "
+                        + "fingerprint, created_by, updated_by) values (?, ?, ?, 'https://receiver.example.test/h', "
+                        + "array['record.created'], ?, ?, ?, ?, ?)",
+                subscription, tenant, "probe-" + UUID.randomUUID().toString().substring(0, 8), membership, user,
+                "e".repeat(64), ActorId.SYSTEM.value(), ActorId.SYSTEM.value());
+        return subscription;
+    }
+
+    private static void probeWebhookDelivery(java.sql.Connection connection, UUID tenant)
+            throws java.sql.SQLException {
+        insertDelivery(connection, tenant, probeWebhook(connection, tenant), UUID.randomUUID());
+    }
+
+    private static void insertDelivery(java.sql.Connection connection, UUID tenant, UUID subscription, UUID delivery)
+            throws java.sql.SQLException {
+        TenantFixtures.update(connection,
+                "insert into webhook_delivery (id, tenant_id, subscription_id, event_id, event_type, "
+                        + "object_api_name, record_id, created_by, updated_by) values (?, ?, ?, ?, 'record.created', "
+                        + "'ObjectA__c', ?, ?, ?)",
+                delivery, tenant, subscription, UUID.randomUUID(), UUID.randomUUID(), ActorId.SYSTEM.value(),
+                ActorId.SYSTEM.value());
     }
 
     /** A connected application of the tenant for a probe row, with the member it acts as; returns its identifier. */

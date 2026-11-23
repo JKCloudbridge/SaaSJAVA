@@ -282,18 +282,28 @@ class EgressClient {
      * @param body the body, or an empty array
      * @param timeout how long the whole exchange may take
      * @param maxResponseBytes the most bytes of the answer's body that are read
+     * @param headers extra headers, checked by the caller
+     * @param statusOnly whether only the status and the headers of the answer are read: the body is never read, so a
+     *        receiver that answers with a large page is not a failure and nothing of what it says is held (Sprint 32,
+     *        ADR-0278)
      */
     record Call(Endpoint endpoint, String method, String path, Header auth, String contentType, byte[] body,
-            Duration timeout, int maxResponseBytes, Map<String, String> headers) {
+            Duration timeout, int maxResponseBytes, Map<String, String> headers, boolean statusOnly) {
 
         Call {
             headers = headers == null ? Map.of() : Map.copyOf(headers);
         }
 
+        /** A call that reads the body of the answer, with extra headers. */
+        Call(Endpoint endpoint, String method, String path, Header auth, String contentType, byte[] body,
+                Duration timeout, int maxResponseBytes, Map<String, String> headers) {
+            this(endpoint, method, path, auth, contentType, body, timeout, maxResponseBytes, headers, false);
+        }
+
         /** A call with no extra header. */
         Call(Endpoint endpoint, String method, String path, Header auth, String contentType, byte[] body,
                 Duration timeout, int maxResponseBytes) {
-            this(endpoint, method, path, auth, contentType, body, timeout, maxResponseBytes, Map.of());
+            this(endpoint, method, path, auth, contentType, body, timeout, maxResponseBytes, Map.of(), false);
         }
 
         @Override
@@ -440,8 +450,8 @@ class EgressClient {
             out.write(callHead(call));
             out.write(call.body());
             out.flush();
-            return readAnswer(wire.getInputStream(), wire, deadline, "HEAD".equals(call.method()),
-                    call.maxResponseBytes());
+            boolean headOnly = "HEAD".equals(call.method()) || call.statusOnly();
+            return readAnswer(wire.getInputStream(), wire, deadline, headOnly, call.maxResponseBytes());
         } catch (SocketTimeoutException slow) {
             return Answer.failed(TestReason.TIMED_OUT);
         } catch (SSLException refused) {

@@ -155,6 +155,19 @@ describe("the console rail", () => {
     ).toBe(false);
     expect(linksOf(homeRail(["clients.view"])).some((entry) => entry.href === "/setup/credentials")).toBe(false);
   });
+  it("offers Webhooks and API usage each to those who hold their own ability and to nobody else", () => {
+    expect(linksOf(homeRail(["webhooks.view"]))).toContainEqual(
+      expect.objectContaining({ href: "/setup/webhooks", ability: "webhooks.view" }),
+    );
+    expect(linksOf(homeRail(["usage.view"]))).toContainEqual(
+      expect.objectContaining({ href: "/setup/usage", ability: "usage.view" }),
+    );
+    expect(linksOf(homeRail(["webhooks.manage", "webhooks.replay", "integrations.view", "clients.view"])).some(
+      (entry) => entry.href === "/setup/webhooks",
+    )).toBe(false);
+    expect(linksOf(homeRail(["webhooks.view"])).some((entry) => entry.href === "/setup/usage")).toBe(false);
+    expect(linksOf(homeRail(["usage.view"])).some((entry) => entry.href === "/setup/webhooks")).toBe(false);
+  });
   it("lists the seven sections of the console with the same addresses as before", () => {
     expect(consoleRail().map((entry) => [entry.label, entry.kind === "link" ? entry.href : ""])).toEqual([
       ["Organizations", "/console"],

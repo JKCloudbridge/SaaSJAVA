@@ -199,7 +199,9 @@ class SecurityConfiguration {
     SecurityFilterChain apiChain(HttpSecurity http, AuthorizationStore store, TenantContexts contexts,
             MembershipGate gate, AuthAudit audit, PlatformRoleRepository platformRoles, Clock clock,
             @Qualifier("handlerExceptionResolver") HandlerExceptionResolver errors, IdentityProperties properties,
-            OrganizationLimits limits, MachineTokens machineTokens)
+            OrganizationLimits limits, MachineTokens machineTokens, RateLimits publicLimits,
+            RateLimitProperties publicLimitProperties, MeterRegistry meters,
+            @Value("${platform.publicapi.limits.max-bulk-body-bytes:8388608}") int maxBulkBodyBytes)
             throws Exception {
         ApiSecurityHandlers.EntryPoint entryPoint = new ApiSecurityHandlers.EntryPoint(errors);
         ApiSecurityHandlers.Denied denied = new ApiSecurityHandlers.Denied(errors);
@@ -251,7 +253,12 @@ class SecurityConfiguration {
                 .addFilterAfter(new PublicApiAccessFilter(denied), ClientTokenAccessFilter.class)
                 .addFilterAfter(new UserContextFilter(contexts), BearerTokenAuthenticationFilter.class)
                 // Once the caller is a known member: a stranger cannot use up an organization's turns (ADR-0108).
-                .addFilterAfter(limits.requestFilter(), UserContextFilter.class);
+                .addFilterAfter(limits.requestFilter(), UserContextFilter.class)
+                // The rate and the quota of the public API, counted once the caller is a known member of the
+                // organization the host names and the token is allowed to reach the operation (ADR-0280); fails open
+                // on its own faults, never on abuse.
+                .addFilterAfter(new PublicRateLimitFilter(publicLimits, publicLimitProperties, contexts, errors,
+                        meters, maxBulkBodyBytes), PublicApiAccessFilter.class);
         return http.build();
     }
 
