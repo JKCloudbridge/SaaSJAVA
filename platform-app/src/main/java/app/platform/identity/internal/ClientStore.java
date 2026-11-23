@@ -132,6 +132,15 @@ class ClientStore {
                 .optional();
     }
 
+    /** The user an active application acts as, on the host of its organization only. */
+    Optional<UUID> actingMemberOfActive(UUID id) {
+        return jdbc.sql("select user_id from oauth_client where id = :id and state = 'ACTIVE' "
+                        + "and deleted_at is null")
+                .param("id", id)
+                .query(UUID.class)
+                .optional();
+    }
+
     /** Takes the row for the rest of the transaction, so that changes to one application are made one at a time. */
     boolean lock(UUID id) {
         return jdbc.sql("select id from oauth_client where id = :id and deleted_at is null for update")

@@ -126,6 +126,7 @@ class AuthorizationStore implements OAuth2AuthorizationService {
     private final TransactionTemplate transaction;
     private final TenantContexts contexts;
     private final AuthAudit audit;
+    private final ClientStore clientStore;
     private final IdentityProperties.Tokens tokens;
     private final JdbcOAuth2AuthorizationService.JsonMapperOAuth2AuthorizationParametersMapper parameters =
             new JdbcOAuth2AuthorizationService.JsonMapperOAuth2AuthorizationParametersMapper();
@@ -136,7 +137,7 @@ class AuthorizationStore implements OAuth2AuthorizationService {
 
     AuthorizationStore(JdbcClient jdbc, JdbcOperations jdbcOperations, TransactionTemplate transaction,
             RegisteredClientRepository clients, TenantContexts contexts, AuthAudit audit,
-            IdentityProperties properties) {
+            IdentityProperties properties, ClientStore clientStore) {
         // The library's mappers learn the column types of the table from a one-time look at it, which its own JDBC
         // service does when it is constructed. That service is not used for anything else here: building it is how the
         // mappers are initialised (the table has the library's documented layout for PostgreSQL).
@@ -145,6 +146,7 @@ class AuthorizationStore implements OAuth2AuthorizationService {
         this.transaction = transaction;
         this.contexts = contexts;
         this.audit = audit;
+        this.clientStore = clientStore;
         this.tokens = properties.tokens();
         this.rows = new JdbcOAuth2AuthorizationService.JsonMapperOAuth2AuthorizationRowMapper(clients);
     }
@@ -618,11 +620,7 @@ class AuthorizationStore implements OAuth2AuthorizationService {
         } catch (IllegalArgumentException e) {
             throw new OAuth2AuthenticationException(new OAuth2Error(OAuth2ErrorCodes.INVALID_CLIENT));
         }
-        UUID user = jdbc.sql("select user_id from oauth_client where id = :id and state = 'ACTIVE' "
-                        + "and deleted_at is null")
-                .param("id", client)
-                .query(UUID.class)
-                .optional()
+        UUID user = clientStore.actingMemberOfActive(client)
                 .orElseThrow(() -> new OAuth2AuthenticationException(new OAuth2Error(OAuth2ErrorCodes.INVALID_CLIENT)));
         UUID secret = secretOfThisRequest()
                 .orElseThrow(() -> new OAuth2AuthenticationException(new OAuth2Error(OAuth2ErrorCodes.INVALID_CLIENT)));
