@@ -14,7 +14,7 @@ vi.mock("@/lib/session/SessionProvider", () => ({
 }));
 
 describe("the application launcher button", () => {
-  it("opens the grid in a window and closes it with the cross", () => {
+  it("opens the grid in a window and closes it with a click outside it, with no cross", () => {
     render(<AppLauncher current="quality" />);
     expect(screen.queryByRole("dialog")).toBeNull();
 
@@ -23,7 +23,11 @@ describe("the application launcher button", () => {
     expect(screen.getByRole("dialog")).toBeInTheDocument();
     expect(screen.getByTestId("the-grid")).toHaveTextContent("quality");
 
-    fireEvent.click(screen.getByRole("button", { name: "Close" }));
+    expect(screen.queryByRole("button", { name: "Close" })).toBeNull();
+    // a click inside the window keeps it open; a click on the dim area beside it closes it
+    fireEvent.mouseDown(screen.getByTestId("the-grid"));
+    expect(screen.getByRole("dialog")).toBeInTheDocument();
+    fireEvent.mouseDown(screen.getByTestId("launcher-window"));
 
     expect(screen.queryByRole("dialog")).toBeNull();
   });

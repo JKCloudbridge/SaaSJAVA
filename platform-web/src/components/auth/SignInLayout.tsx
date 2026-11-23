@@ -8,7 +8,7 @@ import { PLATFORM_BRAND_NAME } from "@/lib/brand";
  * sign a person in (the welcome page for a signed-out visitor, and the `/sign-in` address) share it, on the platform's
  * address and on an organization's alike, so they cannot drift apart. It draws what it is given and decides nothing.
  *
- * <p>The mark is the file `public/logo.png`; the panel's colour is the token `--color-brand-panel`, redefined for dark mode.
+ * <p>The mark is the file `public/way-logo.svg` (an animated vector, the light version of the logo; the animation stops for people who ask for less motion); the panel's colour is the token `--color-brand-panel`, redefined for dark mode.
  * The product's name stays the constant in `lib/brand.ts`.
  */
 export function SignInLayout({ title, children }: { title: string; children: ReactNode }) {
@@ -21,12 +21,12 @@ export function SignInLayout({ title, children }: { title: string; children: Rea
         </div>
       </div>
       <div className="sign-in-brand-half" data-testid="sign-in-brand-half">
-        {/* A small fixed file served as it is: the image optimizer adds nothing for it. */}
+        {/* A fixed vector file served as it is: the image optimizer adds nothing for it. */}
         <Image
-          src="/logo.png"
+          src="/way-logo.svg"
           alt={`${PLATFORM_BRAND_NAME} logo`}
-          width={117}
-          height={97}
+          width={740}
+          height={744}
           className="sign-in-logo"
           unoptimized
           priority

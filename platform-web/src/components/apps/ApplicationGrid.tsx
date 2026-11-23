@@ -33,6 +33,14 @@ export interface GridStatus {
 }
 
 /**
+ * Two rows above the grid are switched off for now (owner's decision, 2026-11-20): the group chips (All, Leadership,
+ * Operations, ...) and the Recent row. They are hidden, not removed: set a flag to true to show it again. The search box is
+ * unaffected, and the group name stays on each tile.
+ */
+export const SHOW_GROUP_FILTERS = false;
+export const SHOW_RECENT = false;
+
+/**
  * The grid of applications (FA9, ADR-0203): the start page of an organization and, through the strip's button, a page
  * any member can come back to. It draws exactly the list the API gave, in the API's order, and hardcodes no application.
  *
@@ -171,7 +179,7 @@ export function ApplicationGrid({
           </kbd>
         </div>
 
-        {groups.length > 1 ? (
+        {SHOW_GROUP_FILTERS && groups.length > 1 ? (
           <div className="app-grid-chips" role="group" aria-label="Show one group of applications">
             <button type="button" className="app-chip" aria-pressed={group === null} onClick={() => setGroup(null)}>
               All
@@ -192,7 +200,7 @@ export function ApplicationGrid({
           </div>
         ) : null}
 
-        {recents.length > 0 && !searching ? (
+        {SHOW_RECENT && recents.length > 0 && !searching ? (
           <div className="app-grid-recent">
             <span className="app-grid-eyebrow">Recent</span>
             {recents.map((application) => (

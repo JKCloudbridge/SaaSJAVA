@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useId, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { Choice, ChoiceFormProps } from "@/lib/approvals/choiceForm";
 import { getSuggestionOptions, type AudienceOptions } from "./api";
 
@@ -24,7 +24,6 @@ interface Pick {
  * location, so this form only keeps the button from being pressed too early.
  */
 export function AudienceChoiceForm({ recordId, onChange }: ChoiceFormProps) {
-  const heading = useId();
   const [options, setOptions] = useState<Options>({ status: "loading" });
   const [chosen, setChosen] = useState<Pick[]>([]);
   const [location, setLocation] = useState("");
@@ -98,11 +97,7 @@ export function AudienceChoiceForm({ recordId, onChange }: ChoiceFormProps) {
   };
 
   return (
-    <div className="stack" data-testid="audience-choice" role="group" aria-labelledby={heading}>
-      <p id={heading}>
-        <strong>Where is this template meant to be published?</strong> Choose at least one location. Departments are
-        optional. This is a suggestion for the person who publishes: nobody sees the template because of it.
-      </p>
+    <div className="stack" data-testid="audience-choice" role="group" aria-label="Where this template is meant to be published">
       {options.status === "loading" ? (
         <p role="status" className="hint">
           Loading the locations…

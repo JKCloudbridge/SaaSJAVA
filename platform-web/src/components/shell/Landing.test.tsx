@@ -317,7 +317,7 @@ describe("the start page of a visitor who is not signed in", () => {
     signedOutApi();
     renderLanding();
 
-    expect(await screen.findByRole("heading", { name: "Welcome to Platform" })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "Welcome to V Way Sync" })).toBeInTheDocument();
     expect(screen.getByLabelText("Email address")).toBeInTheDocument();
     expect(screen.getByLabelText("Password")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Sign in" })).toBeInTheDocument();
@@ -334,7 +334,7 @@ describe("the start page of a visitor who is not signed in", () => {
     afterSigningIn();
     renderLanding();
 
-    expect(await screen.findByRole("heading", { name: "Welcome to Platform" })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "Welcome to V Way Sync" })).toBeInTheDocument();
     expect(navigate).not.toHaveBeenCalled();
     expect(window.location.search).toBe("");
   });
