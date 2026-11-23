@@ -168,6 +168,30 @@ class PublicContractBaselineTest {
     }
 
     @Test
+    void aNewWayToGetATokenIsAnAdditionAndBreaksNothing() throws IOException {
+        // Sprint 31 (ADR-0270): the client-credentials flow and the scope each operation names were added to a
+        // document that already named bearer tokens. Adding a security scheme or a requirement takes nothing away.
+        var changed = copy();
+        var schemes = (tools.jackson.databind.node.ObjectNode) changed.get("components").get("securitySchemes");
+        schemes.putObject("someNewFlow").put("type", "oauth2");
+        ((tools.jackson.databind.node.ObjectNode) changed.get("paths").get("/api/public/v1/objects").get("get"))
+                .putArray("security").addObject().putArray("someNewFlow").add("objects.read");
+
+        assertThat(ContractBreaks.between(document(), changed)).isEmpty();
+    }
+
+    @Test
+    void theCommittedDocumentOnlyAddedTheClientCredentialsFlowToTheBaseline() throws IOException {
+        JsonNode baseline = read(BASELINE);
+        JsonNode committed = read(COMMITTED);
+
+        committed.path("paths").properties().forEach(path -> assertThat(baseline.path("paths").has(path.getKey()))
+                .as("no address was added by the flow: " + path.getKey()).isTrue());
+        assertThat(committed.path("components").path("securitySchemes").has("bearerAuth")).isTrue();
+        assertThat(committed.path("components").path("securitySchemes").has("clientCredentials")).isTrue();
+    }
+
+    @Test
     void aNewOperationAndANewOptionalPropertyAreAdditive() throws IOException {
         var changed = copy();
         ((tools.jackson.databind.node.ObjectNode) changed.get("paths"))

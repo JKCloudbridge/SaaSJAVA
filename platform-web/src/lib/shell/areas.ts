@@ -103,6 +103,7 @@ const HOME_ENTRIES: readonly RailEntry[] = [
   link("/setup/application-settings", "Application settings", "application-settings.manage"),
   link("/setup/integrations", "Integrations", "integrations.view"),
   link("/setup/credentials", "Credentials", "credentials.view"),
+  link("/setup/connected-apps", "Connected applications", "clients.view"),
 ];
 
 /** The tabs of one object, in the order of its rail (UA3, ADR-0170). The group "Pages" holds three of them. */

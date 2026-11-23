@@ -791,6 +791,23 @@ public final class TenantScopedTables {
                     UUID.randomUUID().toString().replace("-", "") + UUID.randomUUID().toString().replace("-", ""),
                     ActorId.SYSTEM.value(), ActorId.SYSTEM.value()));
 
+    /**
+     * A connected application of an organization (Sprint 31, V095). A probe row needs a user and a membership of the
+     * tenant, which it creates, and its own client identifier.
+     */
+    public static final TenantScopedTable OAUTH_CLIENT = new TenantScopedTable("oauth_client",
+            (connection, tenant) -> probeClient(connection, tenant));
+
+    /** The hash of one secret of a connected application (Sprint 31). A probe row creates its application. */
+    public static final TenantScopedTable OAUTH_CLIENT_SECRET = new TenantScopedTable("oauth_client_secret",
+            (connection, tenant) -> {
+                UUID client = probeClient(connection, tenant);
+                TenantFixtures.update(connection,
+                        "insert into oauth_client_secret (tenant_id, client_row_id, number, secret_hash, created_by, "
+                                + "updated_by) values (?, ?, 1, ?, ?, ?)",
+                        tenant, client, "sha256:" + "c".repeat(64), ActorId.SYSTEM.value(), ActorId.SYSTEM.value());
+            });
+
     /** The connections of an organization to external systems (Sprint 26). Every probe uses its own name. */
     public static final TenantScopedTable INTEGRATION_CONNECTION = new TenantScopedTable("integration_connection",
             (connection, tenant) -> TenantFixtures.update(connection,
@@ -1114,6 +1131,7 @@ public final class TenantScopedTables {
             INTEGRATION_CONNECTION, INTEGRATION_MAPPING, INTEGRATION_MAPPING_VERSION, INTEGRATION_LINK,
             INTEGRATION_DELIVERY, INTEGRATION_ATTEMPT, INTEGRATION_FLOW_STATE, INTEGRATION_POLL, INTEGRATION_FILE,
             INTEGRATION_INBOUND_SEEN, SECRET_ENTRY, SECRET_VERSION, SECRET_USAGE, IDEMPOTENCY_RECORD,
+            OAUTH_CLIENT, OAUTH_CLIENT_SECRET,
             SHEET_VERSION, SHEET_FILL,
             SHEET_FILL_VALUE,
             INSPECTION_PUBLICATION, INSPECTION_CHANGE_REQUEST, INSPECTION_CHANGE_COMMENT,
@@ -1123,6 +1141,27 @@ public final class TenantScopedTables {
             APPLICATION_SETTING, INSPECTION_ACTION_PLAN_LINK);
 
     private TenantScopedTables() {
+    }
+
+    /** A connected application of the tenant for a probe row, with the member it acts as; returns its identifier. */
+    private static UUID probeClient(java.sql.Connection connection, UUID tenant) throws java.sql.SQLException {
+        UUID user = UUID.randomUUID();
+        UUID membership = UUID.randomUUID();
+        UUID client = UUID.randomUUID();
+        TenantFixtures.update(connection,
+                "insert into platform_user (id, email, display_name, created_by, updated_by) "
+                        + "values (?, ?, 'Probe', ?, ?)",
+                user, "probe-" + user + "@example.test", ActorId.SYSTEM.value(), ActorId.SYSTEM.value());
+        TenantFixtures.update(connection,
+                "insert into membership (id, tenant_id, user_id, created_by, updated_by) values (?, ?, ?, ?, ?)",
+                membership, tenant, user, ActorId.SYSTEM.value(), ActorId.SYSTEM.value());
+        TenantFixtures.update(connection,
+                "insert into oauth_client (id, tenant_id, client_id, name, membership_id, user_id, scopes, "
+                        + "token_seconds, created_by, updated_by) values (?, ?, ?, 'probe', ?, ?, "
+                        + "array['records.read'], 900, ?, ?)",
+                client, tenant, "ca_" + UUID.randomUUID().toString().replace("-", "").substring(0, 24), membership,
+                user, ActorId.SYSTEM.value(), ActorId.SYSTEM.value());
+        return client;
     }
 
     /** A workflow of the tenant for a probe row, on a custom object of its own; returns it. */

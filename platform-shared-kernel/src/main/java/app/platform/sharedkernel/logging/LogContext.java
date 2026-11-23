@@ -39,7 +39,21 @@ public final class LogContext {
     /** Name of the servlet request attribute that keeps the trace ID for the container's error dispatch. */
     public static final String TRACE_ID_ATTRIBUTE = "app.platform.traceId";
 
+    /**
+     * The connected application a request was made through (Sprint 31): its public client identifier, which is not a
+     * secret. Set in one place only, by the identity module, once the token of a connected application is checked.
+     */
+    public static final String CLIENT_ID = "clientId";
+
+    /** Name of the servlet request attribute that keeps the client identifier for the access record. */
+    public static final String CLIENT_ID_ATTRIBUTE = "app.platform.clientId";
+
     private LogContext() {
+    }
+
+    /** The connected application of the current thread, if the request came through one. */
+    public static Optional<String> clientId() {
+        return get(CLIENT_ID);
     }
 
     /** The request ID of the current thread, if a request is being processed. */

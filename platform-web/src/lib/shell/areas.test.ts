@@ -144,6 +144,17 @@ describe("the console rail", () => {
     expect(linksOf(homeRail(["credentials.manage", "integrations.view"])).some((entry) => entry.href === "/setup/credentials")).toBe(false);
     expect(linksOf(homeRail(["credentials.view"])).some((entry) => entry.href === "/setup/integrations")).toBe(false);
   });
+  it("offers Connected applications only to those who may see them, apart from credentials and integrations", () => {
+    expect(linksOf(homeRail(["clients.view"]))).toContainEqual(
+      expect.objectContaining({ href: "/setup/connected-apps", ability: "clients.view" }),
+    );
+    expect(
+      linksOf(homeRail(["clients.manage", "credentials.view", "integrations.view"])).some(
+        (entry) => entry.href === "/setup/connected-apps",
+      ),
+    ).toBe(false);
+    expect(linksOf(homeRail(["clients.view"])).some((entry) => entry.href === "/setup/credentials")).toBe(false);
+  });
   it("lists the seven sections of the console with the same addresses as before", () => {
     expect(consoleRail().map((entry) => [entry.label, entry.kind === "link" ? entry.href : ""])).toEqual([
       ["Organizations", "/console"],

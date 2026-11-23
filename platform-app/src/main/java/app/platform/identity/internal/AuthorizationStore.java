@@ -15,6 +15,7 @@ import org.springframework.jdbc.core.JdbcOperations;
 import org.springframework.jdbc.core.RowMapper;
 import org.springframework.jdbc.core.SqlParameterValue;
 import org.springframework.jdbc.core.simple.JdbcClient;
+import org.springframework.security.oauth2.core.AuthorizationGrantType;
 import org.springframework.security.oauth2.core.OAuth2AuthenticationException;
 import org.springframework.security.oauth2.core.OAuth2Error;
 import org.springframework.security.oauth2.core.OAuth2ErrorCodes;
@@ -71,18 +72,30 @@ class AuthorizationStore implements OAuth2AuthorizationService {
     private static final Set<String> SECRET_COLUMNS = Set.of(
             "authorization_code_value", "access_token_value", "oidc_id_token_value", "refresh_token_value");
 
+    /**
+     * A grant is alive while it is not revoked, not past its absolute lifetime, and its user may sign in. A grant of a
+     * person also ends when the person's security version rises (a password change, leaving the active state). The
+     * grant of a connected application (it names its client) deliberately does not: an integration that a person set
+     * up must not die because they changed a password, and they end it by switching the application off. It still
+     * ends the moment its member is no longer active, because the user must be active (ADR-0269).
+     */
     private static final String ALIVE = "a.deleted_at is null and a.revoked_at is null and u.deleted_at is null "
-            + "and u.status = 'ACTIVE' and u.security_version = a.security_version "
+            + "and u.status = 'ACTIVE' and (a.oauth_client_id is not null or u.security_version = a.security_version) "
             + "and a.created_at + make_interval(secs => :absolute) > now()";
 
     /**
-     * A grant found by the library, with what the platform adds to it.
+     * A grant found by the library, with what the platform adds to it. The authorization is null for a grant whose
+     * application the current host cannot see (it is then treated as not found).
      *
      * @param authorization the library's view of the grant
      * @param userId the user
      * @param boundTenantId the organization host it is bound to, null for the platform host
      */
     private record Found(OAuth2Authorization authorization, UUID userId, UUID boundTenantId) {
+    }
+
+    /** What the client authentication left on the request about the secret that was used (ADR-0268). */
+    record ClientAuthentication(UUID secretId) {
     }
 
     /** What the request that is refreshing a token started from, to keep two simultaneous refreshes apart. */
@@ -97,15 +110,23 @@ class AuthorizationStore implements OAuth2AuthorizationService {
      * @param scopes the granted scopes
      * @param expiresAt when the access token ends
      * @param startedAt when the grant (the sign-in) began; it does not move when tokens are refreshed
+     * @param clientRowId the connected application behind the grant, or null for a person's own grant
+     * @param clientId the public identifier of that application (not a secret), or null
+     * @param secretId the secret that made the grant, or null
      */
     record Introspected(UUID authorizationId, UUID userId, Set<String> scopes, Instant expiresAt,
-            Instant startedAt) {
+            Instant startedAt, UUID clientRowId, String clientId, UUID secretId) {
+
+        boolean machine() {
+            return clientRowId != null;
+        }
     }
 
     private final JdbcClient jdbc;
     private final TransactionTemplate transaction;
     private final TenantContexts contexts;
     private final AuthAudit audit;
+    private final ClientStore clientStore;
     private final IdentityProperties.Tokens tokens;
     private final JdbcOAuth2AuthorizationService.JsonMapperOAuth2AuthorizationParametersMapper parameters =
             new JdbcOAuth2AuthorizationService.JsonMapperOAuth2AuthorizationParametersMapper();
@@ -116,7 +137,7 @@ class AuthorizationStore implements OAuth2AuthorizationService {
 
     AuthorizationStore(JdbcClient jdbc, JdbcOperations jdbcOperations, TransactionTemplate transaction,
             RegisteredClientRepository clients, TenantContexts contexts, AuthAudit audit,
-            IdentityProperties properties) {
+            IdentityProperties properties, ClientStore clientStore) {
         // The library's mappers learn the column types of the table from a one-time look at it, which its own JDBC
         // service does when it is constructed. That service is not used for anything else here: building it is how the
         // mappers are initialised (the table has the library's documented layout for PostgreSQL).
@@ -125,6 +146,7 @@ class AuthorizationStore implements OAuth2AuthorizationService {
         this.transaction = transaction;
         this.contexts = contexts;
         this.audit = audit;
+        this.clientStore = clientStore;
         this.tokens = properties.tokens();
         this.rows = new JdbcOAuth2AuthorizationService.JsonMapperOAuth2AuthorizationRowMapper(clients);
     }
@@ -134,7 +156,10 @@ class AuthorizationStore implements OAuth2AuthorizationService {
     @Override
     public void save(OAuth2Authorization authorization) {
         UUID id = UUID.fromString(authorization.getId());
-        UUID userId = UUID.fromString(authorization.getPrincipalName());
+        // The principal of a person's grant is the user. The principal of a connected application's grant is the
+        // application's public identifier; the member it acts as comes from its registration, inside the transaction.
+        boolean machine = AuthorizationGrantType.CLIENT_CREDENTIALS.equals(authorization.getAuthorizationGrantType());
+        UUID principalUser = machine ? null : UUID.fromString(authorization.getPrincipalName());
         List<SqlParameterValue> values = new ArrayList<>(parameters.apply(authorization));
         // values.get(0) is the id, then the standard columns in order.
         for (int i = 0; i < STANDARD_COLUMNS.size(); i++) {
@@ -151,14 +176,20 @@ class AuthorizationStore implements OAuth2AuthorizationService {
         loadedRefresh.remove();
         transaction.executeWithoutResult(status -> {
             Optional<String[]> existing = jdbc.sql("select coalesce(refresh_token_value, ''), "
-                            + "coalesce(access_token_value, '') from oauth2_authorization where id = :id for update")
+                            + "coalesce(access_token_value, ''), cast(user_id as text) from oauth2_authorization "
+                            + "where id = :id for update")
                     .param("id", id)
-                    .query((rs, row) -> new String[] {rs.getString(1), rs.getString(2)})
+                    .query((rs, row) -> new String[] {rs.getString(1), rs.getString(2), rs.getString(3)})
                     .optional();
             if (existing.isEmpty()) {
-                insert(id, userId, values);
+                if (machine) {
+                    insertMachine(id, authorization, values);
+                } else {
+                    insert(id, principalUser, values);
+                }
                 return;
             }
+            UUID userId = UUID.fromString(existing.get()[2]);
             String currentRefresh = existing.get()[0];
             String currentAccess = existing.get()[1];
             if (loaded != null && loaded.authorizationId().equals(id) && !currentRefresh.equals(loaded.refreshHash())) {
@@ -234,7 +265,9 @@ class AuthorizationStore implements OAuth2AuthorizationService {
     /** The valid access token behind a presented value, for the check made on every API request. */
     Optional<Introspected> introspect(String accessToken) {
         Optional<Introspected> found = jdbc.sql("select a.id, a.user_id, a.bound_tenant_id, a.access_token_scopes, "
-                        + "a.access_token_expires_at, a.created_at from oauth2_authorization a "
+                        + "a.access_token_expires_at, a.created_at, a.oauth_client_id, a.client_secret_id, "
+                        + "case when a.oauth_client_id is null then null else a.principal_name end as client_name "
+                        + "from oauth2_authorization a "
                         + "join platform_user u on u.id = a.user_id "
                         + "where a.access_token_value = :value and a.access_token_expires_at > now() and " + ALIVE)
                 .param("value", Hashes.stored(accessToken))
@@ -244,7 +277,10 @@ class AuthorizationStore implements OAuth2AuthorizationService {
                         rs.getObject("user_id", UUID.class),
                         scopes(rs.getString("access_token_scopes")),
                         rs.getObject("access_token_expires_at", OffsetDateTime.class).toInstant(),
-                        rs.getObject("created_at", OffsetDateTime.class).toInstant()))
+                        rs.getObject("created_at", OffsetDateTime.class).toInstant(),
+                        rs.getObject("oauth_client_id", UUID.class),
+                        rs.getString("client_name"),
+                        rs.getObject("client_secret_id", UUID.class)))
                 .optional();
         if (found.isEmpty()) {
             return found;
@@ -289,7 +325,7 @@ class AuthorizationStore implements OAuth2AuthorizationService {
             return Optional.empty();
         }
         return Optional.of(new Introspected((UUID) row[0], userId, Set.of("embedded"),
-                ((OffsetDateTime) row[3]).toInstant(), ((OffsetDateTime) row[4]).toInstant()));
+                ((OffsetDateTime) row[3]).toInstant(), ((OffsetDateTime) row[4]).toInstant(), null, null, null));
     }
 
     /** Records an access token of a custom page's script; only its hash is stored. */
@@ -314,11 +350,18 @@ class AuthorizationStore implements OAuth2AuthorizationService {
                 .update();
     }
 
-    /** Revokes every grant of a user: all their tokens stop working now. @return how many grants were alive */
+    /**
+     * Revokes every sign-in grant of a user: all their tokens stop working now. The grants of connected applications
+     * the person registered are not sign-ins and are left alone (ADR-0269): changing a password or signing out
+     * everywhere does not stop an integration; switching the application off does, and so does the member leaving.
+     *
+     * @return how many grants were alive
+     */
     int revokeAll(UUID userId, String reason, UUID actor) {
         return jdbc.sql("update oauth2_authorization set revoked_at = now(), revoked_reason = :reason, "
                         + "updated_by = :actor, version = version + 1 "
-                        + "where user_id = :user and revoked_at is null and deleted_at is null")
+                        + "where user_id = :user and oauth_client_id is null and revoked_at is null "
+                        + "and deleted_at is null")
                 .param("reason", reason)
                 .param("actor", actor)
                 .param("user", userId)
@@ -348,8 +391,8 @@ class AuthorizationStore implements OAuth2AuthorizationService {
     /** The live grants of a user (no token, no hash), newest first. */
     List<GrantSummary> liveGrantsOf(UUID userId) {
         return jdbc.sql("select a.created_at, a.bound_tenant_id from oauth2_authorization a "
-                        + "join platform_user u on u.id = a.user_id where a.user_id = :user and " + ALIVE
-                        + " order by a.created_at desc")
+                        + "join platform_user u on u.id = a.user_id where a.user_id = :user "
+                        + "and a.oauth_client_id is null and " + ALIVE + " order by a.created_at desc")
                 .param("user", userId)
                 .param("absolute", (double) tokens.refreshAbsolute().toSeconds())
                 .query((rs, row) -> {
@@ -368,7 +411,8 @@ class AuthorizationStore implements OAuth2AuthorizationService {
     int revokeAllOfOrganization(UUID boundTenantId, UUID keepUser, String reason, UUID actor) {
         return jdbc.sql("update oauth2_authorization set revoked_at = now(), revoked_reason = :reason, "
                         + "updated_by = :actor, version = version + 1 "
-                        + "where bound_tenant_id = :tenant and revoked_at is null and deleted_at is null "
+                        + "where bound_tenant_id = :tenant and oauth_client_id is null and revoked_at is null "
+                        + "and deleted_at is null "
                         + "and (cast(:keep as uuid) is null or user_id <> cast(:keep as uuid))")
                 .param("reason", reason)
                 .param("actor", actor)
@@ -391,6 +435,47 @@ class AuthorizationStore implements OAuth2AuthorizationService {
                 .param("value", Hashes.stored(refreshToken))
                 .query(UUID.class)
                 .optional();
+    }
+
+    /**
+     * Revokes every grant of a user including those of connected applications that act as them: used when the person
+     * leaves the active state, so that a later reinstatement does not bring an old application token back.
+     *
+     * @return how many grants were alive
+     */
+    int revokeAllIncludingApplications(UUID userId, String reason, UUID actor) {
+        return jdbc.sql("update oauth2_authorization set revoked_at = now(), revoked_reason = :reason, "
+                        + "updated_by = :actor, version = version + 1 "
+                        + "where user_id = :user and revoked_at is null and deleted_at is null")
+                .param("reason", reason)
+                .param("actor", actor)
+                .param("user", userId)
+                .update();
+    }
+
+    /**
+     * Revokes every grant a connected application holds: its tokens stop working now (ADR-0269). Called in the
+     * transaction that changes the application, so the two cannot disagree. @return how many grants were alive
+     */
+    int revokeByClient(UUID clientRowId, String reason, UUID actor) {
+        return jdbc.sql("update oauth2_authorization set revoked_at = now(), revoked_reason = :reason, "
+                        + "updated_by = :actor, version = version + 1 "
+                        + "where oauth_client_id = :client and revoked_at is null and deleted_at is null")
+                .param("reason", reason)
+                .param("actor", actor)
+                .param("client", clientRowId)
+                .update();
+    }
+
+    /** Revokes the grants made with one secret. @return how many grants were alive */
+    int revokeBySecret(UUID secretId, String reason, UUID actor) {
+        return jdbc.sql("update oauth2_authorization set revoked_at = now(), revoked_reason = :reason, "
+                        + "updated_by = :actor, version = version + 1 "
+                        + "where client_secret_id = :secret and revoked_at is null and deleted_at is null")
+                .param("reason", reason)
+                .param("actor", actor)
+                .param("secret", secretId)
+                .update();
     }
 
     /** Revokes one grant. @return whether it was alive */
@@ -469,7 +554,7 @@ class AuthorizationStore implements OAuth2AuthorizationService {
 
     private Optional<Found> find(String condition, Object value) {
         RowMapper<Found> mapper = (rs, row) -> new Found(
-                rows.mapRow(rs, row),
+                mapped(rs, row),
                 rs.getObject("user_id", UUID.class),
                 rs.getObject("bound_tenant_id", UUID.class));
         return jdbc.sql("select a.* from oauth2_authorization a join platform_user u on u.id = a.user_id where "
@@ -477,7 +562,21 @@ class AuthorizationStore implements OAuth2AuthorizationService {
                 .param("value", value)
                 .param("absolute", (double) tokens.refreshAbsolute().toSeconds())
                 .query(mapper)
-                .optional();
+                .optional()
+                .filter(found -> found.authorization() != null);
+    }
+
+    /**
+     * The library's view of a row. The grant of a connected application names a client that only its own
+     * organization's host can see (row level security): on any other host the client is not found, and so the grant
+     * is not found either, in the same way as a token that does not exist.
+     */
+    private OAuth2Authorization mapped(java.sql.ResultSet rs, int row) throws java.sql.SQLException {
+        try {
+            return rows.mapRow(rs, row);
+        } catch (IllegalArgumentException e) {
+            return null;
+        }
     }
 
     private boolean boundToThisHost(Found found) {
@@ -505,6 +604,48 @@ class AuthorizationStore implements OAuth2AuthorizationService {
                 .param("user", userId)
                 .param("tenant", tenant, Types.OTHER);
         bind(statement, values).update();
+    }
+
+    /**
+     * Writes the grant of a connected application (ADR-0269): the client-credentials flow. The member it acts as is
+     * the member of the registration, read here under the tenant of the host (a registration of another organization
+     * is not visible and the grant is refused as an unknown client); the secret that made it was left on the request by
+     * the client authentication, and must be there.
+     */
+    private void insertMachine(UUID id, OAuth2Authorization authorization, List<SqlParameterValue> values) {
+        UUID tenant = contexts.current().map(TenantContext::tenantId).map(t -> t.value()).orElse(null);
+        UUID client;
+        try {
+            client = UUID.fromString(authorization.getRegisteredClientId());
+        } catch (IllegalArgumentException e) {
+            throw new OAuth2AuthenticationException(new OAuth2Error(OAuth2ErrorCodes.INVALID_CLIENT));
+        }
+        UUID user = clientStore.actingMemberOfActive(client)
+                .orElseThrow(() -> new OAuth2AuthenticationException(new OAuth2Error(OAuth2ErrorCodes.INVALID_CLIENT)));
+        UUID secret = secretOfThisRequest()
+                .orElseThrow(() -> new OAuth2AuthenticationException(new OAuth2Error(OAuth2ErrorCodes.INVALID_CLIENT)));
+        String columns = String.join(", ", STANDARD_COLUMNS);
+        String placeholders = ":p" + String.join(", :p", indexes(STANDARD_COLUMNS.size()));
+        JdbcClient.StatementSpec statement = jdbc.sql("insert into oauth2_authorization (id, " + columns
+                + ", user_id, bound_tenant_id, security_version, oauth_client_id, client_secret_id, created_by, "
+                + "updated_by) values (:id, " + placeholders + ", :user, :tenant, "
+                + "(select security_version from platform_user where id = :user), :client, :secret, :user, :user)")
+                .param("id", id)
+                .param("user", user)
+                .param("tenant", tenant, Types.OTHER)
+                .param("client", client)
+                .param("secret", secret);
+        bind(statement, values).update();
+    }
+
+    /** The secret the client authentication of this request recorded, if this request authenticated a client. */
+    private static Optional<UUID> secretOfThisRequest() {
+        org.springframework.security.core.Authentication authentication =
+                org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication();
+        if (authentication != null && authentication.getDetails() instanceof ClientAuthentication details) {
+            return Optional.of(details.secretId());
+        }
+        return Optional.empty();
     }
 
     private void update(UUID id, UUID userId, List<SqlParameterValue> values, String currentRefresh,

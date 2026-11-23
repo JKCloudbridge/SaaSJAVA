@@ -18,12 +18,91 @@ views, approvals, workflows or integrations. It gives you the data; the platform
 - **Base address:** the address of your organization, followed by `/api/public/v1`. The organization is always the one
   the address names; nothing you send (a header, a parameter, the body, the token) can choose or change it. A token for
   one organization does not work at another's address.
-- **Authentication today:** the access token of a signed-in user, sent as `Authorization: Bearer <token>`. Every call is
-  decided by what that user may do, exactly as in the application: the same permissions on the object, the same rights on
-  each field, the same rules about which records the user may see or change.
-- **Authentication later:** tokens for software itself (client credentials, scopes) arrive in a later release. There are
-  no static keys, and there will not be. When scopes exist they can only narrow what the user may do, never widen it.
+- **Authentication:** an access token, sent as `Authorization: Bearer <token>`. There are two kinds. For **software**
+  (your server, a scheduled job) it is the token of a **connected application** that an administrator registers
+  (section 2a, the way to use). The other is the access token of a signed-in person. In both cases every call is
+  decided by what the member behind the token may do, exactly as in the application: the same permissions on the object,
+  the same rights on each field, the same rules about which records they may see or change.
+- **There are no static keys, and there will not be.** A secret is only ever exchanged for a short-lived token; the
+  interface accepts no secret as a credential.
 - **Only for servers.** The interface answers no cross-origin request from a browser page.
+
+### 2a. Connected applications: how software gets a token
+
+An administrator of the organization registers a **connected application** (Setup, Connected applications). The
+registration gives you a **client identifier** (starts with `ca_`, not a secret) and, once, a **client secret** (starts
+with `cs_`). Copy the secret at once into the place your software keeps secrets: it is shown only when it is made and
+cannot be shown again; if it is lost, make a new one.
+
+**Whom the application acts as.** It acts as the member who registered it, for ever, with exactly that member's
+permissions and nothing more. The scopes and the list of objects the administrator chose can only narrow that. Nobody can
+change whom an application acts as. **Advice:** register an integration as a *dedicated integration member*, an
+ordinary, licensed member that an administrator creates for the purpose (for example `integration-a@example.test`, with an
+access policy that gives only what the integration needs), not as a named employee. If a person leaves, the applications
+they registered stop at once; a dedicated member means a change of staff never stops your integration. Nothing is
+transferred automatically: if an application shows as stopped, register a new one as another member and remove the old.
+
+**Asking for a token.** Send the identifier and the secret to the token address of your organization,
+`/api/v1/oauth2/token` (on the same host as the interface). Either with Basic authentication (preferred):
+
+    POST /api/v1/oauth2/token
+    Authorization: Basic <client identifier, a colon, client secret: all in Base64>
+    Content-Type: application/x-www-form-urlencoded
+
+    grant_type=client_credentials&scope=records.read records.write
+
+or with the two values in the body:
+
+    POST /api/v1/oauth2/token
+    Content-Type: application/x-www-form-urlencoded
+
+    grant_type=client_credentials&client_id=<identifier>&client_secret=<secret>&scope=records.read
+
+The answer is `200` with `access_token`, `token_type` (`Bearer`), `expires_in` (seconds) and `scope` (the scopes granted).
+Send the token as `Authorization: Bearer <access_token>` to the interface. **There is no refresh token**: when the token
+is about to end, ask again. A token lives 15 minutes unless the administrator chose 5 to 60; read `expires_in`, do not
+assume. A token is for the organization of the host it was issued on only.
+
+**Scopes.** Leave `scope` out to get every scope the application holds, or name the ones you need (separated by spaces).
+
+| Scope | Allows |
+|---|---|
+| `objects.read` | `GET /objects` and `GET /objects/{object}`: which objects exist for the member and their fields. Reads no record |
+| `records.read` | read one record, and query records |
+| `records.write` | create, change, delete, restore, and bulk calls |
+
+A scope never includes another: `records.write` does **not** include `records.read`. A scope is necessary, never
+sufficient: it lets the call reach the operation, and what the member may do with the object, the field and the record
+is decided as always. An operation whose scope the token lacks is `403` `FORBIDDEN`. An application may also be limited
+to some objects: any other object answers `404` `NOT_FOUND` exactly like an object that does not exist, and is not listed.
+
+**Errors of the token address** (a different, standard form: `{"error": "...", "error_description": "..."}`):
+
+| Answer | Meaning |
+|---|---|
+| `401` `invalid_client` | the identifier or the secret is wrong, or the application is off, or its member can no longer act, or it is not available to the organization. **One answer for every cause on purpose**: it never says which |
+| `400` `invalid_scope` | you asked for a scope the application does not hold |
+| `400` `unsupported_grant_type` | only `client_credentials` is offered |
+| `429` `temporarily_unavailable` | too many failed attempts from your address or for this identifier; wait `Retry-After` seconds. Failed attempts only are counted |
+
+A token that has ended, been revoked or whose application was switched off, narrowed or removed is `401` `UNAUTHENTICATED`
+at the interface. An application's token reaches the interface and nothing else.
+
+**Rotating a secret.** An administrator makes a new secret; the old one stops working **at once** unless they chose an
+overlap of up to 24 hours so that you can change over without a gap. Tokens already issued live until they end, unless
+the administrator chose to end them now. Plan the change: store the new secret, then ask for tokens with it. Rotate when a
+person who knew the secret leaves, and at any sign of a leak (see the runbook). Many calls in a row after a refusal are
+counted as failed attempts; do not retry a `401` in a loop.
+
+**From a person's token to a client.** If your software borrowed a signed-in person's token until now: (1) create a
+dedicated integration member and give it the access policy the software needs; (2) sign in as that member and register a
+connected application (or ask an administrator who holds the ability to manage connected applications to do it as that
+member: it acts as whoever registers it); (3) give the software the identifier and the secret, ask for tokens as above and
+send them as before: nothing else about the calls changes; (4) stop using the person's token. Listing the objects then
+shows what the member may read, limited by the application's list if it has one.
+
+A change made through a connected application is recorded in the organization's audit trail with the member **and the
+application** (`via_client`), so an administrator can tell your software's changes from a person's.
 
 ## 3. What every answer looks like
 
@@ -40,7 +119,7 @@ the future: treat one you do not know like its HTTP status.
 |---|---|---|
 | `VALIDATION_ERROR` | 400 | the request is invalid; `fields` says where |
 | `MALFORMED_REQUEST` | 400 | the body is not readable JSON |
-| `UNAUTHENTICATED` | 401 | no valid token (missing, expired or revoked) |
+| `UNAUTHENTICATED` | 401 | no valid token (missing, expired, revoked, or the application behind it was switched off or removed) |
 | `FORBIDDEN` | 403 | you may see this but not do that |
 | `NOT_FOUND` | 404 | it does not exist **or you may not know that it does** |
 | `METHOD_NOT_ALLOWED`, `NOT_ACCEPTABLE`, `UNSUPPORTED_MEDIA_TYPE` | 405, 406, 415 | the request does not fit the address |
@@ -181,6 +260,7 @@ silently ignored: a misspelled name is told to you at once.
 
 ## 11. Worked example: a day in the life of a client
 
+0. Ask the token address for a token with your identifier and secret (section 2a); renew it before `expires_in` runs out.
 1. `GET /objects/Employee__c` and keep the field names and `filterOperators`.
 2. `POST /objects/Employee__c/records` with `Idempotency-Key: hire-0001` and `{"fields": {"Name": "A. Example", "Salary__c": 1250.50}}`. The connection drops. Send the same request again with the same key: `201`, `Idempotent-Replayed: true`, the same `id`.
 3. `GET` the record: `ETag: "0"`.

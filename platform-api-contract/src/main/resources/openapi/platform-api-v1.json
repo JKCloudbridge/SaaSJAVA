@@ -1972,6 +1972,400 @@
         "tags" : [ "Template change requests" ]
       }
     },
+    "/api/v1/connected-apps" : {
+      "get" : {
+        "description" : "Needs clients.view. Name, state, scopes, whom each acts as, whether it runs, and when it was last used. Never a secret. NOT_FOUND on the platform host, for an application of another organization, and when connected applications are switched off.",
+        "operationId" : "listConnectedApps",
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseListConnectedAppView"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "The organization's connected applications",
+        "tags" : [ "Connected applications" ]
+      },
+      "post" : {
+        "description" : "Needs clients.manage and clients.view. The application acts as the member who asks, and that can never be changed. The answer carries the client secret, this once: it is kept only as a hash and cannot be shown again. CONFLICT when the organization has the most applications it may have or the plan lacks the feature. NOT_FOUND on the platform host, for an application of another organization, and when connected applications are switched off.",
+        "operationId" : "registerConnectedApp",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/CreateConnectedAppRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseNewClientSecret"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "Register a connected application",
+        "tags" : [ "Connected applications" ]
+      }
+    },
+    "/api/v1/connected-apps/catalogue" : {
+      "get" : {
+        "description" : "Needs clients.view. The scopes with what each allows, the lifetimes a token may have, the address software asks for a token at, a worked request, and the words that explain whom an application acts as. NOT_FOUND on the platform host, for an application of another organization, and when connected applications are switched off.",
+        "operationId" : "getConnectedAppCatalogue",
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseConnectedAppCatalogue"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "What a connected application can be given",
+        "tags" : [ "Connected applications" ]
+      }
+    },
+    "/api/v1/connected-apps/{id}" : {
+      "delete" : {
+        "description" : "Needs clients.manage and clients.view. Its secrets end and its tokens end now; it cannot be brought back. NOT_FOUND on the platform host, for an application of another organization, and when connected applications are switched off.",
+        "operationId" : "removeConnectedApp",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseBoolean"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "Remove a connected application",
+        "tags" : [ "Connected applications" ]
+      },
+      "get" : {
+        "description" : "Needs clients.view. The secrets are described (number, state, when made, when last used, when they end); no answer ever carries one. NOT_FOUND on the platform host, for an application of another organization, and when connected applications are switched off.",
+        "operationId" : "getConnectedApp",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseConnectedAppDetail"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "One connected application with its secrets",
+        "tags" : [ "Connected applications" ]
+      },
+      "put" : {
+        "description" : "Needs clients.manage and clients.view. Carries the version read. The member it acts as cannot be changed. A change that narrows the scopes, the objects or the token life ends the tokens already issued. CONCURRENT_MODIFICATION when the version is not current. NOT_FOUND on the platform host, for an application of another organization, and when connected applications are switched off.",
+        "operationId" : "updateConnectedApp",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/UpdateConnectedAppRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseConnectedAppDetail"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "Change what a connected application may do",
+        "tags" : [ "Connected applications" ]
+      }
+    },
+    "/api/v1/connected-apps/{id}/disable" : {
+      "post" : {
+        "description" : "Needs clients.manage and clients.view. Its tokens end now and it cannot ask for another until it is switched on. NOT_FOUND on the platform host, for an application of another organization, and when connected applications are switched off.",
+        "operationId" : "disableConnectedApp",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseConnectedAppDetail"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "Switch a connected application off",
+        "tags" : [ "Connected applications" ]
+      }
+    },
+    "/api/v1/connected-apps/{id}/enable" : {
+      "post" : {
+        "description" : "Needs clients.manage and clients.view. Its secrets that still work work again. NOT_FOUND on the platform host, for an application of another organization, and when connected applications are switched off.",
+        "operationId" : "enableConnectedApp",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseConnectedAppDetail"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "Switch a connected application on",
+        "tags" : [ "Connected applications" ]
+      }
+    },
+    "/api/v1/connected-apps/{id}/secrets/rotate" : {
+      "post" : {
+        "description" : "Needs clients.manage and clients.view. The older secrets stop working at once, or after an overlap of up to 24 hours chosen in the request. Tokens already issued live until they end unless the request says to end them now. The answer carries the new secret, this once. CONFLICT when the application would have more secrets at once than it may. NOT_FOUND on the platform host, for an application of another organization, and when connected applications are switched off.",
+        "operationId" : "rotateConnectedAppSecret",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/RotateClientSecretRequest"
+              }
+            }
+          }
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseNewClientSecret"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "Make a new secret and end the older ones",
+        "tags" : [ "Connected applications" ]
+      }
+    },
+    "/api/v1/connected-apps/{id}/secrets/{secretId}" : {
+      "delete" : {
+        "description" : "Needs clients.manage and clients.view. The secret stops working at once and the tokens it made end now. Ending a secret that has ended changes nothing. NOT_FOUND on the platform host, for an application of another organization, and when connected applications are switched off.",
+        "operationId" : "revokeConnectedAppSecret",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "in" : "path",
+          "name" : "secretId",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseConnectedAppDetail"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "End one secret now",
+        "tags" : [ "Connected applications" ]
+      }
+    },
     "/api/v1/credentials" : {
       "get" : {
         "description" : "Needs credentials.view. Names, versions, dates and how many connections use each. Never a value, and never whether a value is valid.",
@@ -17497,6 +17891,24 @@
         },
         "required" : [ "data" ]
       },
+      "ApiResponseConnectedAppCatalogue" : {
+        "type" : "object",
+        "properties" : {
+          "data" : {
+            "$ref" : "#/components/schemas/ConnectedAppCatalogue"
+          }
+        },
+        "required" : [ "data" ]
+      },
+      "ApiResponseConnectedAppDetail" : {
+        "type" : "object",
+        "properties" : {
+          "data" : {
+            "$ref" : "#/components/schemas/ConnectedAppDetail"
+          }
+        },
+        "required" : [ "data" ]
+      },
       "ApiResponseCredentialView" : {
         "type" : "object",
         "properties" : {
@@ -17882,6 +18294,18 @@
             "type" : "array",
             "items" : {
               "$ref" : "#/components/schemas/ChangeSetView"
+            }
+          }
+        },
+        "required" : [ "data" ]
+      },
+      "ApiResponseListConnectedAppView" : {
+        "type" : "object",
+        "properties" : {
+          "data" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/ConnectedAppView"
             }
           }
         },
@@ -18483,6 +18907,15 @@
         "properties" : {
           "data" : {
             "$ref" : "#/components/schemas/MemberAccessView"
+          }
+        },
+        "required" : [ "data" ]
+      },
+      "ApiResponseNewClientSecret" : {
+        "type" : "object",
+        "properties" : {
+          "data" : {
+            "$ref" : "#/components/schemas/NewClientSecret"
           }
         },
         "required" : [ "data" ]
@@ -21173,6 +21606,50 @@
         },
         "required" : [ "actions", "consecutiveFailures", "state", "words" ]
       },
+      "ClientScopeView" : {
+        "type" : "object",
+        "properties" : {
+          "description" : {
+            "type" : "string"
+          },
+          "key" : {
+            "type" : "string"
+          },
+          "title" : {
+            "type" : "string"
+          }
+        },
+        "required" : [ "description", "key", "title" ]
+      },
+      "ClientSecretView" : {
+        "type" : "object",
+        "properties" : {
+          "createdAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "endsAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "id" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "lastUsedAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "number" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "state" : {
+            "type" : "string"
+          }
+        },
+        "required" : [ "createdAt", "id", "state" ]
+      },
       "CompleteSignUpRequest" : {
         "type" : "object",
         "properties" : {
@@ -21204,6 +21681,131 @@
           }
         },
         "required" : [ "token" ]
+      },
+      "ConnectedAppCatalogue" : {
+        "type" : "object",
+        "properties" : {
+          "actingNote" : {
+            "type" : "string"
+          },
+          "defaultTokenMinutes" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "maxObjects" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "maxOverlapHours" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "maxTokenMinutes" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "minTokenMinutes" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "scopes" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/ClientScopeView"
+            }
+          },
+          "stoppedNote" : {
+            "type" : "string"
+          },
+          "tokenPath" : {
+            "type" : "string"
+          },
+          "tokenRequestExample" : {
+            "type" : "string"
+          }
+        },
+        "required" : [ "actingNote", "scopes", "stoppedNote", "tokenPath", "tokenRequestExample" ]
+      },
+      "ConnectedAppDetail" : {
+        "type" : "object",
+        "properties" : {
+          "app" : {
+            "$ref" : "#/components/schemas/ConnectedAppView"
+          },
+          "secrets" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/ClientSecretView"
+            }
+          }
+        },
+        "required" : [ "app", "secrets" ]
+      },
+      "ConnectedAppView" : {
+        "type" : "object",
+        "properties" : {
+          "activeSecrets" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "actsAs" : {
+            "type" : "string"
+          },
+          "actsAsYou" : {
+            "type" : "boolean"
+          },
+          "clientId" : {
+            "type" : "string"
+          },
+          "createdAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "description" : {
+            "type" : "string"
+          },
+          "id" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "lastUsedAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "name" : {
+            "type" : "string"
+          },
+          "objects" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
+          },
+          "running" : {
+            "type" : "boolean"
+          },
+          "scopes" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
+          },
+          "state" : {
+            "type" : "string"
+          },
+          "stoppedReason" : {
+            "type" : "string"
+          },
+          "tokenMinutes" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "version" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        },
+        "required" : [ "clientId", "createdAt", "description", "id", "name", "scopes", "state" ]
       },
       "ConnectorChoice" : {
         "type" : "object",
@@ -21424,6 +22026,45 @@
           }
         },
         "required" : [ "name" ]
+      },
+      "CreateConnectedAppRequest" : {
+        "type" : "object",
+        "properties" : {
+          "description" : {
+            "type" : "string",
+            "maxLength" : 500,
+            "minLength" : 0
+          },
+          "name" : {
+            "type" : "string",
+            "maxLength" : 80,
+            "minLength" : 0
+          },
+          "objects" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string",
+              "pattern" : "^[A-Za-z][A-Za-z0-9_]{0,79}$"
+            },
+            "maxItems" : 50,
+            "minItems" : 0
+          },
+          "scopes" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string",
+              "maxLength" : 40,
+              "minLength" : 0
+            },
+            "maxItems" : 10,
+            "minItems" : 1
+          },
+          "tokenMinutes" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        },
+        "required" : [ "name", "scopes" ]
       },
       "CreateCustomPageRequest" : {
         "type" : "object",
@@ -25371,6 +26012,18 @@
         },
         "required" : [ "text" ]
       },
+      "NewClientSecret" : {
+        "type" : "object",
+        "properties" : {
+          "clientSecret" : {
+            "type" : "string"
+          },
+          "detail" : {
+            "$ref" : "#/components/schemas/ConnectedAppDetail"
+          }
+        },
+        "required" : [ "clientSecret", "detail" ]
+      },
       "NewSheetVersionRequest" : {
         "type" : "object",
         "properties" : {
@@ -28013,6 +28666,20 @@
           }
         },
         "required" : [ "description", "id", "name" ]
+      },
+      "RotateClientSecretRequest" : {
+        "type" : "object",
+        "properties" : {
+          "endTokensNow" : {
+            "type" : "boolean"
+          },
+          "overlapHours" : {
+            "type" : "integer",
+            "format" : "int32",
+            "maximum" : 24,
+            "minimum" : 0
+          }
+        }
       },
       "RoutingApplicationView" : {
         "type" : "object",
@@ -30842,6 +31509,49 @@
           }
         },
         "required" : [ "active", "allowSelfApproval", "label", "steps", "version" ]
+      },
+      "UpdateConnectedAppRequest" : {
+        "type" : "object",
+        "properties" : {
+          "description" : {
+            "type" : "string",
+            "maxLength" : 500,
+            "minLength" : 0
+          },
+          "name" : {
+            "type" : "string",
+            "maxLength" : 80,
+            "minLength" : 0
+          },
+          "objects" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string",
+              "pattern" : "^[A-Za-z][A-Za-z0-9_]{0,79}$"
+            },
+            "maxItems" : 50,
+            "minItems" : 0
+          },
+          "scopes" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string",
+              "maxLength" : 40,
+              "minLength" : 0
+            },
+            "maxItems" : 10,
+            "minItems" : 1
+          },
+          "tokenMinutes" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "version" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        },
+        "required" : [ "name", "scopes", "tokenMinutes" ]
       },
       "UpdateCustomPageRequest" : {
         "type" : "object",

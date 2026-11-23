@@ -10,8 +10,11 @@ import app.platformapi.ApiException;
 import app.platformapi.ApiHeaders;
 import app.platformapi.ApiPaths;
 import app.platformapi.ApiResponse;
+import app.platform.sharedkernel.access.ApiScopes;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
+import io.swagger.v3.oas.annotations.security.SecurityRequirements;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import java.net.URI;
@@ -67,6 +70,8 @@ class PublicRecordsController {
     }
 
     @PostMapping(RECORDS)
+    @SecurityRequirements({@SecurityRequirement(name = PublicApiConfiguration.BEARER),
+        @SecurityRequirement(name = PublicApiConfiguration.CLIENT_CREDENTIALS, scopes = ApiScopes.RECORDS_WRITE)})
     @Operation(
             operationId = "createRecord",
             summary = "Create a record",
@@ -119,6 +124,8 @@ class PublicRecordsController {
     }
 
     @GetMapping(RECORDS + "/{id}")
+    @SecurityRequirements({@SecurityRequirement(name = PublicApiConfiguration.BEARER),
+        @SecurityRequirement(name = PublicApiConfiguration.CLIENT_CREDENTIALS, scopes = ApiScopes.RECORDS_READ)})
     @Operation(
             operationId = "getRecord",
             summary = "Read one record",
@@ -136,6 +143,8 @@ class PublicRecordsController {
     }
 
     @PatchMapping(RECORDS + "/{id}")
+    @SecurityRequirements({@SecurityRequirement(name = PublicApiConfiguration.BEARER),
+        @SecurityRequirement(name = PublicApiConfiguration.CLIENT_CREDENTIALS, scopes = ApiScopes.RECORDS_WRITE)})
     @Operation(
             operationId = "updateRecord",
             summary = "Change some values of a record",
@@ -173,6 +182,8 @@ class PublicRecordsController {
     }
 
     @DeleteMapping(RECORDS + "/{id}")
+    @SecurityRequirements({@SecurityRequirement(name = PublicApiConfiguration.BEARER),
+        @SecurityRequirement(name = PublicApiConfiguration.CLIENT_CREDENTIALS, scopes = ApiScopes.RECORDS_WRITE)})
     @Operation(
             operationId = "deleteRecord",
             summary = "Move a record to the recycle bin",
@@ -197,6 +208,8 @@ class PublicRecordsController {
     }
 
     @PostMapping(RECORDS + "/{id}/restore")
+    @SecurityRequirements({@SecurityRequirement(name = PublicApiConfiguration.BEARER),
+        @SecurityRequirement(name = PublicApiConfiguration.CLIENT_CREDENTIALS, scopes = ApiScopes.RECORDS_WRITE)})
     @Operation(
             operationId = "restoreRecord",
             summary = "Take a record out of the recycle bin",
@@ -219,7 +232,7 @@ class PublicRecordsController {
     }
 
     private IdempotentWrites.Claim claim(String key, String operation, String object, Object body) {
-        return new IdempotentWrites.Claim(caller.membership(), IdempotencyKeys.keyHash(key),
+        return new IdempotentWrites.Claim(caller.idempotencyKeySpace(), IdempotencyKeys.keyHash(key),
                 IdempotencyKeys.requestHash(operation, object, body), properties.idempotency().retention());
     }
 

@@ -1394,7 +1394,10 @@ if [ -n "$mail" ]; then
   status="$(call "$base/api/public/v1/openapi")"
   [ "$status" = "200" ] || fail "the public contract answered $status without a token: $(head -c 300 "$body")"
   grep -Fq '"title" : "Public API"' "$body" || fail "the document served is not the public contract"
-  if grep -Fq '"/api/v1/' "$body"; then fail "the public contract names an internal address"; fi
+  # The one internal address the contract may name is the token address of the client-credentials flow (Sprint 31).
+  if grep -F '"/api/v1/' "$body" | grep -Fv '"/api/v1/oauth2/token"' | grep -q .; then
+    fail "the public contract names an internal address"
+  fi
   status="$(call_host="$client_host" call "$base/api/public/v1/objects")"
   [ "$status" = "401" ] || fail "the public interface answered $status without a token"
   status="$(client_call -X POST -H "$group_json"     -d '{"name":"PublicSmoke","label":"Public smoke","pluralLabel":"Public smokes","description":""}'     "$base/api/v1/metadata/objects")"
@@ -1439,4 +1442,52 @@ if [ -n "$mail" ]; then
   status="$(client_call "$public_records/$first_id")"
   [ "$status" = "404" ] || fail "a deleted record answered $status: $(cat "$body")"
   echo "ok: the public contract was served without a token and the interface needed one, objects were listed, a keyed create made one record and its repeat said so, a change needed the version, an unknown property was refused with its place, and a query, a bulk call and a delete answered"
+
+  # 37. Connected applications (Sprint 31, ADR-0267 to ADR-0273): an administrator registers an application and reads its
+  # secret once, the application asks the token endpoint with Basic authentication and gets a short-lived token with its
+  # scopes, the public contract is served without a token, the token lists the objects, the scope it lacks and the
+  # internal interface are refused, and after a rotation the old secret is refused at once while the new one works.
+  # Who it acts as, the ceiling of the member's permissions, the limits and the logs are proved by the connected-application
+  # tests. Written carefully and NOT claimed to work until this job has run it.
+  status="$(client_call -X POST -H "$group_json" \
+    -d '{"name":"Smoke application","description":"","scopes":["objects.read","records.read"]}' \
+    "$base/api/v1/connected-apps")"
+  [ "$status" = "201" ] || fail "registering a connected application answered $status: $(cat "$body")"
+  app_id="$(grep -o '"id":"[^"]*"' "$body" | head -1 | cut -d'"' -f4)"
+  app_client_id="$(grep -o '"clientId":"[^"]*"' "$body" | head -1 | cut -d'"' -f4)"
+  app_secret="$(grep -o '"clientSecret":"[^"]*"' "$body" | head -1 | cut -d'"' -f4)"
+  [ -n "$app_id" ] && [ -n "$app_client_id" ] && [ -n "$app_secret" ] || fail "the registration lacks an identifier or the secret"
+  status="$(client_call "$base/api/v1/connected-apps/$app_id")"
+  [ "$status" = "200" ] || fail "reading the connected application answered $status: $(cat "$body")"
+  if grep -Fq "$app_secret" "$body"; then fail "reading the application showed its secret"; fi
+  status="$(call_host="$client_host" call -X POST -u "$app_client_id:$app_secret" -d 'grant_type=client_credentials' \
+    "$base/api/v1/oauth2/token")"
+  [ "$status" = "200" ] || fail "the token endpoint answered $status for the application: $(cat "$body")"
+  app_token="$(grep -o '"access_token":"[^"]*"' "$body" | head -1 | cut -d'"' -f4)"
+  [ -n "$app_token" ] || fail "the token endpoint gave no access token: $(cat "$body")"
+  status="$(call "$base/api/public/v1/openapi")"
+  [ "$status" = "200" ] || fail "the public contract answered $status without a token"
+  status="$(call_host="$client_host" call -H "Authorization: Bearer $app_token" "$base/api/public/v1/objects")"
+  [ "$status" = "200" ] || fail "listing objects with the application's token answered $status: $(cat "$body")"
+  grep -Fq '"apiName":"PublicSmoke__c"' "$body" || fail "the application does not see the object its member may read"
+  status="$(call_host="$client_host" call -X POST -H "$group_json" -H "Authorization: Bearer $app_token" \
+    -d '{"fields":{"title__c":"x"}}' "$base/api/public/v1/objects/PublicSmoke__c/records")"
+  [ "$status" = "403" ] || fail "a write without the scope answered $status: $(cat "$body")"
+  status="$(call_host="$client_host" call -H "Authorization: Bearer $app_token" "$base/api/v1/members")"
+  [ "$status" = "403" ] || fail "the application's token reached the internal interface ($status)"
+  status="$(client_call -X POST -H "$group_json" -d '{"overlapHours":0,"endTokensNow":false}' \
+    "$base/api/v1/connected-apps/$app_id/secrets/rotate")"
+  [ "$status" = "201" ] || fail "rotating the secret answered $status: $(cat "$body")"
+  new_secret="$(grep -o '"clientSecret":"[^"]*"' "$body" | head -1 | cut -d'"' -f4)"
+  [ -n "$new_secret" ] && [ "$new_secret" != "$app_secret" ] || fail "the rotation gave no new secret"
+  status="$(call_host="$client_host" call -X POST -u "$app_client_id:$app_secret" -d 'grant_type=client_credentials' \
+    "$base/api/v1/oauth2/token")"
+  [ "$status" = "401" ] || fail "the old secret answered $status after the rotation: $(cat "$body")"
+  grep -Fq '"invalid_client"' "$body" || fail "the refusal is not invalid_client: $(cat "$body")"
+  status="$(call_host="$client_host" call -X POST -u "$app_client_id:$new_secret" -d 'grant_type=client_credentials' \
+    "$base/api/v1/oauth2/token")"
+  [ "$status" = "200" ] || fail "the new secret answered $status: $(cat "$body")"
+  status="$(client_call -X DELETE "$base/api/v1/connected-apps/$app_id")"
+  [ "$status" = "200" ] || [ "$status" = "204" ] || fail "removing the application answered $status: $(cat "$body")"
+  echo "ok: a connected application was registered, its secret shown once, a token with its scopes was issued, the contract was served without a token, the scope it lacks and the internal interface were refused, and after a rotation the old secret was refused"
 fi

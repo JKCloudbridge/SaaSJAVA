@@ -1,5 +1,6 @@
 package app.platform.publicapi.internal;
 
+import app.platform.sharedkernel.access.ApiScopes;
 import app.platformapi.ApiHeaders;
 import app.platformapi.ApiPaths;
 import io.swagger.v3.oas.models.Components;
@@ -11,6 +12,9 @@ import io.swagger.v3.oas.models.media.MediaType;
 import io.swagger.v3.oas.models.media.Schema;
 import io.swagger.v3.oas.models.media.StringSchema;
 import io.swagger.v3.oas.models.responses.ApiResponse;
+import io.swagger.v3.oas.models.security.OAuthFlow;
+import io.swagger.v3.oas.models.security.OAuthFlows;
+import io.swagger.v3.oas.models.security.Scopes;
 import io.swagger.v3.oas.models.security.SecurityRequirement;
 import io.swagger.v3.oas.models.security.SecurityScheme;
 import io.swagger.v3.oas.models.tags.Tag;
@@ -32,6 +36,7 @@ import org.springframework.context.annotation.Configuration;
 class PublicApiConfiguration {
 
     static final String BEARER = "bearerAuth";
+    static final String CLIENT_CREDENTIALS = "clientCredentials";
     private static final String PUBLIC_MODULE = "app.platform.publicapi.";
     private static final String ERROR_SCHEMA = "ApiErrorResponse";
 
@@ -54,6 +59,8 @@ class PublicApiConfiguration {
             if (!description) {
                 add(operation, "401", "No valid bearer token was sent, or it has expired or was revoked.");
             }
+            add(operation, "403", "The token does not hold the scope this operation needs, or the member the token "
+                    + "stands for may not do this. The words never say which.");
             add(operation, "404", "The organization, object or record does not exist, or the caller may not know that "
                     + "it exists. The three answer alike. Also the answer of every address when the public API is "
                     + "switched off.");
@@ -98,17 +105,40 @@ class PublicApiConfiguration {
                             + "never on the message. Inside version v1 a change only adds; a breaking change is a "
                             + "new version beside this one, and anything that is retired is announced at least 12 "
                             + "months before it goes. Who may see or change what is decided on every request by "
-                            + "the permissions of the user the token belongs to, exactly as in the application."));
+                            + "the permissions of the member the token stands for, exactly as in the application: a "
+                            + "scope only lets a request reach an operation, and never gives a right the member "
+                            + "does not have. Software gets its tokens with a client identifier and a client secret "
+                            + "(OAuth client credentials, see the security scheme clientCredentials); a person's own "
+                            + "token works too."));
             Components components = openApi.getComponents() == null ? new Components() : openApi.getComponents();
             openApi.setComponents(components);
             components.addSecuritySchemes(BEARER, new SecurityScheme()
                     .type(SecurityScheme.Type.HTTP)
                     .scheme("bearer")
-                    .description("The access token of a signed-in user, sent as `Authorization: Bearer <token>`. "
-                            + "The organization is always the one the host name of the request names; a token "
-                            + "never chooses it. Tokens for software itself (client credentials, scopes) are "
-                            + "added by a later release; no static key exists or will."));
+                    .description("An access token, sent as `Authorization: Bearer <token>`: the token of a signed-in "
+                            + "person, or the token of a connected application (see clientCredentials). The "
+                            + "organization is always the one the host name of the request names; a token never "
+                            + "chooses it. No static key exists or will: a client secret is only ever exchanged for "
+                            + "a short-lived token and is never accepted as a credential here."));
+            Scopes scopes = new Scopes();
+            ApiScopes.ALL.forEach(scope -> scopes.addString(scope.key(), scope.description()));
+            components.addSecuritySchemes(CLIENT_CREDENTIALS, new SecurityScheme()
+                    .type(SecurityScheme.Type.OAUTH2)
+                    .description("Software that is not a person gets a token by asking the token address of the "
+                            + "organization's own host with its client identifier and client secret (HTTP Basic, or "
+                            + "client_id and client_secret in the form body), grant_type=client_credentials and "
+                            + "optionally scope=<scopes separated by spaces>; with no scope it gets every scope it "
+                            + "holds. The token is opaque, lives 5 to 60 minutes (15 by default; expires_in says), "
+                            + "and is sent as a bearer token. There is no refresh token: ask again. Errors are the "
+                            + "standard ones: invalid_client (401, one answer for every cause), invalid_scope (400) "
+                            + "and temporarily_unavailable (429 with Retry-After, after too many failed attempts). "
+                            + "The application acts as one member and can only narrow what that member may do.")
+                    .flows(new OAuthFlows().clientCredentials(
+                            new OAuthFlow().tokenUrl(ApiPaths.OAUTH2_TOKEN).scopes(scopes))));
             openApi.addSecurityItem(new SecurityRequirement().addList(BEARER));
+            SecurityRequirement software = new SecurityRequirement();
+            software.addList(CLIENT_CREDENTIALS, ApiScopes.ALL.stream().map(ApiScopes.Scope::key).toList());
+            openApi.addSecurityItem(software);
             openApi.setTags(List.of(
                     new Tag().name("Objects").description("Which objects exist for the caller, and their fields."),
                     new Tag().name("Records").description("Create, read, change, delete, restore, query and bulk."),

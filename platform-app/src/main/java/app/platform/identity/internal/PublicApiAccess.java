@@ -1,5 +1,6 @@
 package app.platform.identity.internal;
 
+import app.platform.sharedkernel.access.ApiScopes;
 import app.platformapi.ApiPaths;
 import java.util.List;
 import java.util.Optional;
@@ -7,12 +8,14 @@ import java.util.Set;
 
 /**
  * What a token may reach of the public API (Sprint 30, ADR-0244, ADR-0249): the one place that knows the closed table
- * of public operations and the one place Sprint 31 fills when tokens get scopes. It is the analogue of
- * {@link EmbeddedAccessPolicy} for the interface that is meant for other people's software.
+ * of public operations and the one place that says which scope each needs (Sprint 31 fills the attribute on the tokens
+ * of connected applications). It is the analogue of {@link EmbeddedAccessPolicy} for the interface that is meant for
+ * other people's software.
  *
- * <p><strong>Scope is necessary, never sufficient.</strong> Today a token of a signed-in user carries no scope and
- * reaches every operation of the table; tomorrow a token that carries scopes reaches only the operations whose scope
- * it holds. Either way the answer of this class only lets a request go on to the controller: the member's own
+ * <p><strong>Scope is necessary, never sufficient.</strong> A token of a signed-in user carries no scope and reaches
+ * every operation of the table; the token of a connected application carries scopes and reaches only the operations
+ * whose scope it holds. Either way the answer of this class only lets a request go on to the controller: the
+ * member's own
  * permissions, field rights and record security are decided there, by the same code as for the internal interface.
  *
  * <p>The table is closed. A request under the public prefix that matches no operation is not refused here (it
@@ -56,15 +59,16 @@ final class PublicApiAccess {
     /** The table of Sprint 30 (ADR-0244 section 2). Anything not listed is not reachable. */
     static final List<Operation> OPERATIONS = List.of(
             new Operation("GET", ApiPaths.PUBLIC_OPENAPI, "getPublicApiDescription", null),
-            new Operation("GET", OBJECTS, "listObjects", "objects.read"),
-            new Operation("GET", OBJECTS + "/{object}", "describeObject", "objects.read"),
-            new Operation("POST", OBJECTS + "/{object}/records", "createRecord", "records.write"),
-            new Operation("POST", OBJECTS + "/{object}/records/query", "queryRecords", "records.read"),
-            new Operation("POST", OBJECTS + "/{object}/records/bulk", "bulkRecords", "records.write"),
-            new Operation("GET", OBJECTS + "/{object}/records/{id}", "getRecord", "records.read"),
-            new Operation("PATCH", OBJECTS + "/{object}/records/{id}", "updateRecord", "records.write"),
-            new Operation("DELETE", OBJECTS + "/{object}/records/{id}", "deleteRecord", "records.write"),
-            new Operation("POST", OBJECTS + "/{object}/records/{id}/restore", "restoreRecord", "records.write"));
+            new Operation("GET", OBJECTS, "listObjects", ApiScopes.OBJECTS_READ),
+            new Operation("GET", OBJECTS + "/{object}", "describeObject", ApiScopes.OBJECTS_READ),
+            new Operation("POST", OBJECTS + "/{object}/records", "createRecord", ApiScopes.RECORDS_WRITE),
+            new Operation("POST", OBJECTS + "/{object}/records/query", "queryRecords", ApiScopes.RECORDS_READ),
+            new Operation("POST", OBJECTS + "/{object}/records/bulk", "bulkRecords", ApiScopes.RECORDS_WRITE),
+            new Operation("GET", OBJECTS + "/{object}/records/{id}", "getRecord", ApiScopes.RECORDS_READ),
+            new Operation("PATCH", OBJECTS + "/{object}/records/{id}", "updateRecord", ApiScopes.RECORDS_WRITE),
+            new Operation("DELETE", OBJECTS + "/{object}/records/{id}", "deleteRecord", ApiScopes.RECORDS_WRITE),
+            new Operation("POST", OBJECTS + "/{object}/records/{id}/restore", "restoreRecord",
+                    ApiScopes.RECORDS_WRITE));
 
     private PublicApiAccess() {
     }

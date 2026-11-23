@@ -1,8 +1,10 @@
 package app.platform.identity.internal;
 
+import app.platform.licensing.Entitlements;
 import app.platform.tenant.OrganizationLimits;
 import app.platform.tenant.TenantContexts;
 import app.platformapi.ApiPaths;
+import io.micrometer.core.instrument.MeterRegistry;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -20,7 +22,9 @@ import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.oauth2.server.authorization.OAuth2AuthorizationService;
+import org.springframework.security.oauth2.server.authorization.authentication.ClientSecretAuthenticationProvider;
 import org.springframework.security.oauth2.server.authorization.authentication.OAuth2AuthorizationCodeRequestAuthenticationProvider;
+import org.springframework.security.oauth2.server.authorization.authentication.OAuth2ClientCredentialsAuthenticationProvider;
 import org.springframework.security.oauth2.server.authorization.client.RegisteredClientRepository;
 import org.springframework.security.oauth2.server.authorization.settings.AuthorizationServerSettings;
 import org.springframework.security.oauth2.server.authorization.token.OAuth2TokenGenerator;
@@ -31,6 +35,7 @@ import org.springframework.security.web.csrf.CsrfFilter;
 import org.springframework.security.web.csrf.CsrfToken;
 import org.springframework.security.web.csrf.CsrfTokenRequestAttributeHandler;
 import org.springframework.security.web.util.matcher.RequestMatcher;
+import org.springframework.transaction.support.TransactionTemplate;
 import org.springframework.web.filter.OncePerRequestFilter;
 import org.springframework.web.servlet.HandlerExceptionResolver;
 
@@ -138,16 +143,39 @@ class SecurityConfiguration {
             OAuth2AuthorizationService authorizations, AuthorizationServerSettings settings,
             OAuth2TokenGenerator<?> tokenGenerator, LoginSessions loginSessions, TenantContexts contexts,
             @Qualifier("handlerExceptionResolver") HandlerExceptionResolver errors, IdentityProperties properties,
-            @Value("${platform.tenancy.trust-forwarded-host:false}") boolean trustForwardedHost) throws Exception {
+            @Value("${platform.tenancy.trust-forwarded-host:false}") boolean trustForwardedHost,
+            ClientStore clientStore, TransactionTemplate transaction, Counters counters,
+            ClientProperties clientProperties, Entitlements entitlements, MembershipGate gate, AuthAudit audit,
+            MeterRegistry meters, Clock clock) throws Exception {
         ApiSecurityHandlers.EntryPoint entryPoint = new ApiSecurityHandlers.EntryPoint(errors);
         CallbackRedirectValidator redirects =
                 new CallbackRedirectValidator(trustForwardedHost, properties.cookies().secure());
+        // Connected applications (Sprint 31): the client check and the grant of the client-credentials flow are ours;
+        // the library does the rest of the flow (ADR-0268, ADR-0270).
+        ClientAuthLimiter limiter = new ClientAuthLimiter(counters, clientProperties.failures());
+        ClientAuthenticationProvider clientAuthentication = new ClientAuthenticationProvider(clientStore,
+                transaction, limiter, counters, clientProperties, entitlements, gate, audit, meters,
+                properties.trustForwardedFor(), clock);
         http.oauth2AuthorizationServer(server -> {
             http.securityMatcher(server.getEndpointsMatcher());
             server.registeredClientRepository(clients)
                     .authorizationService(authorizations)
                     .authorizationServerSettings(settings)
                     .tokenGenerator(tokenGenerator)
+                    .clientAuthentication(client -> client
+                            .authenticationProviders(providers -> {
+                                providers.removeIf(provider -> provider instanceof ClientSecretAuthenticationProvider);
+                                providers.add(0, clientAuthentication);
+                            })
+                            .errorResponseHandler(
+                                    new ClientAuthenticationFailureHandler(limiter.retryAfter().toSeconds())))
+                    .tokenEndpoint(token -> token.authenticationProviders(providers -> {
+                        for (int index = 0; index < providers.size(); index++) {
+                            if (providers.get(index) instanceof OAuth2ClientCredentialsAuthenticationProvider library) {
+                                providers.set(index, new ScopedClientCredentialsProvider(library, meters));
+                            }
+                        }
+                    }))
                     .authorizationEndpoint(endpoint -> endpoint.authenticationProviders(providers ->
                             providers.forEach(provider -> {
                                 if (provider instanceof OAuth2AuthorizationCodeRequestAuthenticationProvider code) {
@@ -171,7 +199,7 @@ class SecurityConfiguration {
     SecurityFilterChain apiChain(HttpSecurity http, AuthorizationStore store, TenantContexts contexts,
             MembershipGate gate, AuthAudit audit, PlatformRoleRepository platformRoles, Clock clock,
             @Qualifier("handlerExceptionResolver") HandlerExceptionResolver errors, IdentityProperties properties,
-            OrganizationLimits limits)
+            OrganizationLimits limits, MachineTokens machineTokens)
             throws Exception {
         ApiSecurityHandlers.EntryPoint entryPoint = new ApiSecurityHandlers.EntryPoint(errors);
         ApiSecurityHandlers.Denied denied = new ApiSecurityHandlers.Denied(errors);
@@ -206,7 +234,8 @@ class SecurityConfiguration {
                         .bearerTokenResolver(new TokenAuthentication.Resolver())
                         .opaqueToken(token -> token
                                 .introspector(new TokenAuthentication.Introspector(store, gate, audit,
-                                        platformRoles, clock, properties.tokens().platformSessionMax())))
+                                        platformRoles, clock, properties.tokens().platformSessionMax(),
+                                        machineTokens)))
                         .authenticationEntryPoint(entryPoint)
                         .accessDeniedHandler(denied))
                 .exceptionHandling(exceptions -> exceptions.authenticationEntryPoint(entryPoint)
@@ -216,8 +245,10 @@ class SecurityConfiguration {
                         BearerTokenAuthenticationFilter.class)
                 // The token of a custom page's script reaches the data interface and nothing else (ADR-0127).
                 .addFilterAfter(new EmbeddedAccessFilter(denied), BearerTokenAuthenticationFilter.class)
-                // What a token may reach of the public API: the seam Sprint 31 fills with scopes (ADR-0249).
-                .addFilterAfter(new PublicApiAccessFilter(denied), EmbeddedAccessFilter.class)
+                // The token of a connected application reaches the public API and nothing else (ADR-0271).
+                .addFilterAfter(new ClientTokenAccessFilter(denied), EmbeddedAccessFilter.class)
+                // What a token may reach of the public API: the scopes it carries (ADR-0249, ADR-0270).
+                .addFilterAfter(new PublicApiAccessFilter(denied), ClientTokenAccessFilter.class)
                 .addFilterAfter(new UserContextFilter(contexts), BearerTokenAuthenticationFilter.class)
                 // Once the caller is a known member: a stranger cannot use up an organization's turns (ADR-0108).
                 .addFilterAfter(limits.requestFilter(), UserContextFilter.class);

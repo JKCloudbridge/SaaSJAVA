@@ -22,7 +22,7 @@ import org.junit.jupiter.api.Test;
  * identifiers and no value.
  */
 @PlatformIntegrationTest
-class PublicApiIdempotencyIT extends PublicApiSupport {
+class PublicApiIdempotencyIT extends ClientSupport {
 
     private static final String BODY = createBody("{\"name__c\":\"Once\",\"department__c\":\"Sales\"}");
 
@@ -191,6 +191,84 @@ class PublicApiIdempotencyIT extends PublicApiSupport {
             assertThat(ids).containsOnly(ids.get(0));
             assertThat(count(program, "Once")).isEqualTo(1);
         }
+    }
+
+    // ---- connected applications (Sprint 31, ADR-0273) ----
+
+    @Test
+    void twoApplicationsActingAsOneMemberDoNotShareAKeySpace() {
+        Organization organization = organizationWithClients();
+        var admin = adminOf(organization);
+        Caller one = clientCaller(organization, register(admin, ALL_SCOPES));
+        Caller two = clientCaller(organization, register(admin, ALL_SCOPES));
+        String key = key();
+
+        Response first = one.post(EMPLOYEE_RECORDS, BODY, "Idempotency-Key", key);
+        Response second = two.post(EMPLOYEE_RECORDS, BODY, "Idempotency-Key", key);
+        Response repeatOfFirst = one.post(EMPLOYEE_RECORDS, BODY, "Idempotency-Key", key);
+
+        assertThat(first.status()).as(first.body()).isEqualTo(201);
+        assertThat(second.status()).as(second.body()).isEqualTo(201);
+        assertThat(id(second)).as("a second record, because it is another application's key").isNotEqualTo(id(first));
+        assertThat(second.header("Idempotent-Replayed")).isEmpty();
+        assertThat(repeatOfFirst.header("Idempotent-Replayed")).contains("true");
+        assertThat(id(repeatOfFirst)).isEqualTo(id(first));
+        assertThat(count(one, "Once")).isEqualTo(2);
+    }
+
+    @Test
+    void anApplicationAndItsMembersOwnTokenDoNotShareAKeySpaceEither() {
+        Organization organization = organizationWithClients();
+        var admin = adminOf(organization);
+        Caller application = clientCaller(organization, register(admin, ALL_SCOPES));
+        Caller person = administrator(organization);
+        String key = key();
+
+        Response byApplication = application.post(EMPLOYEE_RECORDS, BODY, "Idempotency-Key", key);
+        Response byPerson = person.post(EMPLOYEE_RECORDS, BODY, "Idempotency-Key", key);
+
+        assertThat(byApplication.status()).isEqualTo(201);
+        assertThat(byPerson.status()).isEqualTo(201);
+        assertThat(id(byPerson)).isNotEqualTo(id(byApplication));
+        assertThat(byPerson.header("Idempotent-Replayed")).isEmpty();
+    }
+
+    @Test
+    void theKeySpaceOfAnApplicationIsStableAcrossItsTokensAndItsInstances() {
+        Organization organization = organizationWithClients();
+        Registered app = register(adminOf(organization), ALL_SCOPES);
+        String key = key();
+        Caller before = clientCaller(organization, app);
+        Response first = before.post(EMPLOYEE_RECORDS, BODY, "Idempotency-Key", key);
+        try (TestApplication other = TestApplication.start()) {
+            Caller newToken = clientCaller(organization, app).onInstance(other.port());
+
+            Response again = newToken.post(EMPLOYEE_RECORDS, BODY, "Idempotency-Key", key);
+
+            assertThat(again.status()).as(again.body()).isEqualTo(201);
+            assertThat(again.header("Idempotent-Replayed")).as("the same application with a new token on another "
+                    + "instance repeats").contains("true");
+            assertThat(id(again)).isEqualTo(id(first));
+        }
+    }
+
+    @Test
+    void whatIsRememberedForAnApplicationHoldsNoSecretAndNoTokenAndNoClientIdentifier() {
+        Organization organization = organizationWithClients();
+        Registered app = register(adminOf(organization), ALL_SCOPES);
+        Caller program = clientCaller(organization, app);
+        String key = key();
+        program.post(EMPLOYEE_RECORDS, BODY, "Idempotency-Key", key);
+
+        List<String> rows = owner("select key_hash || '|' || request_hash || '|' || caller_id::text || '|' || "
+                + "outcome::text from idempotency_record where tenant_id = ?::uuid", organization.id().value()
+                        .toString());
+
+        assertThat(rows).hasSize(1);
+        assertThat(rows.get(0)).doesNotContain(app.secret()).doesNotContain(program.token())
+                .doesNotContain(app.clientId()).doesNotContain(key);
+        assertThat(rows.get(0)).as("the caller is neither the member nor the registration")
+                .doesNotContain(organization.admin().membership().toString()).doesNotContain(app.id());
     }
 
     // ---- bulk ----

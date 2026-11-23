@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import app.platform.testsupport.PlatformIntegrationTest;
 import app.platform.testsupport.TestBrowser;
+import app.platform.testsupport.TestHttp;
 import app.platform.testsupport.TestHttp.Response;
 import app.platform.testsupport.TestSignIn;
 import java.util.ArrayList;
@@ -123,6 +124,34 @@ class EndpointExposureIT {
         endpoints().forEach(endpoint -> existing.add(endpoint.key()));
 
         assertThat(existing).containsAll(PUBLIC);
+    }
+
+    /**
+     * Sprint 31 (ADR-0267, ADR-0271): the management of connected applications is on none of the lists above, so the
+     * walk holds it to 401 without a sign-in like every other endpoint, and a token of an application never reaches it
+     * (ClientTokenBoundaryIT). The token endpoint is the library's, not a mapping of ours: it is public in the sense
+     * that it proves a client by its secret, so without one it answers a refusal and never a token.
+     */
+    @Test
+    void theManagementOfConnectedApplicationsIsNotPublicAndTheTokenEndpointNeedsAClientToProveItself() {
+        Set<String> existing = new TreeSet<>();
+        endpoints().forEach(endpoint -> existing.add(endpoint.key()));
+        TestBrowser anonymous = new TestBrowser(port, TestSignIn.PLATFORM_HOST);
+
+        assertThat(PUBLIC).noneMatch(key -> key.contains("/connected-apps"));
+        assertThat(existing).contains("GET /api/v1/connected-apps", "POST /api/v1/connected-apps",
+                "GET /api/v1/connected-apps/catalogue", "GET /api/v1/connected-apps/x", "PUT /api/v1/connected-apps/x",
+                "DELETE /api/v1/connected-apps/x", "POST /api/v1/connected-apps/x/disable",
+                "POST /api/v1/connected-apps/x/enable", "POST /api/v1/connected-apps/x/secrets/rotate",
+                "DELETE /api/v1/connected-apps/x/secrets/x");
+        existing.stream().filter(key -> key.contains("/connected-apps")).forEach(key -> {
+            String[] parts = key.split(" ");
+            assertThat(anonymous.request(parts[0], parts[1], "{}").status()).as(key).isEqualTo(401);
+        });
+        Response token = new TestHttp(port).post("/api/v1/oauth2/token", "grant_type=client_credentials",
+                "Host", TestSignIn.PLATFORM_HOST, "Content-Type", "application/x-www-form-urlencoded");
+        assertThat(token.status()).isIn(400, 401);
+        assertThat(token.body()).doesNotContain("access_token");
     }
 
     @Test

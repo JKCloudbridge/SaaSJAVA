@@ -32,6 +32,31 @@ class ApiPathsTest {
     }
 
     @Test
+    void theConnectedApplicationsLiveUnderTheInternalPrefixNotThePublicOne() {
+        assertThat(ApiPaths.CONNECTED_APPS).isEqualTo("/api/v1/connected-apps");
+        assertThat(ApiPaths.isApiPath(ApiPaths.CONNECTED_APPS + "/x")).isTrue();
+        assertThat(ApiPaths.isPublicApiPath(ApiPaths.CONNECTED_APPS + "/x")).isFalse();
+    }
+
+    @Test
+    void theTokenAddressSoftwareAsksForATokenAtIsTheLibrariesOwnAndInternal() {
+        assertThat(ApiPaths.OAUTH2_TOKEN).isEqualTo("/api/v1/oauth2/token");
+        assertThat(ApiPaths.isApiPath(ApiPaths.OAUTH2_TOKEN)).isTrue();
+        assertThat(ApiPaths.isPublicApiPath(ApiPaths.OAUTH2_TOKEN)).isFalse();
+    }
+
+    @Test
+    void bothPrefixesAreApiPathsAndOnlyOneIsPublic() {
+        assertThat(ApiPaths.isApiPath("/api/public/v1/objects")).isTrue();
+        assertThat(ApiPaths.isApiPath("/api/v1/members")).isTrue();
+        assertThat(ApiPaths.isApiPath("/api/v2/members")).isFalse();
+        assertThat(ApiPaths.isApiPath(null)).isFalse();
+        assertThat(ApiPaths.isPublicApiPath("/api/public/v1/objects")).isTrue();
+        assertThat(ApiPaths.isPublicApiPath("/api/v1/members")).isFalse();
+        assertThat(ApiPaths.isPublicApiPath(null)).isFalse();
+    }
+
+    @Test
     void headerNamesAreStable() {
         assertThat(ApiHeaders.REQUEST_ID).isEqualTo("X-Request-ID");
         assertThat(ApiHeaders.TRACE_ID).isEqualTo("X-Trace-Id");
