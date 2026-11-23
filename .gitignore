@@ -30,3 +30,9 @@ GEMINI.md
 docs/engineering-guide.md
 
 benchmark/scenarios/generated/
+
+# Local demo helpers: they write to the local database and hold local ids; never committed
+scripts/demo-seed-data/
+scripts/demo-names.ps1
+scripts/demo-backdate.ps1
+scripts/demo-seed-fills.mjs
