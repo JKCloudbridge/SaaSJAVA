@@ -1,0 +1,161 @@
+# Production-like rehearsal on one machine (transition plan, step 1): the built images, the production profile and an
+# ingress with https and fake domain names. Usage and what it proves: README.md in this folder.
+# Everything is separate from infra/local (own project name, own volumes); only the ingress publishes ports, on 127.0.0.1.
+# Credentials come from .env and the keys from secrets/, both made by init.ps1 (and both ignored by git).
+name: platform-rehearsal
+
+services:
+  postgres:
+    image: postgres:18
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:?run init.ps1 first}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?run init.ps1 first}
+      POSTGRES_DB: ${POSTGRES_DB:?run init.ps1 first}
+      TZ: UTC
+    volumes:
+      - postgres-data:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  redis:
+    image: redis:8
+    command: ["redis-server", "--requirepass", "${REDIS_PASSWORD:?run init.ps1 first}"]
+    healthcheck:
+      test: ["CMD-SHELL", "redis-cli -a $${REDIS_PASSWORD} --no-auth-warning ping | grep -q PONG"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    environment:
+      REDIS_PASSWORD: ${REDIS_PASSWORD}
+
+  object-storage:
+    image: chrislusf/seaweedfs:4.48
+    command: ["server", "-s3", "-dir=/data", "-master.volumeSizeLimitMB=128"]
+    environment:
+      AWS_ACCESS_KEY_ID: ${S3_ACCESS_KEY:?run init.ps1 first}
+      AWS_SECRET_ACCESS_KEY: ${S3_SECRET_KEY:?run init.ps1 first}
+    volumes:
+      - object-storage-data:/data
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q --spider http://127.0.0.1:8333/status || exit 1"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  # The real environment sends mail through a provider with a login; the rehearsal catches it (http://localhost:8026).
+  mail-catcher:
+    image: axllent/mailpit:v1.31
+    ports:
+      - "127.0.0.1:8026:8025"
+    healthcheck:
+      test: ["CMD", "/mailpit", "readyz"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  # One-time steps a deployment does before the first start: the application role (manual migration M001) and the bucket.
+  role-init:
+    image: postgres:18
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: "no"
+    environment:
+      PGPASSWORD: ${POSTGRES_PASSWORD}
+      APP_DB_PASSWORD: ${APP_DB_PASSWORD}
+    volumes:
+      - ../../db/manual/M001__create_application_role.sql:/m001.sql:ro
+    entrypoint: ["sh", "-c"]
+    command:
+      - >
+        psql -h postgres -U ${POSTGRES_USER} -d ${POSTGRES_DB} -v ON_ERROR_STOP=1 -f /m001.sql &&
+        psql -h postgres -U ${POSTGRES_USER} -d ${POSTGRES_DB} -v ON_ERROR_STOP=1
+        -c "alter role platform_app password '$$APP_DB_PASSWORD'"
+
+  bucket-init:
+    image: amazon/aws-cli:latest
+    depends_on:
+      object-storage:
+        condition: service_healthy
+    restart: "no"
+    environment:
+      AWS_ACCESS_KEY_ID: ${S3_ACCESS_KEY}
+      AWS_SECRET_ACCESS_KEY: ${S3_SECRET_KEY}
+      AWS_DEFAULT_REGION: us-east-1
+    entrypoint: ["sh", "-c"]
+    command: ["aws --endpoint-url http://object-storage:8333 s3 mb s3://platform-files || true"]
+
+  # The platform application from its image, with the production profile. Build the image first (README.md).
+  backend:
+    image: platform-app:local
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      mail-catcher:
+        condition: service_healthy
+      role-init:
+        condition: service_completed_successfully
+      bucket-init:
+        condition: service_completed_successfully
+    environment:
+      SPRING_PROFILES_ACTIVE: prod
+      PLATFORM_ENVIRONMENT: rehearsal
+      PLATFORM_DB_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB}
+      PLATFORM_DB_OWNER_USER: ${POSTGRES_USER}
+      PLATFORM_DB_OWNER_PASSWORD: ${POSTGRES_PASSWORD}
+      PLATFORM_DB_APP_USER: platform_app
+      PLATFORM_DB_APP_PASSWORD: ${APP_DB_PASSWORD}
+      PLATFORM_BASE_DOMAIN: ${BASE_DOMAIN}
+      PLATFORM_PUBLIC_BASE_URL: https://${BASE_DOMAIN}
+      # The ingress overwrites both headers, so they may be trusted (and only because of that).
+      PLATFORM_TRUST_FORWARDED_HOST: "true"
+      PLATFORM_TRUST_FORWARDED_FOR: "true"
+      PLATFORM_REDIS_HOST: redis
+      PLATFORM_REDIS_PASSWORD: ${REDIS_PASSWORD}
+      PLATFORM_SMTP_HOST: mail-catcher
+      PLATFORM_SMTP_PORT: "1025"
+      PLATFORM_SMTP_AUTH: "false"
+      PLATFORM_SMTP_STARTTLS_REQUIRED: "false"
+      PLATFORM_MAIL_SENDER: no-reply@${BASE_DOMAIN}
+      PLATFORM_SIGNING_KEY_ID: rehearsal-1
+      PLATFORM_SIGNING_PRIVATE_KEY_FILE: /run/keys/signing-private.pem
+      PLATFORM_SIGNING_PUBLIC_KEY_FILE: /run/keys/signing-public.pem
+      PLATFORM_SECRETS_KEK_ACTIVE_ID: rehearsal-1
+      PLATFORM_SECRETS_KEK_ACTIVE_KEY: ${SECRETS_KEK}
+      PLATFORM_STORAGE_ENDPOINT: http://object-storage:8333
+      PLATFORM_STORAGE_PATH_STYLE: "true"
+      PLATFORM_STORAGE_BUCKET: platform-files
+      PLATFORM_STORAGE_ACCESS_KEY: ${S3_ACCESS_KEY}
+      PLATFORM_STORAGE_SECRET_KEY: ${S3_SECRET_KEY}
+    volumes:
+      - ./secrets:/run/keys:ro
+
+  web:
+    image: platform-web:local
+    depends_on:
+      - backend
+
+  # The only published ports. The management port of the application is not routed at all.
+  ingress:
+    image: caddy:2
+    depends_on:
+      - web
+      - backend
+    ports:
+      - "127.0.0.1:80:80"
+      - "127.0.0.1:443:443"
+    environment:
+      BASE_DOMAIN: ${BASE_DOMAIN}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - ingress-data:/data
+
+volumes:
+  postgres-data:
+  object-storage-data:
+  ingress-data:
