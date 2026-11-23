@@ -1394,7 +1394,10 @@ if [ -n "$mail" ]; then
   status="$(call "$base/api/public/v1/openapi")"
   [ "$status" = "200" ] || fail "the public contract answered $status without a token: $(head -c 300 "$body")"
   grep -Fq '"title" : "Public API"' "$body" || fail "the document served is not the public contract"
-  if grep -Fq '"/api/v1/' "$body"; then fail "the public contract names an internal address"; fi
+  # The one internal address the contract may name is the token address of the client-credentials flow (Sprint 31).
+  if grep -F '"/api/v1/' "$body" | grep -Fv '"/api/v1/oauth2/token"' | grep -q .; then
+    fail "the public contract names an internal address"
+  fi
   status="$(call_host="$client_host" call "$base/api/public/v1/objects")"
   [ "$status" = "401" ] || fail "the public interface answered $status without a token"
   status="$(client_call -X POST -H "$group_json"     -d '{"name":"PublicSmoke","label":"Public smoke","pluralLabel":"Public smokes","description":""}'     "$base/api/v1/metadata/objects")"
