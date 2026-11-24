@@ -26,6 +26,11 @@ FROM node:24-alpine AS run
 RUN apk upgrade --no-cache \
  && addgroup -S web && adduser -S -G web web
 WORKDIR /app
+# Which release this is (Sprint 33, ADR-0287): a label only, so a running image can be traced to its source. Not a secret.
+ARG GIT_COMMIT=unknown
+ARG BUILD_TIME=unknown
+LABEL org.opencontainers.image.revision=${GIT_COMMIT} \
+      org.opencontainers.image.created=${BUILD_TIME}
 ENV NODE_ENV=production \
     NEXT_TELEMETRY_DISABLED=1 \
     PORT=3000 \
@@ -34,8 +39,10 @@ ENV NODE_ENV=production \
 COPY --from=build --chown=web:web /app/.next/standalone ./
 COPY --from=build --chown=web:web /app/.next/static ./.next/static
 COPY --from=build --chown=web:web /app/public ./public
+# The entry point that lets a load balancer move away before the server stops (ADR-0289).
+COPY --chown=web:web --chmod=0555 entrypoint.sh ./entrypoint.sh
 USER web
 EXPOSE 3000
 HEALTHCHECK --interval=15s --timeout=3s --start-period=20s --retries=3 \
   CMD wget -q --spider http://127.0.0.1:3000/healthz || exit 1
-CMD ["node", "server.js"]
+ENTRYPOINT ["/app/entrypoint.sh"]

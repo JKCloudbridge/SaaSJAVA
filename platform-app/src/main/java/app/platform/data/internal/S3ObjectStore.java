@@ -7,6 +7,8 @@ import java.net.URI;
 import java.time.Duration;
 import org.springframework.stereotype.Component;
 import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
+import software.amazon.awssdk.auth.credentials.AwsCredentialsProvider;
+import software.amazon.awssdk.auth.credentials.DefaultCredentialsProvider;
 import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
 import software.amazon.awssdk.core.ResponseInputStream;
 import software.amazon.awssdk.core.checksums.RequestChecksumCalculation;
@@ -151,13 +153,25 @@ class S3ObjectStore implements ObjectStore {
         return found;
     }
 
+    /**
+     * A key and a secret, or, with {@code platform.storage.credentials=role} (ADR-0290), the short-lived credentials the
+     * platform the process runs on hands to it (a role attached to the container), found by the library's standard
+     * lookup and renewed by it. Nothing is read from a table or written to a log in either case.
+     */
+    private AwsCredentialsProvider credentials() {
+        if (properties.usesRole()) {
+            return DefaultCredentialsProvider.builder().build();
+        }
+        return StaticCredentialsProvider.create(AwsBasicCredentials.create(properties.accessKey(),
+                properties.secretKey()));
+    }
+
     private S3Client build() {
         S3ClientBuilder builder = S3Client.builder()
                 .httpClientBuilder(UrlConnectionHttpClient.builder().connectionTimeout(Duration.ofSeconds(3))
                         .socketTimeout(properties.socketTimeout()))
                 .region(Region.of(properties.region()))
-                .credentialsProvider(StaticCredentialsProvider.create(
-                        AwsBasicCredentials.create(properties.accessKey(), properties.secretKey())))
+                .credentialsProvider(credentials())
                 .forcePathStyle(properties.pathStyle())
                 .requestChecksumCalculation(RequestChecksumCalculation.WHEN_REQUIRED)
                 .responseChecksumValidation(ResponseChecksumValidation.WHEN_REQUIRED)

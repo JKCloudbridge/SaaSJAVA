@@ -4,6 +4,7 @@ import app.platform.approval.internal.ApprovalTimerStore.Claimed;
 import app.platform.observability.ErrorReport;
 import app.platform.observability.ErrorTracker;
 import app.platform.sharedkernel.TenantId;
+import app.platform.sharedkernel.lifecycle.WorkerStop;
 import app.platform.tenant.SystemScope;
 import app.platform.tenant.TenantContext;
 import app.platform.tenant.TenantContexts;
@@ -39,7 +40,6 @@ import org.springframework.transaction.support.TransactionTemplate;
 class ApprovalTimer implements SmartLifecycle {
 
     private static final Logger LOG = LoggerFactory.getLogger(ApprovalTimer.class);
-    private static final long SHUTDOWN_WAIT_SECONDS = 20;
 
     private final ApprovalTimerStore store;
     private final ApprovalEngine engine;
@@ -137,17 +137,14 @@ class ApprovalTimer implements SmartLifecycle {
         if (executor == null) {
             return;
         }
-        executor.shutdown();
-        try {
-            if (!executor.awaitTermination(SHUTDOWN_WAIT_SECONDS, TimeUnit.SECONDS)) {
-                // A claim that was never completed expires and the step is claimed again by any instance.
-                executor.shutdownNow();
-            }
-        } catch (InterruptedException e) {
-            executor.shutdownNow();
-            Thread.currentThread().interrupt();
-        }
+        // The step in hand is finished; a claim that was never completed expires and is claimed again by any instance.
+        WorkerStop.drain("approval timer", executor);
         executor = null;
+    }
+
+    @Override
+    public void stop(Runnable callback) {
+        WorkerStop.concurrently("approval timer", this::stop, callback);
     }
 
     @Override

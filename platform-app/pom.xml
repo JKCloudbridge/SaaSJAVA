@@ -223,6 +223,17 @@
       <plugin>
         <groupId>org.springframework.boot</groupId>
         <artifactId>spring-boot-maven-plugin</artifactId>
+        <executions>
+          <execution>
+            <!-- META-INF/build-info.properties: the version that /actuator/info and the start-up log line show
+                 (Sprint 33, ADR-0287). The time in it is the fixed output timestamp of the parent (reproducible
+                 builds); the real build time and the commit are given to the image build. -->
+            <id>build-info</id>
+            <goals>
+              <goal>build-info</goal>
+            </goals>
+          </execution>
+        </executions>
       </plugin>
       <!-- Unit tests: *Test (surefire). Integration tests: *IT (failsafe, `verify` phase). -->
       <plugin>

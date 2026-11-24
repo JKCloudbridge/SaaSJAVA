@@ -1,5 +1,6 @@
 package app.platform.metadata.internal;
 
+import app.platform.sharedkernel.lifecycle.WorkerStop;
 import app.platform.tenant.Tenant;
 import app.platform.tenant.TenantContext;
 import app.platform.tenant.TenantContexts;
@@ -104,9 +105,14 @@ class WorkflowVersionCleanup implements SmartLifecycle {
     @Override
     public void stop() {
         if (executor != null) {
-            executor.shutdownNow();
+            WorkerStop.drain("workflow version clean-up", executor);
             executor = null;
         }
+    }
+
+    @Override
+    public void stop(Runnable callback) {
+        WorkerStop.concurrently("workflow version clean-up", this::stop, callback);
     }
 
     @Override

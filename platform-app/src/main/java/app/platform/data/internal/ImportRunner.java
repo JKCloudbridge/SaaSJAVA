@@ -7,6 +7,7 @@ import app.platform.security.ObjectAccess;
 import app.platform.sharedkernel.ActorId;
 import app.platform.sharedkernel.TenantId;
 import app.platform.sharedkernel.directory.ReferenceDirectory;
+import app.platform.sharedkernel.lifecycle.WorkerStop;
 import app.platform.sharedkernel.storage.ObjectStore;
 import app.platform.sharedkernel.storage.ObjectStoreException;
 import app.platform.tenant.Tenant;
@@ -533,9 +534,14 @@ class ImportRunner implements SmartLifecycle {
     @Override
     public void stop() {
         if (executor != null) {
-            executor.shutdownNow();
+            WorkerStop.drain("import runner", executor);
             executor = null;
         }
+    }
+
+    @Override
+    public void stop(Runnable callback) {
+        WorkerStop.concurrently("import runner", this::stop, callback);
     }
 
     @Override

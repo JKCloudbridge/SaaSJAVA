@@ -22,7 +22,7 @@ class ModuleStructureTest {
             "tenant", "identity", "licensing", "security", "expression", "metadata", "data", "application",
             "workflow", "approval", "notification", "integration", "audit", "platformadmin",
             "web", "observability", "outbox", "solution", "sheets", "inspection", "secrets", "publicapi",
-            "sharedkernel");
+            "deployment", "sharedkernel");
 
     private final ApplicationModules modules = ApplicationModules.of(PlatformApplication.class);
 

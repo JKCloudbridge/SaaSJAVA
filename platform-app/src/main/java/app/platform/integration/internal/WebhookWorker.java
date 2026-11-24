@@ -14,6 +14,7 @@ import app.platform.sharedkernel.TenantId;
 import app.platform.sharedkernel.audit.AuditOutcome;
 import app.platform.sharedkernel.audit.AuditRecord;
 import app.platform.sharedkernel.audit.AuditRecorder;
+import app.platform.sharedkernel.lifecycle.WorkerStop;
 import app.platform.sharedkernel.notice.NoticeKind;
 import app.platform.sharedkernel.notice.NoticeRequest;
 import app.platform.sharedkernel.notice.Notices;
@@ -72,7 +73,6 @@ class WebhookWorker implements SmartLifecycle {
     private static final Logger LOG = LoggerFactory.getLogger(WebhookWorker.class);
     private static final UUID SYSTEM = ActorId.SYSTEM.value();
     private static final int DEFER_BATCH = 2000;
-    private static final long SHUTDOWN_WAIT_SECONDS = 20;
     private static final String FEATURE = "integrations";
 
     /** What the first transaction decides: nothing more to do, or a request ready to make. */
@@ -497,28 +497,16 @@ class WebhookWorker implements SmartLifecycle {
     @Override
     public synchronized void stop() {
         running = false;
-        if (scheduler != null) {
-            scheduler.shutdown();
-            try {
-                if (!scheduler.awaitTermination(SHUTDOWN_WAIT_SECONDS, TimeUnit.SECONDS)) {
-                    scheduler.shutdownNow();
-                }
-            } catch (InterruptedException e) {
-                scheduler.shutdownNow();
-                Thread.currentThread().interrupt();
-            }
-            scheduler = null;
-        }
-        // Work under way is given the time of one send; what is cut off is claimed again when its lease ends.
-        workers.shutdown();
-        try {
-            if (!workers.awaitTermination(settings.delivery().sendTimeout().toSeconds() + 2, TimeUnit.SECONDS)) {
-                workers.shutdownNow();
-            }
-        } catch (InterruptedException e) {
-            workers.shutdownNow();
-            Thread.currentThread().interrupt();
-        }
+        ScheduledExecutorService polling = scheduler;
+        scheduler = null;
+        // The poll and the sends in hand share one grace period; what is cut off is claimed again when its lease ends,
+        // and the delivery identifier lets the receiver recognise a repeat.
+        WorkerStop.drain("webhook worker", polling, workers);
+    }
+
+    @Override
+    public void stop(Runnable callback) {
+        WorkerStop.concurrently("webhook worker", this::stop, callback);
     }
 
     @Override

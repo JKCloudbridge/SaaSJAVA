@@ -1,5 +1,6 @@
 package app.platform.audit.internal;
 
+import app.platform.sharedkernel.lifecycle.WorkerStop;
 import java.sql.Timestamp;
 import java.time.Clock;
 import java.time.Instant;
@@ -80,9 +81,14 @@ class AuditRetention implements SmartLifecycle {
     @Override
     public void stop() {
         if (executor != null) {
-            executor.shutdownNow();
+            WorkerStop.drain("audit retention", executor);
             executor = null;
         }
+    }
+
+    @Override
+    public void stop(Runnable callback) {
+        WorkerStop.concurrently("audit retention", this::stop, callback);
     }
 
     @Override

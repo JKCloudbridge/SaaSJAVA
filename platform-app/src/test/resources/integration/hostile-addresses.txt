@@ -18,6 +18,8 @@ private 172 top | https://172.31.255.255/
 private 192 | https://192.168.1.1/
 shared carrier space | https://100.64.0.1/
 metadata address | https://169.254.169.254/latest/meta-data/
+container credentials endpoint | https://169.254.170.2/v2/credentials/
+cloud ipv6 metadata address | https://[fd00:ec2::254]/latest/meta-data/
 link local | https://169.254.1.1/
 multicast | https://224.0.0.1/
 broadcast | https://255.255.255.255/

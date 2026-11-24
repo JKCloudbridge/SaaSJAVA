@@ -1,23 +1,50 @@
 # Every deployed environment (and the container image). Nothing here is environment specific: hosts, credentials
-# and the trace destination come from environment variables, set by the deployment (Sprint 33 defines how).
-#   Required: PLATFORM_DB_URL, PLATFORM_DB_APP_USER, PLATFORM_DB_APP_PASSWORD,
-#             PLATFORM_DB_OWNER_USER, PLATFORM_DB_OWNER_PASSWORD
+# and the trace destination come from environment variables, set by the deployment (docs/runbooks/environments.md lists
+# every one, and a test keeps that list complete).
+#   Required: PLATFORM_DB_URL, PLATFORM_DB_APP_USER, PLATFORM_DB_APP_PASSWORD
 #             PLATFORM_BASE_DOMAIN (the platform domain; organizations live at <slug>.<domain>)
-#             PLATFORM_STORAGE_BUCKET, PLATFORM_STORAGE_ACCESS_KEY, PLATFORM_STORAGE_SECRET_KEY (the object storage of files)
+#             PLATFORM_STORAGE_BUCKET (and, unless PLATFORM_STORAGE_CREDENTIALS=role, the access key and its secret)
+#   Only while this process migrates the database (PLATFORM_MIGRATE_ON_START=true, the default):
+#             PLATFORM_DB_OWNER_USER, PLATFORM_DB_OWNER_PASSWORD. A deployment migrates in a job of its own and starts the
+#             application with PLATFORM_MIGRATE_ON_START=false, so the application never holds the owner's password.
 #   Optional: PLATFORM_STORAGE_ENDPOINT, PLATFORM_STORAGE_REGION, PLATFORM_STORAGE_PATH_STYLE, PLATFORM_TRUST_FORWARDED_HOST (only behind a trusted proxy), PLATFORM_OUTBOX_ENABLED, PLATFORM_ENVIRONMENT, PLATFORM_TRACE_EXPORT, PLATFORM_TRACE_ENDPOINT, PLATFORM_TRACE_SAMPLING
+spring:
+  flyway:
+    # Sprint 33, ADR-0288. true (the default) keeps what every environment did until now: the instance that starts first
+    # migrates, as the owner. A deployment sets false: the migrations run in a job of their own before the release starts,
+    # and this instance only checks (platform.deployment.schema.verify below) that the schema is not behind it.
+    enabled: ${PLATFORM_MIGRATE_ON_START:true}
+  lifecycle:
+    # How long one phase of a stop may take (the workers, then the in-flight requests). The workers' own grace (15 s) and
+    # the shutdown delay below fit inside it, and the container service's stop timeout is longer than the two phases
+    # together (ADR-0289; scripts/check-drain-numbers.sh keeps the numbers in order).
+    timeout-per-shutdown-phase: ${PLATFORM_SHUTDOWN_TIMEOUT:30s}
 springdoc:
   api-docs:
     # The API description is published deliberately (developer portal, Sprint 30), not by accident.
     enabled: false
 
 platform:
+  deployment:
+    # A stopping instance says "not ready" and keeps serving this long, so the load balancer has stopped sending before
+    # the server stops listening (ADR-0289). At least the balancer's health-check interval times its unhealthy threshold.
+    shutdown-delay: ${PLATFORM_SHUTDOWN_DELAY:10s}
+    # The load balancer of a cloud platform APPENDS to X-Forwarded-For (it does not overwrite), so the first entry is the
+    # caller's own choice. 1 = one trusted proxy added an entry: the right-most one is the caller's address (ADR-0286).
+    # With PLATFORM_TRUST_FORWARDED_FOR off this changes nothing.
+    forwarded-for-hops: ${PLATFORM_FORWARDED_FOR_HOPS:1}
+    schema:
+      # Refuse to start on a schema that is behind this release (only when this process does not migrate).
+      verify: true
   storage:
     # The S3-compatible object storage that holds the bytes of files (ADR-0120). The bucket and the credentials come from
     # the deployment's secret store; the endpoint is only for a store that is not the provider's own (a self-hosted
-    # one, which also needs path style).
+    # one, which also needs path style). credentials: keys (default, an access key and its secret) or role (a role
+    # attached to the container: no key and no secret exist, ADR-0290).
     endpoint: ${PLATFORM_STORAGE_ENDPOINT:}
     region: ${PLATFORM_STORAGE_REGION:us-east-1}
     bucket: ${PLATFORM_STORAGE_BUCKET}
-    access-key: ${PLATFORM_STORAGE_ACCESS_KEY}
-    secret-key: ${PLATFORM_STORAGE_SECRET_KEY}
+    credentials: ${PLATFORM_STORAGE_CREDENTIALS:keys}
+    access-key: ${PLATFORM_STORAGE_ACCESS_KEY:}
+    secret-key: ${PLATFORM_STORAGE_SECRET_KEY:}
     path-style: ${PLATFORM_STORAGE_PATH_STYLE:false}

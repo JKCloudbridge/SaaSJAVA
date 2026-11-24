@@ -1,13 +1,25 @@
-# The rehearsal's ingress: it stands in for the load balancer of a real environment and must behave the way that one
-# will be configured (docs/production-transition-plan.md, sections 4.2 and 4.3).
+# The rehearsal's ingress: it stands in for the load balancer of a real environment and must behave the way that one behaves
+# (docs/runbooks/ingress.md, ADR-0286). The REAL rules (body sizes, time limits, the one honest X-Forwarded-For) are those of
+# deploy/edge/api-rules.caddy, run by the edge sidecar beside every application replica, exactly as in a deployment. This file
+# only does what the load balancer does:
 #
-#   - It keeps the ORIGINAL host name (the host is the tenant) and sets the forwarded headers itself, overwriting
-#     whatever a client sent, so PLATFORM_TRUST_FORWARDED_HOST and _FOR may be on in the application.
-#   - /api goes to the platform application, everything else to the web application (one host: no CORS, first-party cookies).
-#   - The management port (8081) is not routed and /actuator is answered 404 here.
-#   - Request size limits per path (the application bounds only the announced length).
-#   - One wildcard certificate for the platform domain and every organization under it, from the proxy's own local
-#     authority (the real environment uses a certificate from the cloud provider, renewed by it).
+#   - It keeps the ORIGINAL host name (the host is the tenant): the Host header is passed on as it came.
+#   - http is sent to https; https answers with HSTS; one wildcard certificate (the rehearsal's own authority) covers the
+#     platform domain and every organization under it.
+#   - /api goes to the application replicas (their sidecars, port 8080), everything else to the web replicas, on one host.
+#   - The management port (8081) is never routed and /actuator is answered 404 here too.
+#   - A replica is a SLOT (backend-1 to backend-8, web-1 to web-8): the scripts give a replica the name of a free slot. The
+#     ingress checks every slot every second (the application's own readiness, through its sidecar) and sends requests only
+#     to a slot that passes, like a balancer that registers a target only when it is healthy and takes it out when it fails.
+#     A slot with no replica is simply unhealthy. A request is NOT retried (a cloud load balancer does not retry), so whatever a
+#     release does wrong shows up as a failed request and is not hidden here.
+#   - Like a cloud balancer, it APPENDS the caller's address to X-Forwarded-For (trusting what arrives, as a balancer that has
+#     nothing in front of it would have to), and it does not touch an X-Forwarded-Host the caller sent.
+{
+	servers {
+		trusted_proxies static 0.0.0.0/0 ::/0
+	}
+}
 
 {$BASE_DOMAIN}, *.{$BASE_DOMAIN} {
 	tls internal
@@ -21,33 +33,36 @@
 	@management path /actuator /actuator/*
 	respond @management 404
 
-	# The API: files up to 25 MiB, imports 5 MB, bulk 8 MiB; 30 MB is the ceiling of the path.
 	@api path /api/*
 	handle @api {
-		request_body {
-			max_size 30MB
-		}
-		reverse_proxy backend:8080 {
-			header_up Host {host}
-			header_up X-Forwarded-Host {host}
-			header_up X-Forwarded-For {remote_host}
-			header_up X-Forwarded-Proto {scheme}
+		reverse_proxy backend-1:8080 backend-2:8080 backend-3:8080 backend-4:8080 backend-5:8080 backend-6:8080 backend-7:8080 backend-8:8080 {
+			lb_policy least_conn
+			health_uri /edge-ready
+			health_interval 1s
+			health_timeout 1s
+			health_status 200
+			health_passes 2
+			health_fails 1
 			transport http {
-				response_header_timeout 120s
+				dial_timeout 2s
+				response_header_timeout 130s
 			}
 		}
 	}
 
-	# Pages and static files: nothing here takes a large body.
 	handle {
-		request_body {
-			max_size 1MB
-		}
-		reverse_proxy web:3000 {
-			header_up Host {host}
-			header_up X-Forwarded-Host {host}
-			header_up X-Forwarded-For {remote_host}
-			header_up X-Forwarded-Proto {scheme}
+		reverse_proxy web-1:3000 web-2:3000 web-3:3000 web-4:3000 web-5:3000 web-6:3000 web-7:3000 web-8:3000 {
+			lb_policy least_conn
+			health_uri /healthz
+			health_interval 1s
+			health_timeout 1s
+			health_status 200
+			health_passes 2
+			health_fails 1
+			transport http {
+				dial_timeout 2s
+				response_header_timeout 30s
+			}
 		}
 	}
 }

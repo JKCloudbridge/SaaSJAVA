@@ -1,0 +1,49 @@
+# The edge sidecar of an application task (Sprint 33, ADR-0286): it runs in the same task as the application, takes the
+# traffic of the load balancer on port 8080 and forwards it to the application on 127.0.0.1:8090. It exists because the
+# load balancer cannot do three things the platform depends on (see api-rules.caddy): bound a chunked body, overwrite
+# X-Forwarded-For (it appends to what the client sent) and drop a client's X-Forwarded-Host.
+#
+# TRUSTED_CIDR is the network of the load balancer's nodes (the VPC's address range, given by the deployment). Caddy walks
+# X-Forwarded-For from the right, skipping addresses inside it, and the first address outside it is {client_ip}: the
+# caller as the load balancer saw it, whatever the client wrote before it.
+{
+	admin off
+	auto_https off
+	servers {
+		trusted_proxies static {$TRUSTED_CIDR}
+		trusted_proxies_strict
+	}
+}
+
+(proxy_to) {
+	reverse_proxy 127.0.0.1:8090 {
+		header_up Host {host}
+		header_up X-Forwarded-For {client_ip}
+		header_up -X-Forwarded-Host
+		header_up X-Forwarded-Proto https
+		transport http {
+			response_header_timeout {args[0]}
+			dial_timeout 3s
+		}
+	}
+}
+
+:8080 {
+	# The load balancer's health check. It asks the application's own readiness through this sidecar, so a sidecar that is
+	# down or an application that is draining takes the task out of rotation. Nothing else of port 8081 is reachable.
+	handle /edge-ready {
+		rewrite * /actuator/health/readiness
+		reverse_proxy 127.0.0.1:8081 {
+			transport http {
+				response_header_timeout 2s
+				dial_timeout 1s
+			}
+		}
+	}
+
+	# The management endpoints are never served to the outside.
+	@management path /actuator /actuator/*
+	respond @management 404
+
+	import /etc/caddy/api-rules.caddy
+}
