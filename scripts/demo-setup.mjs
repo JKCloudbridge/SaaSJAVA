@@ -9,7 +9,7 @@
 //           node scripts/demo-setup.mjs --check    (reads only: says what is there and what is missing)
 //
 // It can be run again: every step looks for what it would make and leaves it alone when it is there. It never deletes
-// anything. The password of the demo people is LOCAL_SEED_PASSWORD from infra/local/.env (never printed). The steps and
+// anything (one exception: it takes a person out of a group an earlier version put them in, see LEFT_GROUPS). The password of the demo people is LOCAL_SEED_PASSWORD from infra/local/.env (never printed). The steps and
 // the reasons are written in plain words in the demo guide (docs/solutions/inspection.md, "Setting up a demo").
 import { readFileSync } from "node:fs";
 import http from "node:http";
@@ -108,6 +108,7 @@ async function signIn(host, email, password) {
     post: (path, body) => call("POST", path, body ?? {}),
     put: (path, body) => call("PUT", path, body ?? {}),
     patch: (path, body) => call("PATCH", path, body ?? {}),
+    delete: (path) => call("DELETE", path),
   };
 }
 
@@ -138,7 +139,7 @@ async function anonymousPost(host, path, body) {
 
 const REASON = "Demo setup on a developer machine";
 const PEOPLE = [
-  { email: "corp-qms-1@example.test", name: "Corporate QMS 1", groups: ["Corporate QMS"] },
+  { email: "corp-qms-1@example.test", name: "Ashok", groups: ["Corporate QMS"] },
   { email: "corp-qms-2@example.test", name: "Corporate QMS 2", groups: ["Corporate QMS"] },
   { email: "plant-qms-1@example.test", name: "Plant QMS 1", groups: ["Plant QMS"] },
   { email: "plant-qms-2@example.test", name: "Plant QMS 2", groups: ["Plant QMS"] },
@@ -182,17 +183,27 @@ const ROLES = [
   { name: "Management users", parent: "Plant QMS" },
   { name: "Plant head", parent: "Management users" },
 ];
+// The plants of Management Core, one list (Seeding demo 1, 2026-11-20): the Location value (a code), its label and the group
+// that holds its plant heads. A plant is data: a Location value, Department values under it, a Department group record for
+// each department and a group of plant heads. Add a plant here and run the script again.
+const MC_PLANTS = [
+  { value: "PLANT1", label: "PLANT1 - Plant 1", heads: "Plant 1 plant heads" },
+  { value: "PLANT2", label: "PLANT2 - Plant 2", heads: "Plant 2 plant heads" },
+  { value: "PLANT3", label: "PLANT3 - Plant 3", heads: "Plant 3 plant heads" },
+];
+// Names of the demo people (the owner allowed names in the repository for the demo, 2026-11-20). A person that exists keeps
+// the name it has here until scripts/demo-names.ps1 changes it; a new database is invited with these names.
 const MANAGEMENT_PEOPLE = [
   { email: "ceo-1@example.test", name: "CEO 1", groups: ["Level 5"], role: "CEO" },
   { email: "top-management-1@example.test", name: "Top management 1", groups: ["Level 5"], role: "CEO" },
   { email: "department-qms-1@example.test", name: "Department QMS 1", groups: ["Level 2"], role: "Department users" },
-  { email: "management-user-1@example.test", name: "Management user 1", groups: ["Level 2"], role: "Management users" },
+  { email: "nayna@example.test", name: "Nayna", groups: ["Level 2"], role: "Management users" },
   // MC2A: each plant has its own group of plant heads (the people who receive a document published to the plants)
-  { email: "plant-head-1@example.test", name: "Plant head 1", groups: ["Level 1", "Plant 1 plant heads"], role: "Plant head" },
-  { email: "plant-head-2@example.test", name: "Plant head 2", groups: ["Level 1", "Plant 2 plant heads"], role: "Plant head" },
-  { email: "plant-head-3@example.test", name: "Plant head 3", groups: ["Level 1", "Plant 1 plant heads"], role: "Plant head" },
+  { email: "sarah@example.test", name: "Sarah", groups: ["Level 1", "Plant 1 plant heads"], role: "Plant head" },
+  { email: "jennifer@example.test", name: "Jennifer", groups: ["Level 1", "Plant 2 plant heads"], role: "Plant head" },
+  { email: "john@example.test", name: "John", groups: ["Level 1", "Plant 3 plant heads"], role: "Plant head" },
   // The people a creator can choose as reviewers of a plant (one by one, or through the group of reviewers)
-  { email: "reviewer-1@example.test", name: "Reviewer 1", groups: ["Reviewers"], role: "Reviewers" },
+  { email: "mansi@example.test", name: "Mansi", groups: ["Reviewers"], role: "Reviewers" },
   { email: "reviewer-2@example.test", name: "Reviewer 2", groups: ["Review group", "Reviewers"], role: "Reviewers" },
   { email: "reviewer-3@example.test", name: "Reviewer 3", groups: ["Review group", "Reviewers"], role: "Reviewers" },
 ];
@@ -222,6 +233,7 @@ const LEVEL_GROUP_POLICIES = {
   // MC2A: the groups of plant heads that the Department group records of the fixed department point at, one per plant
   "Plant 1 plant heads": ["Filler", "Reader"],
   "Plant 2 plant heads": ["Filler", "Reader"],
+  "Plant 3 plant heads": ["Filler", "Reader"],
   // a group of reviewers a creator can choose for a plant; it holds no access policy of its own
   "Review group": [],
   // Every person who may be chosen as a reviewer (2026-11-17): Reader lets them open the one fill-in they are asked
@@ -237,11 +249,13 @@ const LEVEL_DEPARTMENTS = [
 // MC2A: the department that receives a document published to the plants; each plant points at its own group
 const PLANT_HEAD_DEPARTMENT = { value: "PLANTHEAD", label: "PLANTHEAD - Plant head" };
 const MANAGEMENT_DEPARTMENT_GROUPS = [
-  ...LEVEL_DEPARTMENTS.flatMap((level) => ["PLANT1", "PLANT2"]
-    .map((location) => ({ name: level.group, location, department: level.value }))),
-  { name: "Plant 1 plant heads", location: "PLANT1", department: PLANT_HEAD_DEPARTMENT.value },
-  { name: "Plant 2 plant heads", location: "PLANT2", department: PLANT_HEAD_DEPARTMENT.value },
+  ...LEVEL_DEPARTMENTS.flatMap((level) => MC_PLANTS
+    .map((plant) => ({ name: level.group, location: plant.value, department: level.value }))),
+  ...MC_PLANTS.map((plant) => ({ name: plant.heads, location: plant.value, department: PLANT_HEAD_DEPARTMENT.value })),
 ];
+// A person who was put in a group by an earlier version of this script and no longer belongs there. The script never
+// deletes anything else; these are removed from the group only (the person stays).
+const LEFT_GROUPS = [{ email: "john@example.test", group: "Plant 1 plant heads" }];
 // "Identification F with Part A MC belongs to Management Core"
 const ROUTING_RULE = { identification: "F", partA: "MC", application: "management-core" };
 
@@ -458,28 +472,73 @@ async function ensureRequestProcess(admin, groupIds) {
   say("made", "approval process Change request review (step 1 Plant QMS, step 2 Corporate QMS asks for a location, step 3 Plant QMS publishes)");
 }
 
-/** A value of the Department list (a department the organization publishes to), under both plants. */
-async function ensureDepartmentValue(admin, wanted) {
+/** A value of the Location list (a plant). It is the organization's own list: the shipped file only starts it. */
+async function ensureLocationValue(admin, wanted) {
+  const object = must(await admin.get("/api/v1/metadata/objects/DepartmentGroup"), "reading the Department group object");
+  const location = object.fields.find((f) => f.apiName === "location");
+  const found = location.settings.values.find((v) => v.value === wanted.value);
+  if (found && found.active !== false) return say("ok", `the Location list has ${wanted.label}`);
+  if (checkOnly) return say("missing", `the Location list needs ${wanted.label}`);
+  const values = found
+    ? location.settings.values.map((v) => (v.value === wanted.value ? { ...v, active: true } : v))
+    : [...location.settings.values, { value: wanted.value, label: wanted.label, active: true }];
+  must(
+    await admin.put("/api/v1/metadata/objects/DepartmentGroup/fields/location", {
+      label: location.label,
+      description: location.description,
+      required: location.required,
+      version: location.version,
+      settings: { values },
+    }),
+    "saving the Location list",
+  );
+  say("made", `the Location list: ${wanted.label}`);
+}
+
+/** A value of the Department list (a department the organization publishes to), under the given plants (all three of Management Core by default). */
+async function ensureDepartmentValue(admin, wanted, plants = MC_PLANTS.map((p) => p.value)) {
   const object = must(await admin.get("/api/v1/metadata/objects/DepartmentGroup"), "reading the Department group object");
   const department = object.fields.find((f) => f.apiName === "department");
   const allowed = department.settings.dependency.allowed;
   const hasValue = department.settings.values.some((v) => v.value === wanted.value);
-  const missingPair = (plant) => !(allowed[plant] ?? []).includes(wanted.value);
-  if (hasValue && !missingPair("PLANT1") && !missingPair("PLANT2")) return say("ok", `the Department list has ${wanted.label} under Plant 1 and Plant 2`);
-  if (checkOnly) return say("missing", `the Department list needs ${wanted.label} under Plant 1 and Plant 2`);
+  const missingPlants = plants.filter((plant) => !(allowed[plant] ?? []).includes(wanted.value));
+  const where = plants.join(", ");
+  if (hasValue && missingPlants.length === 0) return say("ok", `the Department list has ${wanted.label} under ${where}`);
+  if (checkOnly) return say("missing", `the Department list needs ${wanted.label} under ${where}`);
   const values = hasValue ? department.settings.values : [...department.settings.values, { value: wanted.value, label: wanted.label, active: true }];
   const withValue = (list = []) => [...new Set([...list, wanted.value])];
+  const next = { ...allowed };
+  for (const plant of plants) next[plant] = withValue(allowed[plant]);
   must(
     await admin.put("/api/v1/metadata/objects/DepartmentGroup/fields/department", {
       label: department.label,
       description: department.description,
       required: department.required,
       version: department.version,
-      settings: { values, dependency: { controllingField: "location", allowed: { ...allowed, PLANT1: withValue(allowed.PLANT1), PLANT2: withValue(allowed.PLANT2) } } },
+      settings: { values, dependency: { controllingField: "location", allowed: next } },
     }),
     "saving the Department list",
   );
-  say("made", `the Department list: ${wanted.label} under Plant 1 and Plant 2`);
+  say("made", `the Department list: ${wanted.label} under ${where}`);
+}
+
+/** Takes a person out of a group an earlier version of this script put them in (the person and everything else stay). */
+async function ensureLeftGroups(admin) {
+  const members = must(await admin.get("/api/v1/members"), "reading members");
+  const groups = must(await admin.get("/api/v1/groups"), "reading groups");
+  for (const left of LEFT_GROUPS) {
+    const email = OVERRIDES[left.email] ?? left.email;
+    const member = members.find((m) => m.email === email);
+    const group = groups.find((g) => g.name === left.group);
+    if (!member || !group || !group.people.includes(member.id)) {
+      say("ok", `${left.email} is not in ${left.group}`);
+    } else if (checkOnly) {
+      say("missing", `${left.email} leaves ${left.group}`);
+    } else {
+      must(await admin.delete(`/api/v1/groups/${group.id}/members/people/${member.id}`), `taking ${left.email} out of ${left.group}`);
+      say("made", `${left.email} left ${left.group}`);
+    }
+  }
 }
 
 /** The roles of the tree, and the role of each person who has one. Roles decide nothing about who sees a document. */
@@ -602,7 +661,12 @@ async function main() {
   const members = await ensurePeople(admin, password);
   const groupIds = await ensureGroups(admin, members);
   await ensureLists(admin);
-  if (hasManagementCore) for (const level of [...LEVEL_DEPARTMENTS, PLANT_HEAD_DEPARTMENT]) await ensureDepartmentValue(admin, level);
+  if (hasManagementCore) {
+    // the plants first (the Department list is dependent on the Location list), then the departments under every plant
+    for (const plant of MC_PLANTS) await ensureLocationValue(admin, plant);
+    for (const level of [...LEVEL_DEPARTMENTS, PLANT_HEAD_DEPARTMENT]) await ensureDepartmentValue(admin, level);
+    await ensureLeftGroups(admin);
+  }
   await ensureDepartmentGroups(admin, groupIds);
   await ensureProcess(admin, groupIds);
   await ensureRequestProcess(admin, groupIds);

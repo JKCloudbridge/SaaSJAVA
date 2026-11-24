@@ -1,7 +1,7 @@
 {
   "openapi" : "3.1.0",
   "info" : {
-    "description" : "The public API of the platform: create, read, change, delete, restore, query and bulk-write the records of the objects of an organization, for the software of that organization. Standard and custom objects are used in exactly the same way. Every successful body is {\"data\": ...} (a page adds \"pagination\"); every failure is {\"error\": {code, message, fields?, requestId, traceId?}}; branch on the code, never on the message. Inside version v1 a change only adds; a breaking change is a new version beside this one, and anything that is retired is announced at least 12 months before it goes. Who may see or change what is decided on every request by the permissions of the member the token stands for, exactly as in the application: a scope only lets a request reach an operation, and never gives a right the member does not have. Software gets its tokens with a client identifier and a client secret (OAuth client credentials, see the security scheme clientCredentials); a person's own token works too.",
+    "description" : "The public API of the platform: create, read, change, delete, restore, query and bulk-write the records of the objects of an organization, for the software of that organization. Standard and custom objects are used in exactly the same way. Every successful body is {\"data\": ...} (a page adds \"pagination\"); every failure is {\"error\": {code, message, fields?, requestId, traceId?}}; branch on the code, never on the message. Inside version v1 a change only adds; a breaking change is a new version beside this one, and anything that is retired is announced at least 12 months before it goes. Who may see or change what is decided on every request by the permissions of the member the token stands for, exactly as in the application: a scope only lets a request reach an operation, and never gives a right the member does not have. Software gets its tokens with a client identifier and a client secret (OAuth client credentials, see the security scheme clientCredentials); a person's own token works too. Every request is counted against a rate a minute and a quota a day, stated in the RateLimit-Policy and RateLimit headers of every answer; when one is reached the answer is 429 with Retry-After.",
     "title" : "Public API",
     "version" : "v1"
   },
@@ -44,6 +44,18 @@
                 "schema" : {
                   "type" : "string",
                   "example" : "v1"
+                }
+              },
+              "RateLimit" : {
+                "description" : "What is left, one item for each window: r what remains and t the seconds until the window ends, for example `\"minute\";r=120;t=33, \"day\";r=499000;t=40000`. A request that fits is answered; when r is 0 wait t seconds. Read it on every answer and slow down before it reaches zero.",
+                "schema" : {
+                  "type" : "string"
+                }
+              },
+              "RateLimit-Policy" : {
+                "description" : "The limits that apply, one item for each window: the name, q the most requests in the window and w the length of the window in seconds, for example `\"minute\";q=600;w=60, \"day\";q=500000;w=86400`. Absent when the platform has switched the limits off.",
+                "schema" : {
+                  "type" : "string"
                 }
               },
               "X-Request-ID" : {
@@ -96,6 +108,18 @@
                   "example" : "v1"
                 }
               },
+              "RateLimit" : {
+                "description" : "What is left, one item for each window: r what remains and t the seconds until the window ends, for example `\"minute\";r=120;t=33, \"day\";r=499000;t=40000`. A request that fits is answered; when r is 0 wait t seconds. Read it on every answer and slow down before it reaches zero.",
+                "schema" : {
+                  "type" : "string"
+                }
+              },
+              "RateLimit-Policy" : {
+                "description" : "The limits that apply, one item for each window: the name, q the most requests in the window and w the length of the window in seconds, for example `\"minute\";q=600;w=60, \"day\";q=500000;w=86400`. Absent when the platform has switched the limits off.",
+                "schema" : {
+                  "type" : "string"
+                }
+              },
               "X-Request-ID" : {
                 "description" : "Identifies the request. Send your own (8 to 64 letters, digits, dot, underscore or hyphen) or one is made. Quote it when asking for support.",
                 "schema" : {
@@ -121,6 +145,18 @@
                   "example" : "v1"
                 }
               },
+              "RateLimit" : {
+                "description" : "What is left, one item for each window: r what remains and t the seconds until the window ends, for example `\"minute\";r=120;t=33, \"day\";r=499000;t=40000`. A request that fits is answered; when r is 0 wait t seconds. Read it on every answer and slow down before it reaches zero.",
+                "schema" : {
+                  "type" : "string"
+                }
+              },
+              "RateLimit-Policy" : {
+                "description" : "The limits that apply, one item for each window: the name, q the most requests in the window and w the length of the window in seconds, for example `\"minute\";q=600;w=60, \"day\";q=500000;w=86400`. Absent when the platform has switched the limits off.",
+                "schema" : {
+                  "type" : "string"
+                }
+              },
               "X-Request-ID" : {
                 "description" : "Identifies the request. Send your own (8 to 64 letters, digits, dot, underscore or hyphen) or one is made. Quote it when asking for support.",
                 "schema" : {
@@ -137,13 +173,31 @@
                 }
               }
             },
-            "description" : "The organization has too many requests in progress. Try again after the number of seconds in the Retry-After header.",
+            "description" : "Too many requests: a rate or a quota was reached, or the organization has too many requests in progress. The words never say which limit was full. Wait the whole number of seconds in the Retry-After header and read the RateLimit headers; a bulk call counts as many requests as it has records.",
             "headers" : {
               "API-Version" : {
                 "description" : "The major version of the public API that answered.",
                 "schema" : {
                   "type" : "string",
                   "example" : "v1"
+                }
+              },
+              "RateLimit" : {
+                "description" : "What is left, one item for each window: r what remains and t the seconds until the window ends, for example `\"minute\";r=120;t=33, \"day\";r=499000;t=40000`. A request that fits is answered; when r is 0 wait t seconds. Read it on every answer and slow down before it reaches zero.",
+                "schema" : {
+                  "type" : "string"
+                }
+              },
+              "RateLimit-Policy" : {
+                "description" : "The limits that apply, one item for each window: the name, q the most requests in the window and w the length of the window in seconds, for example `\"minute\";q=600;w=60, \"day\";q=500000;w=86400`. Absent when the platform has switched the limits off.",
+                "schema" : {
+                  "type" : "string"
+                }
+              },
+              "Retry-After" : {
+                "description" : "The whole number of seconds to wait before asking again.",
+                "schema" : {
+                  "type" : "string"
                 }
               },
               "X-Request-ID" : {
@@ -171,6 +225,18 @@
                   "example" : "v1"
                 }
               },
+              "RateLimit" : {
+                "description" : "What is left, one item for each window: r what remains and t the seconds until the window ends, for example `\"minute\";r=120;t=33, \"day\";r=499000;t=40000`. A request that fits is answered; when r is 0 wait t seconds. Read it on every answer and slow down before it reaches zero.",
+                "schema" : {
+                  "type" : "string"
+                }
+              },
+              "RateLimit-Policy" : {
+                "description" : "The limits that apply, one item for each window: the name, q the most requests in the window and w the length of the window in seconds, for example `\"minute\";q=600;w=60, \"day\";q=500000;w=86400`. Absent when the platform has switched the limits off.",
+                "schema" : {
+                  "type" : "string"
+                }
+              },
               "X-Request-ID" : {
                 "description" : "Identifies the request. Send your own (8 to 64 letters, digits, dot, underscore or hyphen) or one is made. Quote it when asking for support.",
                 "schema" : {
@@ -196,6 +262,18 @@
                   "example" : "v1"
                 }
               },
+              "RateLimit" : {
+                "description" : "What is left, one item for each window: r what remains and t the seconds until the window ends, for example `\"minute\";r=120;t=33, \"day\";r=499000;t=40000`. A request that fits is answered; when r is 0 wait t seconds. Read it on every answer and slow down before it reaches zero.",
+                "schema" : {
+                  "type" : "string"
+                }
+              },
+              "RateLimit-Policy" : {
+                "description" : "The limits that apply, one item for each window: the name, q the most requests in the window and w the length of the window in seconds, for example `\"minute\";q=600;w=60, \"day\";q=500000;w=86400`. Absent when the platform has switched the limits off.",
+                "schema" : {
+                  "type" : "string"
+                }
+              },
               "X-Request-ID" : {
                 "description" : "Identifies the request. Send your own (8 to 64 letters, digits, dot, underscore or hyphen) or one is made. Quote it when asking for support.",
                 "schema" : {
@@ -219,6 +297,18 @@
                 "schema" : {
                   "type" : "string",
                   "example" : "v1"
+                }
+              },
+              "RateLimit" : {
+                "description" : "What is left, one item for each window: r what remains and t the seconds until the window ends, for example `\"minute\";r=120;t=33, \"day\";r=499000;t=40000`. A request that fits is answered; when r is 0 wait t seconds. Read it on every answer and slow down before it reaches zero.",
+                "schema" : {
+                  "type" : "string"
+                }
+              },
+              "RateLimit-Policy" : {
+                "description" : "The limits that apply, one item for each window: the name, q the most requests in the window and w the length of the window in seconds, for example `\"minute\";q=600;w=60, \"day\";q=500000;w=86400`. Absent when the platform has switched the limits off.",
+                "schema" : {
+                  "type" : "string"
                 }
               },
               "X-Request-ID" : {
@@ -269,6 +359,18 @@
                   "example" : "v1"
                 }
               },
+              "RateLimit" : {
+                "description" : "What is left, one item for each window: r what remains and t the seconds until the window ends, for example `\"minute\";r=120;t=33, \"day\";r=499000;t=40000`. A request that fits is answered; when r is 0 wait t seconds. Read it on every answer and slow down before it reaches zero.",
+                "schema" : {
+                  "type" : "string"
+                }
+              },
+              "RateLimit-Policy" : {
+                "description" : "The limits that apply, one item for each window: the name, q the most requests in the window and w the length of the window in seconds, for example `\"minute\";q=600;w=60, \"day\";q=500000;w=86400`. Absent when the platform has switched the limits off.",
+                "schema" : {
+                  "type" : "string"
+                }
+              },
               "X-Request-ID" : {
                 "description" : "Identifies the request. Send your own (8 to 64 letters, digits, dot, underscore or hyphen) or one is made. Quote it when asking for support.",
                 "schema" : {
@@ -319,6 +421,18 @@
                   "example" : "v1"
                 }
               },
+              "RateLimit" : {
+                "description" : "What is left, one item for each window: r what remains and t the seconds until the window ends, for example `\"minute\";r=120;t=33, \"day\";r=499000;t=40000`. A request that fits is answered; when r is 0 wait t seconds. Read it on every answer and slow down before it reaches zero.",
+                "schema" : {
+                  "type" : "string"
+                }
+              },
+              "RateLimit-Policy" : {
+                "description" : "The limits that apply, one item for each window: the name, q the most requests in the window and w the length of the window in seconds, for example `\"minute\";q=600;w=60, \"day\";q=500000;w=86400`. Absent when the platform has switched the limits off.",
+                "schema" : {
+                  "type" : "string"
+                }
+              },
               "X-Request-ID" : {
                 "description" : "Identifies the request. Send your own (8 to 64 letters, digits, dot, underscore or hyphen) or one is made. Quote it when asking for support.",
                 "schema" : {
@@ -344,6 +458,18 @@
                   "example" : "v1"
                 }
               },
+              "RateLimit" : {
+                "description" : "What is left, one item for each window: r what remains and t the seconds until the window ends, for example `\"minute\";r=120;t=33, \"day\";r=499000;t=40000`. A request that fits is answered; when r is 0 wait t seconds. Read it on every answer and slow down before it reaches zero.",
+                "schema" : {
+                  "type" : "string"
+                }
+              },
+              "RateLimit-Policy" : {
+                "description" : "The limits that apply, one item for each window: the name, q the most requests in the window and w the length of the window in seconds, for example `\"minute\";q=600;w=60, \"day\";q=500000;w=86400`. Absent when the platform has switched the limits off.",
+                "schema" : {
+                  "type" : "string"
+                }
+              },
               "X-Request-ID" : {
                 "description" : "Identifies the request. Send your own (8 to 64 letters, digits, dot, underscore or hyphen) or one is made. Quote it when asking for support.",
                 "schema" : {
@@ -360,13 +486,31 @@
                 }
               }
             },
-            "description" : "The organization has too many requests in progress. Try again after the number of seconds in the Retry-After header.",
+            "description" : "Too many requests: a rate or a quota was reached, or the organization has too many requests in progress. The words never say which limit was full. Wait the whole number of seconds in the Retry-After header and read the RateLimit headers; a bulk call counts as many requests as it has records.",
             "headers" : {
               "API-Version" : {
                 "description" : "The major version of the public API that answered.",
                 "schema" : {
                   "type" : "string",
                   "example" : "v1"
+                }
+              },
+              "RateLimit" : {
+                "description" : "What is left, one item for each window: r what remains and t the seconds until the window ends, for example `\"minute\";r=120;t=33, \"day\";r=499000;t=40000`. A request that fits is answered; when r is 0 wait t seconds. Read it on every answer and slow down before it reaches zero.",
+                "schema" : {
+                  "type" : "string"
+                }
+              },
+              "RateLimit-Policy" : {
+                "description" : "The limits that apply, one item for each window: the name, q the most requests in the window and w the length of the window in seconds, for example `\"minute\";q=600;w=60, \"day\";q=500000;w=86400`. Absent when the platform has switched the limits off.",
+                "schema" : {
+                  "type" : "string"
+                }
+              },
+              "Retry-After" : {
+                "description" : "The whole number of seconds to wait before asking again.",
+                "schema" : {
+                  "type" : "string"
                 }
               },
               "X-Request-ID" : {
@@ -394,6 +538,18 @@
                   "example" : "v1"
                 }
               },
+              "RateLimit" : {
+                "description" : "What is left, one item for each window: r what remains and t the seconds until the window ends, for example `\"minute\";r=120;t=33, \"day\";r=499000;t=40000`. A request that fits is answered; when r is 0 wait t seconds. Read it on every answer and slow down before it reaches zero.",
+                "schema" : {
+                  "type" : "string"
+                }
+              },
+              "RateLimit-Policy" : {
+                "description" : "The limits that apply, one item for each window: the name, q the most requests in the window and w the length of the window in seconds, for example `\"minute\";q=600;w=60, \"day\";q=500000;w=86400`. Absent when the platform has switched the limits off.",
+                "schema" : {
+                  "type" : "string"
+                }
+              },
               "X-Request-ID" : {
                 "description" : "Identifies the request. Send your own (8 to 64 letters, digits, dot, underscore or hyphen) or one is made. Quote it when asking for support.",
                 "schema" : {
@@ -419,6 +575,18 @@
                   "example" : "v1"
                 }
               },
+              "RateLimit" : {
+                "description" : "What is left, one item for each window: r what remains and t the seconds until the window ends, for example `\"minute\";r=120;t=33, \"day\";r=499000;t=40000`. A request that fits is answered; when r is 0 wait t seconds. Read it on every answer and slow down before it reaches zero.",
+                "schema" : {
+                  "type" : "string"
+                }
+              },
+              "RateLimit-Policy" : {
+                "description" : "The limits that apply, one item for each window: the name, q the most requests in the window and w the length of the window in seconds, for example `\"minute\";q=600;w=60, \"day\";q=500000;w=86400`. Absent when the platform has switched the limits off.",
+                "schema" : {
+                  "type" : "string"
+                }
+              },
               "X-Request-ID" : {
                 "description" : "Identifies the request. Send your own (8 to 64 letters, digits, dot, underscore or hyphen) or one is made. Quote it when asking for support.",
                 "schema" : {
@@ -442,6 +610,18 @@
                 "schema" : {
                   "type" : "string",
                   "example" : "v1"
+                }
+              },
+              "RateLimit" : {
+                "description" : "What is left, one item for each window: r what remains and t the seconds until the window ends, for example `\"minute\";r=120;t=33, \"day\";r=499000;t=40000`. A request that fits is answered; when r is 0 wait t seconds. Read it on every answer and slow down before it reaches zero.",
+                "schema" : {
+                  "type" : "string"
+                }
+              },
+              "RateLimit-Policy" : {
+                "description" : "The limits that apply, one item for each window: the name, q the most requests in the window and w the length of the window in seconds, for example `\"minute\";q=600;w=60, \"day\";q=500000;w=86400`. Absent when the platform has switched the limits off.",
+                "schema" : {
+                  "type" : "string"
                 }
               },
               "X-Request-ID" : {
@@ -510,6 +690,18 @@
                   "example" : "v1"
                 }
               },
+              "RateLimit" : {
+                "description" : "What is left, one item for each window: r what remains and t the seconds until the window ends, for example `\"minute\";r=120;t=33, \"day\";r=499000;t=40000`. A request that fits is answered; when r is 0 wait t seconds. Read it on every answer and slow down before it reaches zero.",
+                "schema" : {
+                  "type" : "string"
+                }
+              },
+              "RateLimit-Policy" : {
+                "description" : "The limits that apply, one item for each window: the name, q the most requests in the window and w the length of the window in seconds, for example `\"minute\";q=600;w=60, \"day\";q=500000;w=86400`. Absent when the platform has switched the limits off.",
+                "schema" : {
+                  "type" : "string"
+                }
+              },
               "X-Request-ID" : {
                 "description" : "Identifies the request. Send your own (8 to 64 letters, digits, dot, underscore or hyphen) or one is made. Quote it when asking for support.",
                 "schema" : {
@@ -533,6 +725,18 @@
                 "schema" : {
                   "type" : "string",
                   "example" : "v1"
+                }
+              },
+              "RateLimit" : {
+                "description" : "What is left, one item for each window: r what remains and t the seconds until the window ends, for example `\"minute\";r=120;t=33, \"day\";r=499000;t=40000`. A request that fits is answered; when r is 0 wait t seconds. Read it on every answer and slow down before it reaches zero.",
+                "schema" : {
+                  "type" : "string"
+                }
+              },
+              "RateLimit-Policy" : {
+                "description" : "The limits that apply, one item for each window: the name, q the most requests in the window and w the length of the window in seconds, for example `\"minute\";q=600;w=60, \"day\";q=500000;w=86400`. Absent when the platform has switched the limits off.",
+                "schema" : {
+                  "type" : "string"
                 }
               },
               "X-Request-ID" : {
@@ -585,6 +789,18 @@
                   "example" : "v1"
                 }
               },
+              "RateLimit" : {
+                "description" : "What is left, one item for each window: r what remains and t the seconds until the window ends, for example `\"minute\";r=120;t=33, \"day\";r=499000;t=40000`. A request that fits is answered; when r is 0 wait t seconds. Read it on every answer and slow down before it reaches zero.",
+                "schema" : {
+                  "type" : "string"
+                }
+              },
+              "RateLimit-Policy" : {
+                "description" : "The limits that apply, one item for each window: the name, q the most requests in the window and w the length of the window in seconds, for example `\"minute\";q=600;w=60, \"day\";q=500000;w=86400`. Absent when the platform has switched the limits off.",
+                "schema" : {
+                  "type" : "string"
+                }
+              },
               "X-Request-ID" : {
                 "description" : "Identifies the request. Send your own (8 to 64 letters, digits, dot, underscore or hyphen) or one is made. Quote it when asking for support.",
                 "schema" : {
@@ -608,6 +824,18 @@
                 "schema" : {
                   "type" : "string",
                   "example" : "v1"
+                }
+              },
+              "RateLimit" : {
+                "description" : "What is left, one item for each window: r what remains and t the seconds until the window ends, for example `\"minute\";r=120;t=33, \"day\";r=499000;t=40000`. A request that fits is answered; when r is 0 wait t seconds. Read it on every answer and slow down before it reaches zero.",
+                "schema" : {
+                  "type" : "string"
+                }
+              },
+              "RateLimit-Policy" : {
+                "description" : "The limits that apply, one item for each window: the name, q the most requests in the window and w the length of the window in seconds, for example `\"minute\";q=600;w=60, \"day\";q=500000;w=86400`. Absent when the platform has switched the limits off.",
+                "schema" : {
+                  "type" : "string"
                 }
               },
               "X-Request-ID" : {
@@ -635,6 +863,18 @@
                   "example" : "v1"
                 }
               },
+              "RateLimit" : {
+                "description" : "What is left, one item for each window: r what remains and t the seconds until the window ends, for example `\"minute\";r=120;t=33, \"day\";r=499000;t=40000`. A request that fits is answered; when r is 0 wait t seconds. Read it on every answer and slow down before it reaches zero.",
+                "schema" : {
+                  "type" : "string"
+                }
+              },
+              "RateLimit-Policy" : {
+                "description" : "The limits that apply, one item for each window: the name, q the most requests in the window and w the length of the window in seconds, for example `\"minute\";q=600;w=60, \"day\";q=500000;w=86400`. Absent when the platform has switched the limits off.",
+                "schema" : {
+                  "type" : "string"
+                }
+              },
               "X-Request-ID" : {
                 "description" : "Identifies the request. Send your own (8 to 64 letters, digits, dot, underscore or hyphen) or one is made. Quote it when asking for support.",
                 "schema" : {
@@ -658,6 +898,18 @@
                 "schema" : {
                   "type" : "string",
                   "example" : "v1"
+                }
+              },
+              "RateLimit" : {
+                "description" : "What is left, one item for each window: r what remains and t the seconds until the window ends, for example `\"minute\";r=120;t=33, \"day\";r=499000;t=40000`. A request that fits is answered; when r is 0 wait t seconds. Read it on every answer and slow down before it reaches zero.",
+                "schema" : {
+                  "type" : "string"
+                }
+              },
+              "RateLimit-Policy" : {
+                "description" : "The limits that apply, one item for each window: the name, q the most requests in the window and w the length of the window in seconds, for example `\"minute\";q=600;w=60, \"day\";q=500000;w=86400`. Absent when the platform has switched the limits off.",
+                "schema" : {
+                  "type" : "string"
                 }
               },
               "X-Request-ID" : {
@@ -685,6 +937,18 @@
                   "example" : "v1"
                 }
               },
+              "RateLimit" : {
+                "description" : "What is left, one item for each window: r what remains and t the seconds until the window ends, for example `\"minute\";r=120;t=33, \"day\";r=499000;t=40000`. A request that fits is answered; when r is 0 wait t seconds. Read it on every answer and slow down before it reaches zero.",
+                "schema" : {
+                  "type" : "string"
+                }
+              },
+              "RateLimit-Policy" : {
+                "description" : "The limits that apply, one item for each window: the name, q the most requests in the window and w the length of the window in seconds, for example `\"minute\";q=600;w=60, \"day\";q=500000;w=86400`. Absent when the platform has switched the limits off.",
+                "schema" : {
+                  "type" : "string"
+                }
+              },
               "X-Request-ID" : {
                 "description" : "Identifies the request. Send your own (8 to 64 letters, digits, dot, underscore or hyphen) or one is made. Quote it when asking for support.",
                 "schema" : {
@@ -701,13 +965,31 @@
                 }
               }
             },
-            "description" : "The organization has too many requests in progress. Try again after the number of seconds in the Retry-After header.",
+            "description" : "Too many requests: a rate or a quota was reached, or the organization has too many requests in progress. The words never say which limit was full. Wait the whole number of seconds in the Retry-After header and read the RateLimit headers; a bulk call counts as many requests as it has records.",
             "headers" : {
               "API-Version" : {
                 "description" : "The major version of the public API that answered.",
                 "schema" : {
                   "type" : "string",
                   "example" : "v1"
+                }
+              },
+              "RateLimit" : {
+                "description" : "What is left, one item for each window: r what remains and t the seconds until the window ends, for example `\"minute\";r=120;t=33, \"day\";r=499000;t=40000`. A request that fits is answered; when r is 0 wait t seconds. Read it on every answer and slow down before it reaches zero.",
+                "schema" : {
+                  "type" : "string"
+                }
+              },
+              "RateLimit-Policy" : {
+                "description" : "The limits that apply, one item for each window: the name, q the most requests in the window and w the length of the window in seconds, for example `\"minute\";q=600;w=60, \"day\";q=500000;w=86400`. Absent when the platform has switched the limits off.",
+                "schema" : {
+                  "type" : "string"
+                }
+              },
+              "Retry-After" : {
+                "description" : "The whole number of seconds to wait before asking again.",
+                "schema" : {
+                  "type" : "string"
                 }
               },
               "X-Request-ID" : {
@@ -735,6 +1017,18 @@
                   "example" : "v1"
                 }
               },
+              "RateLimit" : {
+                "description" : "What is left, one item for each window: r what remains and t the seconds until the window ends, for example `\"minute\";r=120;t=33, \"day\";r=499000;t=40000`. A request that fits is answered; when r is 0 wait t seconds. Read it on every answer and slow down before it reaches zero.",
+                "schema" : {
+                  "type" : "string"
+                }
+              },
+              "RateLimit-Policy" : {
+                "description" : "The limits that apply, one item for each window: the name, q the most requests in the window and w the length of the window in seconds, for example `\"minute\";q=600;w=60, \"day\";q=500000;w=86400`. Absent when the platform has switched the limits off.",
+                "schema" : {
+                  "type" : "string"
+                }
+              },
               "X-Request-ID" : {
                 "description" : "Identifies the request. Send your own (8 to 64 letters, digits, dot, underscore or hyphen) or one is made. Quote it when asking for support.",
                 "schema" : {
@@ -760,6 +1054,18 @@
                   "example" : "v1"
                 }
               },
+              "RateLimit" : {
+                "description" : "What is left, one item for each window: r what remains and t the seconds until the window ends, for example `\"minute\";r=120;t=33, \"day\";r=499000;t=40000`. A request that fits is answered; when r is 0 wait t seconds. Read it on every answer and slow down before it reaches zero.",
+                "schema" : {
+                  "type" : "string"
+                }
+              },
+              "RateLimit-Policy" : {
+                "description" : "The limits that apply, one item for each window: the name, q the most requests in the window and w the length of the window in seconds, for example `\"minute\";q=600;w=60, \"day\";q=500000;w=86400`. Absent when the platform has switched the limits off.",
+                "schema" : {
+                  "type" : "string"
+                }
+              },
               "X-Request-ID" : {
                 "description" : "Identifies the request. Send your own (8 to 64 letters, digits, dot, underscore or hyphen) or one is made. Quote it when asking for support.",
                 "schema" : {
@@ -783,6 +1089,18 @@
                 "schema" : {
                   "type" : "string",
                   "example" : "v1"
+                }
+              },
+              "RateLimit" : {
+                "description" : "What is left, one item for each window: r what remains and t the seconds until the window ends, for example `\"minute\";r=120;t=33, \"day\";r=499000;t=40000`. A request that fits is answered; when r is 0 wait t seconds. Read it on every answer and slow down before it reaches zero.",
+                "schema" : {
+                  "type" : "string"
+                }
+              },
+              "RateLimit-Policy" : {
+                "description" : "The limits that apply, one item for each window: the name, q the most requests in the window and w the length of the window in seconds, for example `\"minute\";q=600;w=60, \"day\";q=500000;w=86400`. Absent when the platform has switched the limits off.",
+                "schema" : {
+                  "type" : "string"
                 }
               },
               "X-Request-ID" : {
@@ -851,6 +1169,18 @@
                   "example" : "v1"
                 }
               },
+              "RateLimit" : {
+                "description" : "What is left, one item for each window: r what remains and t the seconds until the window ends, for example `\"minute\";r=120;t=33, \"day\";r=499000;t=40000`. A request that fits is answered; when r is 0 wait t seconds. Read it on every answer and slow down before it reaches zero.",
+                "schema" : {
+                  "type" : "string"
+                }
+              },
+              "RateLimit-Policy" : {
+                "description" : "The limits that apply, one item for each window: the name, q the most requests in the window and w the length of the window in seconds, for example `\"minute\";q=600;w=60, \"day\";q=500000;w=86400`. Absent when the platform has switched the limits off.",
+                "schema" : {
+                  "type" : "string"
+                }
+              },
               "X-Request-ID" : {
                 "description" : "Identifies the request. Send your own (8 to 64 letters, digits, dot, underscore or hyphen) or one is made. Quote it when asking for support.",
                 "schema" : {
@@ -874,6 +1204,18 @@
                 "schema" : {
                   "type" : "string",
                   "example" : "v1"
+                }
+              },
+              "RateLimit" : {
+                "description" : "What is left, one item for each window: r what remains and t the seconds until the window ends, for example `\"minute\";r=120;t=33, \"day\";r=499000;t=40000`. A request that fits is answered; when r is 0 wait t seconds. Read it on every answer and slow down before it reaches zero.",
+                "schema" : {
+                  "type" : "string"
+                }
+              },
+              "RateLimit-Policy" : {
+                "description" : "The limits that apply, one item for each window: the name, q the most requests in the window and w the length of the window in seconds, for example `\"minute\";q=600;w=60, \"day\";q=500000;w=86400`. Absent when the platform has switched the limits off.",
+                "schema" : {
+                  "type" : "string"
                 }
               },
               "X-Request-ID" : {
@@ -926,6 +1268,18 @@
                   "example" : "v1"
                 }
               },
+              "RateLimit" : {
+                "description" : "What is left, one item for each window: r what remains and t the seconds until the window ends, for example `\"minute\";r=120;t=33, \"day\";r=499000;t=40000`. A request that fits is answered; when r is 0 wait t seconds. Read it on every answer and slow down before it reaches zero.",
+                "schema" : {
+                  "type" : "string"
+                }
+              },
+              "RateLimit-Policy" : {
+                "description" : "The limits that apply, one item for each window: the name, q the most requests in the window and w the length of the window in seconds, for example `\"minute\";q=600;w=60, \"day\";q=500000;w=86400`. Absent when the platform has switched the limits off.",
+                "schema" : {
+                  "type" : "string"
+                }
+              },
               "X-Request-ID" : {
                 "description" : "Identifies the request. Send your own (8 to 64 letters, digits, dot, underscore or hyphen) or one is made. Quote it when asking for support.",
                 "schema" : {
@@ -949,6 +1303,18 @@
                 "schema" : {
                   "type" : "string",
                   "example" : "v1"
+                }
+              },
+              "RateLimit" : {
+                "description" : "What is left, one item for each window: r what remains and t the seconds until the window ends, for example `\"minute\";r=120;t=33, \"day\";r=499000;t=40000`. A request that fits is answered; when r is 0 wait t seconds. Read it on every answer and slow down before it reaches zero.",
+                "schema" : {
+                  "type" : "string"
+                }
+              },
+              "RateLimit-Policy" : {
+                "description" : "The limits that apply, one item for each window: the name, q the most requests in the window and w the length of the window in seconds, for example `\"minute\";q=600;w=60, \"day\";q=500000;w=86400`. Absent when the platform has switched the limits off.",
+                "schema" : {
+                  "type" : "string"
                 }
               },
               "X-Request-ID" : {
@@ -976,6 +1342,18 @@
                   "example" : "v1"
                 }
               },
+              "RateLimit" : {
+                "description" : "What is left, one item for each window: r what remains and t the seconds until the window ends, for example `\"minute\";r=120;t=33, \"day\";r=499000;t=40000`. A request that fits is answered; when r is 0 wait t seconds. Read it on every answer and slow down before it reaches zero.",
+                "schema" : {
+                  "type" : "string"
+                }
+              },
+              "RateLimit-Policy" : {
+                "description" : "The limits that apply, one item for each window: the name, q the most requests in the window and w the length of the window in seconds, for example `\"minute\";q=600;w=60, \"day\";q=500000;w=86400`. Absent when the platform has switched the limits off.",
+                "schema" : {
+                  "type" : "string"
+                }
+              },
               "X-Request-ID" : {
                 "description" : "Identifies the request. Send your own (8 to 64 letters, digits, dot, underscore or hyphen) or one is made. Quote it when asking for support.",
                 "schema" : {
@@ -999,6 +1377,18 @@
                 "schema" : {
                   "type" : "string",
                   "example" : "v1"
+                }
+              },
+              "RateLimit" : {
+                "description" : "What is left, one item for each window: r what remains and t the seconds until the window ends, for example `\"minute\";r=120;t=33, \"day\";r=499000;t=40000`. A request that fits is answered; when r is 0 wait t seconds. Read it on every answer and slow down before it reaches zero.",
+                "schema" : {
+                  "type" : "string"
+                }
+              },
+              "RateLimit-Policy" : {
+                "description" : "The limits that apply, one item for each window: the name, q the most requests in the window and w the length of the window in seconds, for example `\"minute\";q=600;w=60, \"day\";q=500000;w=86400`. Absent when the platform has switched the limits off.",
+                "schema" : {
+                  "type" : "string"
                 }
               },
               "X-Request-ID" : {
@@ -1026,6 +1416,18 @@
                   "example" : "v1"
                 }
               },
+              "RateLimit" : {
+                "description" : "What is left, one item for each window: r what remains and t the seconds until the window ends, for example `\"minute\";r=120;t=33, \"day\";r=499000;t=40000`. A request that fits is answered; when r is 0 wait t seconds. Read it on every answer and slow down before it reaches zero.",
+                "schema" : {
+                  "type" : "string"
+                }
+              },
+              "RateLimit-Policy" : {
+                "description" : "The limits that apply, one item for each window: the name, q the most requests in the window and w the length of the window in seconds, for example `\"minute\";q=600;w=60, \"day\";q=500000;w=86400`. Absent when the platform has switched the limits off.",
+                "schema" : {
+                  "type" : "string"
+                }
+              },
               "X-Request-ID" : {
                 "description" : "Identifies the request. Send your own (8 to 64 letters, digits, dot, underscore or hyphen) or one is made. Quote it when asking for support.",
                 "schema" : {
@@ -1042,13 +1444,31 @@
                 }
               }
             },
-            "description" : "The organization has too many requests in progress. Try again after the number of seconds in the Retry-After header.",
+            "description" : "Too many requests: a rate or a quota was reached, or the organization has too many requests in progress. The words never say which limit was full. Wait the whole number of seconds in the Retry-After header and read the RateLimit headers; a bulk call counts as many requests as it has records.",
             "headers" : {
               "API-Version" : {
                 "description" : "The major version of the public API that answered.",
                 "schema" : {
                   "type" : "string",
                   "example" : "v1"
+                }
+              },
+              "RateLimit" : {
+                "description" : "What is left, one item for each window: r what remains and t the seconds until the window ends, for example `\"minute\";r=120;t=33, \"day\";r=499000;t=40000`. A request that fits is answered; when r is 0 wait t seconds. Read it on every answer and slow down before it reaches zero.",
+                "schema" : {
+                  "type" : "string"
+                }
+              },
+              "RateLimit-Policy" : {
+                "description" : "The limits that apply, one item for each window: the name, q the most requests in the window and w the length of the window in seconds, for example `\"minute\";q=600;w=60, \"day\";q=500000;w=86400`. Absent when the platform has switched the limits off.",
+                "schema" : {
+                  "type" : "string"
+                }
+              },
+              "Retry-After" : {
+                "description" : "The whole number of seconds to wait before asking again.",
+                "schema" : {
+                  "type" : "string"
                 }
               },
               "X-Request-ID" : {
@@ -1076,6 +1496,18 @@
                   "example" : "v1"
                 }
               },
+              "RateLimit" : {
+                "description" : "What is left, one item for each window: r what remains and t the seconds until the window ends, for example `\"minute\";r=120;t=33, \"day\";r=499000;t=40000`. A request that fits is answered; when r is 0 wait t seconds. Read it on every answer and slow down before it reaches zero.",
+                "schema" : {
+                  "type" : "string"
+                }
+              },
+              "RateLimit-Policy" : {
+                "description" : "The limits that apply, one item for each window: the name, q the most requests in the window and w the length of the window in seconds, for example `\"minute\";q=600;w=60, \"day\";q=500000;w=86400`. Absent when the platform has switched the limits off.",
+                "schema" : {
+                  "type" : "string"
+                }
+              },
               "X-Request-ID" : {
                 "description" : "Identifies the request. Send your own (8 to 64 letters, digits, dot, underscore or hyphen) or one is made. Quote it when asking for support.",
                 "schema" : {
@@ -1101,6 +1533,18 @@
                   "example" : "v1"
                 }
               },
+              "RateLimit" : {
+                "description" : "What is left, one item for each window: r what remains and t the seconds until the window ends, for example `\"minute\";r=120;t=33, \"day\";r=499000;t=40000`. A request that fits is answered; when r is 0 wait t seconds. Read it on every answer and slow down before it reaches zero.",
+                "schema" : {
+                  "type" : "string"
+                }
+              },
+              "RateLimit-Policy" : {
+                "description" : "The limits that apply, one item for each window: the name, q the most requests in the window and w the length of the window in seconds, for example `\"minute\";q=600;w=60, \"day\";q=500000;w=86400`. Absent when the platform has switched the limits off.",
+                "schema" : {
+                  "type" : "string"
+                }
+              },
               "X-Request-ID" : {
                 "description" : "Identifies the request. Send your own (8 to 64 letters, digits, dot, underscore or hyphen) or one is made. Quote it when asking for support.",
                 "schema" : {
@@ -1124,6 +1568,18 @@
                 "schema" : {
                   "type" : "string",
                   "example" : "v1"
+                }
+              },
+              "RateLimit" : {
+                "description" : "What is left, one item for each window: r what remains and t the seconds until the window ends, for example `\"minute\";r=120;t=33, \"day\";r=499000;t=40000`. A request that fits is answered; when r is 0 wait t seconds. Read it on every answer and slow down before it reaches zero.",
+                "schema" : {
+                  "type" : "string"
+                }
+              },
+              "RateLimit-Policy" : {
+                "description" : "The limits that apply, one item for each window: the name, q the most requests in the window and w the length of the window in seconds, for example `\"minute\";q=600;w=60, \"day\";q=500000;w=86400`. Absent when the platform has switched the limits off.",
+                "schema" : {
+                  "type" : "string"
                 }
               },
               "X-Request-ID" : {
@@ -1184,6 +1640,18 @@
                   "example" : "v1"
                 }
               },
+              "RateLimit" : {
+                "description" : "What is left, one item for each window: r what remains and t the seconds until the window ends, for example `\"minute\";r=120;t=33, \"day\";r=499000;t=40000`. A request that fits is answered; when r is 0 wait t seconds. Read it on every answer and slow down before it reaches zero.",
+                "schema" : {
+                  "type" : "string"
+                }
+              },
+              "RateLimit-Policy" : {
+                "description" : "The limits that apply, one item for each window: the name, q the most requests in the window and w the length of the window in seconds, for example `\"minute\";q=600;w=60, \"day\";q=500000;w=86400`. Absent when the platform has switched the limits off.",
+                "schema" : {
+                  "type" : "string"
+                }
+              },
               "X-Request-ID" : {
                 "description" : "Identifies the request. Send your own (8 to 64 letters, digits, dot, underscore or hyphen) or one is made. Quote it when asking for support.",
                 "schema" : {
@@ -1207,6 +1675,18 @@
                 "schema" : {
                   "type" : "string",
                   "example" : "v1"
+                }
+              },
+              "RateLimit" : {
+                "description" : "What is left, one item for each window: r what remains and t the seconds until the window ends, for example `\"minute\";r=120;t=33, \"day\";r=499000;t=40000`. A request that fits is answered; when r is 0 wait t seconds. Read it on every answer and slow down before it reaches zero.",
+                "schema" : {
+                  "type" : "string"
+                }
+              },
+              "RateLimit-Policy" : {
+                "description" : "The limits that apply, one item for each window: the name, q the most requests in the window and w the length of the window in seconds, for example `\"minute\";q=600;w=60, \"day\";q=500000;w=86400`. Absent when the platform has switched the limits off.",
+                "schema" : {
+                  "type" : "string"
                 }
               },
               "X-Request-ID" : {
@@ -1259,6 +1739,18 @@
                   "example" : "v1"
                 }
               },
+              "RateLimit" : {
+                "description" : "What is left, one item for each window: r what remains and t the seconds until the window ends, for example `\"minute\";r=120;t=33, \"day\";r=499000;t=40000`. A request that fits is answered; when r is 0 wait t seconds. Read it on every answer and slow down before it reaches zero.",
+                "schema" : {
+                  "type" : "string"
+                }
+              },
+              "RateLimit-Policy" : {
+                "description" : "The limits that apply, one item for each window: the name, q the most requests in the window and w the length of the window in seconds, for example `\"minute\";q=600;w=60, \"day\";q=500000;w=86400`. Absent when the platform has switched the limits off.",
+                "schema" : {
+                  "type" : "string"
+                }
+              },
               "X-Request-ID" : {
                 "description" : "Identifies the request. Send your own (8 to 64 letters, digits, dot, underscore or hyphen) or one is made. Quote it when asking for support.",
                 "schema" : {
@@ -1282,6 +1774,18 @@
                 "schema" : {
                   "type" : "string",
                   "example" : "v1"
+                }
+              },
+              "RateLimit" : {
+                "description" : "What is left, one item for each window: r what remains and t the seconds until the window ends, for example `\"minute\";r=120;t=33, \"day\";r=499000;t=40000`. A request that fits is answered; when r is 0 wait t seconds. Read it on every answer and slow down before it reaches zero.",
+                "schema" : {
+                  "type" : "string"
+                }
+              },
+              "RateLimit-Policy" : {
+                "description" : "The limits that apply, one item for each window: the name, q the most requests in the window and w the length of the window in seconds, for example `\"minute\";q=600;w=60, \"day\";q=500000;w=86400`. Absent when the platform has switched the limits off.",
+                "schema" : {
+                  "type" : "string"
                 }
               },
               "X-Request-ID" : {
@@ -1309,6 +1813,18 @@
                   "example" : "v1"
                 }
               },
+              "RateLimit" : {
+                "description" : "What is left, one item for each window: r what remains and t the seconds until the window ends, for example `\"minute\";r=120;t=33, \"day\";r=499000;t=40000`. A request that fits is answered; when r is 0 wait t seconds. Read it on every answer and slow down before it reaches zero.",
+                "schema" : {
+                  "type" : "string"
+                }
+              },
+              "RateLimit-Policy" : {
+                "description" : "The limits that apply, one item for each window: the name, q the most requests in the window and w the length of the window in seconds, for example `\"minute\";q=600;w=60, \"day\";q=500000;w=86400`. Absent when the platform has switched the limits off.",
+                "schema" : {
+                  "type" : "string"
+                }
+              },
               "X-Request-ID" : {
                 "description" : "Identifies the request. Send your own (8 to 64 letters, digits, dot, underscore or hyphen) or one is made. Quote it when asking for support.",
                 "schema" : {
@@ -1334,6 +1850,18 @@
                   "example" : "v1"
                 }
               },
+              "RateLimit" : {
+                "description" : "What is left, one item for each window: r what remains and t the seconds until the window ends, for example `\"minute\";r=120;t=33, \"day\";r=499000;t=40000`. A request that fits is answered; when r is 0 wait t seconds. Read it on every answer and slow down before it reaches zero.",
+                "schema" : {
+                  "type" : "string"
+                }
+              },
+              "RateLimit-Policy" : {
+                "description" : "The limits that apply, one item for each window: the name, q the most requests in the window and w the length of the window in seconds, for example `\"minute\";q=600;w=60, \"day\";q=500000;w=86400`. Absent when the platform has switched the limits off.",
+                "schema" : {
+                  "type" : "string"
+                }
+              },
               "X-Request-ID" : {
                 "description" : "Identifies the request. Send your own (8 to 64 letters, digits, dot, underscore or hyphen) or one is made. Quote it when asking for support.",
                 "schema" : {
@@ -1350,13 +1878,31 @@
                 }
               }
             },
-            "description" : "The organization has too many requests in progress. Try again after the number of seconds in the Retry-After header.",
+            "description" : "Too many requests: a rate or a quota was reached, or the organization has too many requests in progress. The words never say which limit was full. Wait the whole number of seconds in the Retry-After header and read the RateLimit headers; a bulk call counts as many requests as it has records.",
             "headers" : {
               "API-Version" : {
                 "description" : "The major version of the public API that answered.",
                 "schema" : {
                   "type" : "string",
                   "example" : "v1"
+                }
+              },
+              "RateLimit" : {
+                "description" : "What is left, one item for each window: r what remains and t the seconds until the window ends, for example `\"minute\";r=120;t=33, \"day\";r=499000;t=40000`. A request that fits is answered; when r is 0 wait t seconds. Read it on every answer and slow down before it reaches zero.",
+                "schema" : {
+                  "type" : "string"
+                }
+              },
+              "RateLimit-Policy" : {
+                "description" : "The limits that apply, one item for each window: the name, q the most requests in the window and w the length of the window in seconds, for example `\"minute\";q=600;w=60, \"day\";q=500000;w=86400`. Absent when the platform has switched the limits off.",
+                "schema" : {
+                  "type" : "string"
+                }
+              },
+              "Retry-After" : {
+                "description" : "The whole number of seconds to wait before asking again.",
+                "schema" : {
+                  "type" : "string"
                 }
               },
               "X-Request-ID" : {
@@ -1384,6 +1930,18 @@
                   "example" : "v1"
                 }
               },
+              "RateLimit" : {
+                "description" : "What is left, one item for each window: r what remains and t the seconds until the window ends, for example `\"minute\";r=120;t=33, \"day\";r=499000;t=40000`. A request that fits is answered; when r is 0 wait t seconds. Read it on every answer and slow down before it reaches zero.",
+                "schema" : {
+                  "type" : "string"
+                }
+              },
+              "RateLimit-Policy" : {
+                "description" : "The limits that apply, one item for each window: the name, q the most requests in the window and w the length of the window in seconds, for example `\"minute\";q=600;w=60, \"day\";q=500000;w=86400`. Absent when the platform has switched the limits off.",
+                "schema" : {
+                  "type" : "string"
+                }
+              },
               "X-Request-ID" : {
                 "description" : "Identifies the request. Send your own (8 to 64 letters, digits, dot, underscore or hyphen) or one is made. Quote it when asking for support.",
                 "schema" : {
@@ -1409,6 +1967,18 @@
                   "example" : "v1"
                 }
               },
+              "RateLimit" : {
+                "description" : "What is left, one item for each window: r what remains and t the seconds until the window ends, for example `\"minute\";r=120;t=33, \"day\";r=499000;t=40000`. A request that fits is answered; when r is 0 wait t seconds. Read it on every answer and slow down before it reaches zero.",
+                "schema" : {
+                  "type" : "string"
+                }
+              },
+              "RateLimit-Policy" : {
+                "description" : "The limits that apply, one item for each window: the name, q the most requests in the window and w the length of the window in seconds, for example `\"minute\";q=600;w=60, \"day\";q=500000;w=86400`. Absent when the platform has switched the limits off.",
+                "schema" : {
+                  "type" : "string"
+                }
+              },
               "X-Request-ID" : {
                 "description" : "Identifies the request. Send your own (8 to 64 letters, digits, dot, underscore or hyphen) or one is made. Quote it when asking for support.",
                 "schema" : {
@@ -1432,6 +2002,18 @@
                 "schema" : {
                   "type" : "string",
                   "example" : "v1"
+                }
+              },
+              "RateLimit" : {
+                "description" : "What is left, one item for each window: r what remains and t the seconds until the window ends, for example `\"minute\";r=120;t=33, \"day\";r=499000;t=40000`. A request that fits is answered; when r is 0 wait t seconds. Read it on every answer and slow down before it reaches zero.",
+                "schema" : {
+                  "type" : "string"
+                }
+              },
+              "RateLimit-Policy" : {
+                "description" : "The limits that apply, one item for each window: the name, q the most requests in the window and w the length of the window in seconds, for example `\"minute\";q=600;w=60, \"day\";q=500000;w=86400`. Absent when the platform has switched the limits off.",
+                "schema" : {
+                  "type" : "string"
                 }
               },
               "X-Request-ID" : {
@@ -1483,6 +2065,18 @@
                   "example" : "v1"
                 }
               },
+              "RateLimit" : {
+                "description" : "What is left, one item for each window: r what remains and t the seconds until the window ends, for example `\"minute\";r=120;t=33, \"day\";r=499000;t=40000`. A request that fits is answered; when r is 0 wait t seconds. Read it on every answer and slow down before it reaches zero.",
+                "schema" : {
+                  "type" : "string"
+                }
+              },
+              "RateLimit-Policy" : {
+                "description" : "The limits that apply, one item for each window: the name, q the most requests in the window and w the length of the window in seconds, for example `\"minute\";q=600;w=60, \"day\";q=500000;w=86400`. Absent when the platform has switched the limits off.",
+                "schema" : {
+                  "type" : "string"
+                }
+              },
               "X-Request-ID" : {
                 "description" : "Identifies the request. Send your own (8 to 64 letters, digits, dot, underscore or hyphen) or one is made. Quote it when asking for support.",
                 "schema" : {
@@ -1526,6 +2120,18 @@
                   "example" : "v1"
                 }
               },
+              "RateLimit" : {
+                "description" : "What is left, one item for each window: r what remains and t the seconds until the window ends, for example `\"minute\";r=120;t=33, \"day\";r=499000;t=40000`. A request that fits is answered; when r is 0 wait t seconds. Read it on every answer and slow down before it reaches zero.",
+                "schema" : {
+                  "type" : "string"
+                }
+              },
+              "RateLimit-Policy" : {
+                "description" : "The limits that apply, one item for each window: the name, q the most requests in the window and w the length of the window in seconds, for example `\"minute\";q=600;w=60, \"day\";q=500000;w=86400`. Absent when the platform has switched the limits off.",
+                "schema" : {
+                  "type" : "string"
+                }
+              },
               "X-Request-ID" : {
                 "description" : "Identifies the request. Send your own (8 to 64 letters, digits, dot, underscore or hyphen) or one is made. Quote it when asking for support.",
                 "schema" : {
@@ -1551,6 +2157,18 @@
                   "example" : "v1"
                 }
               },
+              "RateLimit" : {
+                "description" : "What is left, one item for each window: r what remains and t the seconds until the window ends, for example `\"minute\";r=120;t=33, \"day\";r=499000;t=40000`. A request that fits is answered; when r is 0 wait t seconds. Read it on every answer and slow down before it reaches zero.",
+                "schema" : {
+                  "type" : "string"
+                }
+              },
+              "RateLimit-Policy" : {
+                "description" : "The limits that apply, one item for each window: the name, q the most requests in the window and w the length of the window in seconds, for example `\"minute\";q=600;w=60, \"day\";q=500000;w=86400`. Absent when the platform has switched the limits off.",
+                "schema" : {
+                  "type" : "string"
+                }
+              },
               "X-Request-ID" : {
                 "description" : "Identifies the request. Send your own (8 to 64 letters, digits, dot, underscore or hyphen) or one is made. Quote it when asking for support.",
                 "schema" : {
@@ -1569,6 +2187,18 @@
                   "example" : "v1"
                 }
               },
+              "RateLimit" : {
+                "description" : "What is left, one item for each window: r what remains and t the seconds until the window ends, for example `\"minute\";r=120;t=33, \"day\";r=499000;t=40000`. A request that fits is answered; when r is 0 wait t seconds. Read it on every answer and slow down before it reaches zero.",
+                "schema" : {
+                  "type" : "string"
+                }
+              },
+              "RateLimit-Policy" : {
+                "description" : "The limits that apply, one item for each window: the name, q the most requests in the window and w the length of the window in seconds, for example `\"minute\";q=600;w=60, \"day\";q=500000;w=86400`. Absent when the platform has switched the limits off.",
+                "schema" : {
+                  "type" : "string"
+                }
+              },
               "X-Request-ID" : {
                 "description" : "Identifies the request. Send your own (8 to 64 letters, digits, dot, underscore or hyphen) or one is made. Quote it when asking for support.",
                 "schema" : {
@@ -1585,13 +2215,31 @@
                 }
               }
             },
-            "description" : "The organization has too many requests in progress. Try again after the number of seconds in the Retry-After header.",
+            "description" : "Too many requests: a rate or a quota was reached, or the organization has too many requests in progress. The words never say which limit was full. Wait the whole number of seconds in the Retry-After header and read the RateLimit headers; a bulk call counts as many requests as it has records.",
             "headers" : {
               "API-Version" : {
                 "description" : "The major version of the public API that answered.",
                 "schema" : {
                   "type" : "string",
                   "example" : "v1"
+                }
+              },
+              "RateLimit" : {
+                "description" : "What is left, one item for each window: r what remains and t the seconds until the window ends, for example `\"minute\";r=120;t=33, \"day\";r=499000;t=40000`. A request that fits is answered; when r is 0 wait t seconds. Read it on every answer and slow down before it reaches zero.",
+                "schema" : {
+                  "type" : "string"
+                }
+              },
+              "RateLimit-Policy" : {
+                "description" : "The limits that apply, one item for each window: the name, q the most requests in the window and w the length of the window in seconds, for example `\"minute\";q=600;w=60, \"day\";q=500000;w=86400`. Absent when the platform has switched the limits off.",
+                "schema" : {
+                  "type" : "string"
+                }
+              },
+              "Retry-After" : {
+                "description" : "The whole number of seconds to wait before asking again.",
+                "schema" : {
+                  "type" : "string"
                 }
               },
               "X-Request-ID" : {
@@ -1619,6 +2267,18 @@
                   "example" : "v1"
                 }
               },
+              "RateLimit" : {
+                "description" : "What is left, one item for each window: r what remains and t the seconds until the window ends, for example `\"minute\";r=120;t=33, \"day\";r=499000;t=40000`. A request that fits is answered; when r is 0 wait t seconds. Read it on every answer and slow down before it reaches zero.",
+                "schema" : {
+                  "type" : "string"
+                }
+              },
+              "RateLimit-Policy" : {
+                "description" : "The limits that apply, one item for each window: the name, q the most requests in the window and w the length of the window in seconds, for example `\"minute\";q=600;w=60, \"day\";q=500000;w=86400`. Absent when the platform has switched the limits off.",
+                "schema" : {
+                  "type" : "string"
+                }
+              },
               "X-Request-ID" : {
                 "description" : "Identifies the request. Send your own (8 to 64 letters, digits, dot, underscore or hyphen) or one is made. Quote it when asking for support.",
                 "schema" : {
@@ -1644,6 +2304,18 @@
                   "example" : "v1"
                 }
               },
+              "RateLimit" : {
+                "description" : "What is left, one item for each window: r what remains and t the seconds until the window ends, for example `\"minute\";r=120;t=33, \"day\";r=499000;t=40000`. A request that fits is answered; when r is 0 wait t seconds. Read it on every answer and slow down before it reaches zero.",
+                "schema" : {
+                  "type" : "string"
+                }
+              },
+              "RateLimit-Policy" : {
+                "description" : "The limits that apply, one item for each window: the name, q the most requests in the window and w the length of the window in seconds, for example `\"minute\";q=600;w=60, \"day\";q=500000;w=86400`. Absent when the platform has switched the limits off.",
+                "schema" : {
+                  "type" : "string"
+                }
+              },
               "X-Request-ID" : {
                 "description" : "Identifies the request. Send your own (8 to 64 letters, digits, dot, underscore or hyphen) or one is made. Quote it when asking for support.",
                 "schema" : {
@@ -1667,6 +2339,18 @@
                 "schema" : {
                   "type" : "string",
                   "example" : "v1"
+                }
+              },
+              "RateLimit" : {
+                "description" : "What is left, one item for each window: r what remains and t the seconds until the window ends, for example `\"minute\";r=120;t=33, \"day\";r=499000;t=40000`. A request that fits is answered; when r is 0 wait t seconds. Read it on every answer and slow down before it reaches zero.",
+                "schema" : {
+                  "type" : "string"
+                }
+              },
+              "RateLimit-Policy" : {
+                "description" : "The limits that apply, one item for each window: the name, q the most requests in the window and w the length of the window in seconds, for example `\"minute\";q=600;w=60, \"day\";q=500000;w=86400`. Absent when the platform has switched the limits off.",
+                "schema" : {
+                  "type" : "string"
                 }
               },
               "X-Request-ID" : {
@@ -1723,6 +2407,18 @@
                   "example" : "v1"
                 }
               },
+              "RateLimit" : {
+                "description" : "What is left, one item for each window: r what remains and t the seconds until the window ends, for example `\"minute\";r=120;t=33, \"day\";r=499000;t=40000`. A request that fits is answered; when r is 0 wait t seconds. Read it on every answer and slow down before it reaches zero.",
+                "schema" : {
+                  "type" : "string"
+                }
+              },
+              "RateLimit-Policy" : {
+                "description" : "The limits that apply, one item for each window: the name, q the most requests in the window and w the length of the window in seconds, for example `\"minute\";q=600;w=60, \"day\";q=500000;w=86400`. Absent when the platform has switched the limits off.",
+                "schema" : {
+                  "type" : "string"
+                }
+              },
               "X-Request-ID" : {
                 "description" : "Identifies the request. Send your own (8 to 64 letters, digits, dot, underscore or hyphen) or one is made. Quote it when asking for support.",
                 "schema" : {
@@ -1773,6 +2469,18 @@
                   "example" : "v1"
                 }
               },
+              "RateLimit" : {
+                "description" : "What is left, one item for each window: r what remains and t the seconds until the window ends, for example `\"minute\";r=120;t=33, \"day\";r=499000;t=40000`. A request that fits is answered; when r is 0 wait t seconds. Read it on every answer and slow down before it reaches zero.",
+                "schema" : {
+                  "type" : "string"
+                }
+              },
+              "RateLimit-Policy" : {
+                "description" : "The limits that apply, one item for each window: the name, q the most requests in the window and w the length of the window in seconds, for example `\"minute\";q=600;w=60, \"day\";q=500000;w=86400`. Absent when the platform has switched the limits off.",
+                "schema" : {
+                  "type" : "string"
+                }
+              },
               "X-Request-ID" : {
                 "description" : "Identifies the request. Send your own (8 to 64 letters, digits, dot, underscore or hyphen) or one is made. Quote it when asking for support.",
                 "schema" : {
@@ -1798,6 +2506,18 @@
                   "example" : "v1"
                 }
               },
+              "RateLimit" : {
+                "description" : "What is left, one item for each window: r what remains and t the seconds until the window ends, for example `\"minute\";r=120;t=33, \"day\";r=499000;t=40000`. A request that fits is answered; when r is 0 wait t seconds. Read it on every answer and slow down before it reaches zero.",
+                "schema" : {
+                  "type" : "string"
+                }
+              },
+              "RateLimit-Policy" : {
+                "description" : "The limits that apply, one item for each window: the name, q the most requests in the window and w the length of the window in seconds, for example `\"minute\";q=600;w=60, \"day\";q=500000;w=86400`. Absent when the platform has switched the limits off.",
+                "schema" : {
+                  "type" : "string"
+                }
+              },
               "X-Request-ID" : {
                 "description" : "Identifies the request. Send your own (8 to 64 letters, digits, dot, underscore or hyphen) or one is made. Quote it when asking for support.",
                 "schema" : {
@@ -1814,13 +2534,31 @@
                 }
               }
             },
-            "description" : "The organization has too many requests in progress. Try again after the number of seconds in the Retry-After header.",
+            "description" : "Too many requests: a rate or a quota was reached, or the organization has too many requests in progress. The words never say which limit was full. Wait the whole number of seconds in the Retry-After header and read the RateLimit headers; a bulk call counts as many requests as it has records.",
             "headers" : {
               "API-Version" : {
                 "description" : "The major version of the public API that answered.",
                 "schema" : {
                   "type" : "string",
                   "example" : "v1"
+                }
+              },
+              "RateLimit" : {
+                "description" : "What is left, one item for each window: r what remains and t the seconds until the window ends, for example `\"minute\";r=120;t=33, \"day\";r=499000;t=40000`. A request that fits is answered; when r is 0 wait t seconds. Read it on every answer and slow down before it reaches zero.",
+                "schema" : {
+                  "type" : "string"
+                }
+              },
+              "RateLimit-Policy" : {
+                "description" : "The limits that apply, one item for each window: the name, q the most requests in the window and w the length of the window in seconds, for example `\"minute\";q=600;w=60, \"day\";q=500000;w=86400`. Absent when the platform has switched the limits off.",
+                "schema" : {
+                  "type" : "string"
+                }
+              },
+              "Retry-After" : {
+                "description" : "The whole number of seconds to wait before asking again.",
+                "schema" : {
+                  "type" : "string"
                 }
               },
               "X-Request-ID" : {
@@ -1848,6 +2586,18 @@
                   "example" : "v1"
                 }
               },
+              "RateLimit" : {
+                "description" : "What is left, one item for each window: r what remains and t the seconds until the window ends, for example `\"minute\";r=120;t=33, \"day\";r=499000;t=40000`. A request that fits is answered; when r is 0 wait t seconds. Read it on every answer and slow down before it reaches zero.",
+                "schema" : {
+                  "type" : "string"
+                }
+              },
+              "RateLimit-Policy" : {
+                "description" : "The limits that apply, one item for each window: the name, q the most requests in the window and w the length of the window in seconds, for example `\"minute\";q=600;w=60, \"day\";q=500000;w=86400`. Absent when the platform has switched the limits off.",
+                "schema" : {
+                  "type" : "string"
+                }
+              },
               "X-Request-ID" : {
                 "description" : "Identifies the request. Send your own (8 to 64 letters, digits, dot, underscore or hyphen) or one is made. Quote it when asking for support.",
                 "schema" : {
@@ -1873,6 +2623,18 @@
                   "example" : "v1"
                 }
               },
+              "RateLimit" : {
+                "description" : "What is left, one item for each window: r what remains and t the seconds until the window ends, for example `\"minute\";r=120;t=33, \"day\";r=499000;t=40000`. A request that fits is answered; when r is 0 wait t seconds. Read it on every answer and slow down before it reaches zero.",
+                "schema" : {
+                  "type" : "string"
+                }
+              },
+              "RateLimit-Policy" : {
+                "description" : "The limits that apply, one item for each window: the name, q the most requests in the window and w the length of the window in seconds, for example `\"minute\";q=600;w=60, \"day\";q=500000;w=86400`. Absent when the platform has switched the limits off.",
+                "schema" : {
+                  "type" : "string"
+                }
+              },
               "X-Request-ID" : {
                 "description" : "Identifies the request. Send your own (8 to 64 letters, digits, dot, underscore or hyphen) or one is made. Quote it when asking for support.",
                 "schema" : {
@@ -1896,6 +2658,18 @@
                 "schema" : {
                   "type" : "string",
                   "example" : "v1"
+                }
+              },
+              "RateLimit" : {
+                "description" : "What is left, one item for each window: r what remains and t the seconds until the window ends, for example `\"minute\";r=120;t=33, \"day\";r=499000;t=40000`. A request that fits is answered; when r is 0 wait t seconds. Read it on every answer and slow down before it reaches zero.",
+                "schema" : {
+                  "type" : "string"
+                }
+              },
+              "RateLimit-Policy" : {
+                "description" : "The limits that apply, one item for each window: the name, q the most requests in the window and w the length of the window in seconds, for example `\"minute\";q=600;w=60, \"day\";q=500000;w=86400`. Absent when the platform has switched the limits off.",
+                "schema" : {
+                  "type" : "string"
                 }
               },
               "X-Request-ID" : {
@@ -1971,6 +2745,18 @@
                   "example" : "v1"
                 }
               },
+              "RateLimit" : {
+                "description" : "What is left, one item for each window: r what remains and t the seconds until the window ends, for example `\"minute\";r=120;t=33, \"day\";r=499000;t=40000`. A request that fits is answered; when r is 0 wait t seconds. Read it on every answer and slow down before it reaches zero.",
+                "schema" : {
+                  "type" : "string"
+                }
+              },
+              "RateLimit-Policy" : {
+                "description" : "The limits that apply, one item for each window: the name, q the most requests in the window and w the length of the window in seconds, for example `\"minute\";q=600;w=60, \"day\";q=500000;w=86400`. Absent when the platform has switched the limits off.",
+                "schema" : {
+                  "type" : "string"
+                }
+              },
               "X-Request-ID" : {
                 "description" : "Identifies the request. Send your own (8 to 64 letters, digits, dot, underscore or hyphen) or one is made. Quote it when asking for support.",
                 "schema" : {
@@ -1994,6 +2780,18 @@
                 "schema" : {
                   "type" : "string",
                   "example" : "v1"
+                }
+              },
+              "RateLimit" : {
+                "description" : "What is left, one item for each window: r what remains and t the seconds until the window ends, for example `\"minute\";r=120;t=33, \"day\";r=499000;t=40000`. A request that fits is answered; when r is 0 wait t seconds. Read it on every answer and slow down before it reaches zero.",
+                "schema" : {
+                  "type" : "string"
+                }
+              },
+              "RateLimit-Policy" : {
+                "description" : "The limits that apply, one item for each window: the name, q the most requests in the window and w the length of the window in seconds, for example `\"minute\";q=600;w=60, \"day\";q=500000;w=86400`. Absent when the platform has switched the limits off.",
+                "schema" : {
+                  "type" : "string"
                 }
               },
               "X-Request-ID" : {
@@ -2046,6 +2844,18 @@
                   "example" : "v1"
                 }
               },
+              "RateLimit" : {
+                "description" : "What is left, one item for each window: r what remains and t the seconds until the window ends, for example `\"minute\";r=120;t=33, \"day\";r=499000;t=40000`. A request that fits is answered; when r is 0 wait t seconds. Read it on every answer and slow down before it reaches zero.",
+                "schema" : {
+                  "type" : "string"
+                }
+              },
+              "RateLimit-Policy" : {
+                "description" : "The limits that apply, one item for each window: the name, q the most requests in the window and w the length of the window in seconds, for example `\"minute\";q=600;w=60, \"day\";q=500000;w=86400`. Absent when the platform has switched the limits off.",
+                "schema" : {
+                  "type" : "string"
+                }
+              },
               "X-Request-ID" : {
                 "description" : "Identifies the request. Send your own (8 to 64 letters, digits, dot, underscore or hyphen) or one is made. Quote it when asking for support.",
                 "schema" : {
@@ -2069,6 +2879,18 @@
                 "schema" : {
                   "type" : "string",
                   "example" : "v1"
+                }
+              },
+              "RateLimit" : {
+                "description" : "What is left, one item for each window: r what remains and t the seconds until the window ends, for example `\"minute\";r=120;t=33, \"day\";r=499000;t=40000`. A request that fits is answered; when r is 0 wait t seconds. Read it on every answer and slow down before it reaches zero.",
+                "schema" : {
+                  "type" : "string"
+                }
+              },
+              "RateLimit-Policy" : {
+                "description" : "The limits that apply, one item for each window: the name, q the most requests in the window and w the length of the window in seconds, for example `\"minute\";q=600;w=60, \"day\";q=500000;w=86400`. Absent when the platform has switched the limits off.",
+                "schema" : {
+                  "type" : "string"
                 }
               },
               "X-Request-ID" : {
@@ -2096,6 +2918,18 @@
                   "example" : "v1"
                 }
               },
+              "RateLimit" : {
+                "description" : "What is left, one item for each window: r what remains and t the seconds until the window ends, for example `\"minute\";r=120;t=33, \"day\";r=499000;t=40000`. A request that fits is answered; when r is 0 wait t seconds. Read it on every answer and slow down before it reaches zero.",
+                "schema" : {
+                  "type" : "string"
+                }
+              },
+              "RateLimit-Policy" : {
+                "description" : "The limits that apply, one item for each window: the name, q the most requests in the window and w the length of the window in seconds, for example `\"minute\";q=600;w=60, \"day\";q=500000;w=86400`. Absent when the platform has switched the limits off.",
+                "schema" : {
+                  "type" : "string"
+                }
+              },
               "X-Request-ID" : {
                 "description" : "Identifies the request. Send your own (8 to 64 letters, digits, dot, underscore or hyphen) or one is made. Quote it when asking for support.",
                 "schema" : {
@@ -2119,6 +2953,18 @@
                 "schema" : {
                   "type" : "string",
                   "example" : "v1"
+                }
+              },
+              "RateLimit" : {
+                "description" : "What is left, one item for each window: r what remains and t the seconds until the window ends, for example `\"minute\";r=120;t=33, \"day\";r=499000;t=40000`. A request that fits is answered; when r is 0 wait t seconds. Read it on every answer and slow down before it reaches zero.",
+                "schema" : {
+                  "type" : "string"
+                }
+              },
+              "RateLimit-Policy" : {
+                "description" : "The limits that apply, one item for each window: the name, q the most requests in the window and w the length of the window in seconds, for example `\"minute\";q=600;w=60, \"day\";q=500000;w=86400`. Absent when the platform has switched the limits off.",
+                "schema" : {
+                  "type" : "string"
                 }
               },
               "X-Request-ID" : {
@@ -2146,6 +2992,18 @@
                   "example" : "v1"
                 }
               },
+              "RateLimit" : {
+                "description" : "What is left, one item for each window: r what remains and t the seconds until the window ends, for example `\"minute\";r=120;t=33, \"day\";r=499000;t=40000`. A request that fits is answered; when r is 0 wait t seconds. Read it on every answer and slow down before it reaches zero.",
+                "schema" : {
+                  "type" : "string"
+                }
+              },
+              "RateLimit-Policy" : {
+                "description" : "The limits that apply, one item for each window: the name, q the most requests in the window and w the length of the window in seconds, for example `\"minute\";q=600;w=60, \"day\";q=500000;w=86400`. Absent when the platform has switched the limits off.",
+                "schema" : {
+                  "type" : "string"
+                }
+              },
               "X-Request-ID" : {
                 "description" : "Identifies the request. Send your own (8 to 64 letters, digits, dot, underscore or hyphen) or one is made. Quote it when asking for support.",
                 "schema" : {
@@ -2162,13 +3020,31 @@
                 }
               }
             },
-            "description" : "The organization has too many requests in progress. Try again after the number of seconds in the Retry-After header.",
+            "description" : "Too many requests: a rate or a quota was reached, or the organization has too many requests in progress. The words never say which limit was full. Wait the whole number of seconds in the Retry-After header and read the RateLimit headers; a bulk call counts as many requests as it has records.",
             "headers" : {
               "API-Version" : {
                 "description" : "The major version of the public API that answered.",
                 "schema" : {
                   "type" : "string",
                   "example" : "v1"
+                }
+              },
+              "RateLimit" : {
+                "description" : "What is left, one item for each window: r what remains and t the seconds until the window ends, for example `\"minute\";r=120;t=33, \"day\";r=499000;t=40000`. A request that fits is answered; when r is 0 wait t seconds. Read it on every answer and slow down before it reaches zero.",
+                "schema" : {
+                  "type" : "string"
+                }
+              },
+              "RateLimit-Policy" : {
+                "description" : "The limits that apply, one item for each window: the name, q the most requests in the window and w the length of the window in seconds, for example `\"minute\";q=600;w=60, \"day\";q=500000;w=86400`. Absent when the platform has switched the limits off.",
+                "schema" : {
+                  "type" : "string"
+                }
+              },
+              "Retry-After" : {
+                "description" : "The whole number of seconds to wait before asking again.",
+                "schema" : {
+                  "type" : "string"
                 }
               },
               "X-Request-ID" : {
@@ -2196,6 +3072,18 @@
                   "example" : "v1"
                 }
               },
+              "RateLimit" : {
+                "description" : "What is left, one item for each window: r what remains and t the seconds until the window ends, for example `\"minute\";r=120;t=33, \"day\";r=499000;t=40000`. A request that fits is answered; when r is 0 wait t seconds. Read it on every answer and slow down before it reaches zero.",
+                "schema" : {
+                  "type" : "string"
+                }
+              },
+              "RateLimit-Policy" : {
+                "description" : "The limits that apply, one item for each window: the name, q the most requests in the window and w the length of the window in seconds, for example `\"minute\";q=600;w=60, \"day\";q=500000;w=86400`. Absent when the platform has switched the limits off.",
+                "schema" : {
+                  "type" : "string"
+                }
+              },
               "X-Request-ID" : {
                 "description" : "Identifies the request. Send your own (8 to 64 letters, digits, dot, underscore or hyphen) or one is made. Quote it when asking for support.",
                 "schema" : {
@@ -2221,6 +3109,18 @@
                   "example" : "v1"
                 }
               },
+              "RateLimit" : {
+                "description" : "What is left, one item for each window: r what remains and t the seconds until the window ends, for example `\"minute\";r=120;t=33, \"day\";r=499000;t=40000`. A request that fits is answered; when r is 0 wait t seconds. Read it on every answer and slow down before it reaches zero.",
+                "schema" : {
+                  "type" : "string"
+                }
+              },
+              "RateLimit-Policy" : {
+                "description" : "The limits that apply, one item for each window: the name, q the most requests in the window and w the length of the window in seconds, for example `\"minute\";q=600;w=60, \"day\";q=500000;w=86400`. Absent when the platform has switched the limits off.",
+                "schema" : {
+                  "type" : "string"
+                }
+              },
               "X-Request-ID" : {
                 "description" : "Identifies the request. Send your own (8 to 64 letters, digits, dot, underscore or hyphen) or one is made. Quote it when asking for support.",
                 "schema" : {
@@ -2244,6 +3144,18 @@
                 "schema" : {
                   "type" : "string",
                   "example" : "v1"
+                }
+              },
+              "RateLimit" : {
+                "description" : "What is left, one item for each window: r what remains and t the seconds until the window ends, for example `\"minute\";r=120;t=33, \"day\";r=499000;t=40000`. A request that fits is answered; when r is 0 wait t seconds. Read it on every answer and slow down before it reaches zero.",
+                "schema" : {
+                  "type" : "string"
+                }
+              },
+              "RateLimit-Policy" : {
+                "description" : "The limits that apply, one item for each window: the name, q the most requests in the window and w the length of the window in seconds, for example `\"minute\";q=600;w=60, \"day\";q=500000;w=86400`. Absent when the platform has switched the limits off.",
+                "schema" : {
+                  "type" : "string"
                 }
               },
               "X-Request-ID" : {
@@ -2302,6 +3214,18 @@
                   "example" : "v1"
                 }
               },
+              "RateLimit" : {
+                "description" : "What is left, one item for each window: r what remains and t the seconds until the window ends, for example `\"minute\";r=120;t=33, \"day\";r=499000;t=40000`. A request that fits is answered; when r is 0 wait t seconds. Read it on every answer and slow down before it reaches zero.",
+                "schema" : {
+                  "type" : "string"
+                }
+              },
+              "RateLimit-Policy" : {
+                "description" : "The limits that apply, one item for each window: the name, q the most requests in the window and w the length of the window in seconds, for example `\"minute\";q=600;w=60, \"day\";q=500000;w=86400`. Absent when the platform has switched the limits off.",
+                "schema" : {
+                  "type" : "string"
+                }
+              },
               "X-Request-ID" : {
                 "description" : "Identifies the request. Send your own (8 to 64 letters, digits, dot, underscore or hyphen) or one is made. Quote it when asking for support.",
                 "schema" : {
@@ -2352,6 +3276,18 @@
                   "example" : "v1"
                 }
               },
+              "RateLimit" : {
+                "description" : "What is left, one item for each window: r what remains and t the seconds until the window ends, for example `\"minute\";r=120;t=33, \"day\";r=499000;t=40000`. A request that fits is answered; when r is 0 wait t seconds. Read it on every answer and slow down before it reaches zero.",
+                "schema" : {
+                  "type" : "string"
+                }
+              },
+              "RateLimit-Policy" : {
+                "description" : "The limits that apply, one item for each window: the name, q the most requests in the window and w the length of the window in seconds, for example `\"minute\";q=600;w=60, \"day\";q=500000;w=86400`. Absent when the platform has switched the limits off.",
+                "schema" : {
+                  "type" : "string"
+                }
+              },
               "X-Request-ID" : {
                 "description" : "Identifies the request. Send your own (8 to 64 letters, digits, dot, underscore or hyphen) or one is made. Quote it when asking for support.",
                 "schema" : {
@@ -2375,6 +3311,18 @@
                 "schema" : {
                   "type" : "string",
                   "example" : "v1"
+                }
+              },
+              "RateLimit" : {
+                "description" : "What is left, one item for each window: r what remains and t the seconds until the window ends, for example `\"minute\";r=120;t=33, \"day\";r=499000;t=40000`. A request that fits is answered; when r is 0 wait t seconds. Read it on every answer and slow down before it reaches zero.",
+                "schema" : {
+                  "type" : "string"
+                }
+              },
+              "RateLimit-Policy" : {
+                "description" : "The limits that apply, one item for each window: the name, q the most requests in the window and w the length of the window in seconds, for example `\"minute\";q=600;w=60, \"day\";q=500000;w=86400`. Absent when the platform has switched the limits off.",
+                "schema" : {
+                  "type" : "string"
                 }
               },
               "X-Request-ID" : {
@@ -2402,6 +3350,18 @@
                   "example" : "v1"
                 }
               },
+              "RateLimit" : {
+                "description" : "What is left, one item for each window: r what remains and t the seconds until the window ends, for example `\"minute\";r=120;t=33, \"day\";r=499000;t=40000`. A request that fits is answered; when r is 0 wait t seconds. Read it on every answer and slow down before it reaches zero.",
+                "schema" : {
+                  "type" : "string"
+                }
+              },
+              "RateLimit-Policy" : {
+                "description" : "The limits that apply, one item for each window: the name, q the most requests in the window and w the length of the window in seconds, for example `\"minute\";q=600;w=60, \"day\";q=500000;w=86400`. Absent when the platform has switched the limits off.",
+                "schema" : {
+                  "type" : "string"
+                }
+              },
               "X-Request-ID" : {
                 "description" : "Identifies the request. Send your own (8 to 64 letters, digits, dot, underscore or hyphen) or one is made. Quote it when asking for support.",
                 "schema" : {
@@ -2418,13 +3378,31 @@
                 }
               }
             },
-            "description" : "The organization has too many requests in progress. Try again after the number of seconds in the Retry-After header.",
+            "description" : "Too many requests: a rate or a quota was reached, or the organization has too many requests in progress. The words never say which limit was full. Wait the whole number of seconds in the Retry-After header and read the RateLimit headers; a bulk call counts as many requests as it has records.",
             "headers" : {
               "API-Version" : {
                 "description" : "The major version of the public API that answered.",
                 "schema" : {
                   "type" : "string",
                   "example" : "v1"
+                }
+              },
+              "RateLimit" : {
+                "description" : "What is left, one item for each window: r what remains and t the seconds until the window ends, for example `\"minute\";r=120;t=33, \"day\";r=499000;t=40000`. A request that fits is answered; when r is 0 wait t seconds. Read it on every answer and slow down before it reaches zero.",
+                "schema" : {
+                  "type" : "string"
+                }
+              },
+              "RateLimit-Policy" : {
+                "description" : "The limits that apply, one item for each window: the name, q the most requests in the window and w the length of the window in seconds, for example `\"minute\";q=600;w=60, \"day\";q=500000;w=86400`. Absent when the platform has switched the limits off.",
+                "schema" : {
+                  "type" : "string"
+                }
+              },
+              "Retry-After" : {
+                "description" : "The whole number of seconds to wait before asking again.",
+                "schema" : {
+                  "type" : "string"
                 }
               },
               "X-Request-ID" : {
@@ -2452,6 +3430,18 @@
                   "example" : "v1"
                 }
               },
+              "RateLimit" : {
+                "description" : "What is left, one item for each window: r what remains and t the seconds until the window ends, for example `\"minute\";r=120;t=33, \"day\";r=499000;t=40000`. A request that fits is answered; when r is 0 wait t seconds. Read it on every answer and slow down before it reaches zero.",
+                "schema" : {
+                  "type" : "string"
+                }
+              },
+              "RateLimit-Policy" : {
+                "description" : "The limits that apply, one item for each window: the name, q the most requests in the window and w the length of the window in seconds, for example `\"minute\";q=600;w=60, \"day\";q=500000;w=86400`. Absent when the platform has switched the limits off.",
+                "schema" : {
+                  "type" : "string"
+                }
+              },
               "X-Request-ID" : {
                 "description" : "Identifies the request. Send your own (8 to 64 letters, digits, dot, underscore or hyphen) or one is made. Quote it when asking for support.",
                 "schema" : {
@@ -2477,6 +3467,18 @@
                   "example" : "v1"
                 }
               },
+              "RateLimit" : {
+                "description" : "What is left, one item for each window: r what remains and t the seconds until the window ends, for example `\"minute\";r=120;t=33, \"day\";r=499000;t=40000`. A request that fits is answered; when r is 0 wait t seconds. Read it on every answer and slow down before it reaches zero.",
+                "schema" : {
+                  "type" : "string"
+                }
+              },
+              "RateLimit-Policy" : {
+                "description" : "The limits that apply, one item for each window: the name, q the most requests in the window and w the length of the window in seconds, for example `\"minute\";q=600;w=60, \"day\";q=500000;w=86400`. Absent when the platform has switched the limits off.",
+                "schema" : {
+                  "type" : "string"
+                }
+              },
               "X-Request-ID" : {
                 "description" : "Identifies the request. Send your own (8 to 64 letters, digits, dot, underscore or hyphen) or one is made. Quote it when asking for support.",
                 "schema" : {
@@ -2500,6 +3502,18 @@
                 "schema" : {
                   "type" : "string",
                   "example" : "v1"
+                }
+              },
+              "RateLimit" : {
+                "description" : "What is left, one item for each window: r what remains and t the seconds until the window ends, for example `\"minute\";r=120;t=33, \"day\";r=499000;t=40000`. A request that fits is answered; when r is 0 wait t seconds. Read it on every answer and slow down before it reaches zero.",
+                "schema" : {
+                  "type" : "string"
+                }
+              },
+              "RateLimit-Policy" : {
+                "description" : "The limits that apply, one item for each window: the name, q the most requests in the window and w the length of the window in seconds, for example `\"minute\";q=600;w=60, \"day\";q=500000;w=86400`. Absent when the platform has switched the limits off.",
+                "schema" : {
+                  "type" : "string"
                 }
               },
               "X-Request-ID" : {
@@ -2643,13 +3657,19 @@
                 }
               }
             },
-            "description" : "The organization has too many requests in progress. Try again after the number of seconds in the Retry-After header.",
+            "description" : "Too many requests: a rate or a quota was reached, or the organization has too many requests in progress. The words never say which limit was full. Wait the whole number of seconds in the Retry-After header and read the RateLimit headers; a bulk call counts as many requests as it has records.",
             "headers" : {
               "API-Version" : {
                 "description" : "The major version of the public API that answered.",
                 "schema" : {
                   "type" : "string",
                   "example" : "v1"
+                }
+              },
+              "Retry-After" : {
+                "description" : "The whole number of seconds to wait before asking again.",
+                "schema" : {
+                  "type" : "string"
                 }
               },
               "X-Request-ID" : {

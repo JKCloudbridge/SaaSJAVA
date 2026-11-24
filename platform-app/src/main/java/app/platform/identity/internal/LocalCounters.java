@@ -37,9 +37,26 @@ final class LocalCounters implements Counters {
     }
 
     @Override
+    public long add(String key, Duration window, long amount) {
+        long now = clock.millis();
+        if (windows.size() > SWEEP_ABOVE) {
+            sweep(now);
+        }
+        return windows.compute(key, (k, existing) -> existing == null || existing.expiresAtMillis() <= now
+                ? new Window(amount, now + window.toMillis())
+                : new Window(existing.count() + amount, existing.expiresAtMillis())).count();
+    }
+
+    @Override
     public long current(String key) {
         Window window = windows.get(key);
         return window == null || window.expiresAtMillis() <= clock.millis() ? 0 : window.count();
+    }
+
+    @Override
+    public long remainingMillis(String key) {
+        Window window = windows.get(key);
+        return window == null ? 0 : Math.max(0, window.expiresAtMillis() - clock.millis());
     }
 
     private void sweep(long now) {

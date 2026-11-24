@@ -65,7 +65,15 @@ public enum NoticeKind {
      * also gets a mail of the same facts, which the same category switches on or off for each channel.
      */
     ACTION_PLAN_NEEDED(Category.DOCUMENTS, false, false, Set.of("event", "application", "entry"),
-            MailTemplate.ACTION_PLAN_NEEDED);
+            MailTemplate.ACTION_PLAN_NEEDED),
+
+    /**
+     * The platform switched a webhook subscription off because its address failed without one success for the whole
+     * period the settings state (Sprint 32, ADR-0279). Facts: {@code event} (a stable key). No name, no address: the
+     * words are the platform's own and lead to the page of webhooks, where the administrator reads the rest. It cannot
+     * be switched off, because it says that deliveries stopped.
+     */
+    WEBHOOK_STOPPED(Category.ACCOUNT, true, false, Set.of("event"));
 
     /** What a person switches on or off (ADR-0156). */
     public enum Category {

@@ -20,7 +20,10 @@ record AuditAudience(boolean organization, boolean platform) {
             // An organization sees that support asked for access and used it (ADR-0035).
             return new AuditAudience(aboutOrganization, true);
         }
-        if (type.startsWith("platform.") || type.startsWith("system.") || type.startsWith("audit.")) {
+        if (type.startsWith("platform.") || type.startsWith("system.") || type.startsWith("audit.")
+                || type.startsWith("limits.")) {
+            // The limits the platform sets for an organization (Sprint 32, ADR-0283) are the platform's own act, with a
+            // reason the organization never sees.
             return new AuditAudience(false, true);
         }
         if (type.startsWith("support_access.") || type.startsWith("tenant.") || type.startsWith("retention.")) {

@@ -8,6 +8,7 @@ import type { components } from "@/lib/api/generated/schema";
 import { DetailPage, DetailSection } from "@/components/ui/lists/DetailPage";
 import { PageFrame } from "@/components/ui/lists/PageFrame";
 import { ActionWithReason } from "./ActionWithReason";
+import { OrganizationLimitsPanel } from "./OrganizationLimitsPanel";
 import { ActionMessages, failureText, useAction } from "./useAction";
 
 type Detail = components["schemas"]["PlatformOrganizationDetail"];
@@ -261,6 +262,8 @@ export function OrganizationDetail() {
           })
         }
       />
+
+      <OrganizationLimitsPanel organizationId={organizationId} />
 
       <DetailSection title="Lifecycle" stack>
         <div>

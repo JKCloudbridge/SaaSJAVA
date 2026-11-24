@@ -18,10 +18,34 @@ final class RedisCounters implements Counters {
                     + "if c == 1 then redis.call('PEXPIRE', KEYS[1], ARGV[1]) end "
                     + "return c", Long.class);
 
+    // Adding and starting the window are one script too, so a bulk call that is the first of its window cannot leave
+    // a counter without an expiry.
+    private static final DefaultRedisScript<Long> ADD = new DefaultRedisScript<>(
+            "local c = redis.call('INCRBY', KEYS[1], ARGV[2]) "
+                    + "if c == tonumber(ARGV[2]) or redis.call('PTTL', KEYS[1]) < 0 then "
+                    + "redis.call('PEXPIRE', KEYS[1], ARGV[1]) end "
+                    + "return c", Long.class);
+
     private final StringRedisTemplate redis;
 
     RedisCounters(StringRedisTemplate redis) {
         this.redis = redis;
+    }
+
+    @Override
+    public long add(String key, Duration window, long amount) {
+        Long count = redis.execute(ADD, List.of(PREFIX + key), Long.toString(window.toMillis()),
+                Long.toString(amount));
+        if (count == null) {
+            throw new IllegalStateException("Redis returned no count");
+        }
+        return count;
+    }
+
+    @Override
+    public long remainingMillis(String key) {
+        Long left = redis.getExpire(PREFIX + key, java.util.concurrent.TimeUnit.MILLISECONDS);
+        return left == null || left < 0 ? 0 : left;
     }
 
     @Override

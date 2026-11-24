@@ -257,5 +257,6 @@ class TenantContextsTest {
         assertThat(SystemScope.APPROVAL_TIMERS.settingValue()).isEqualTo("approval_timers");
         assertThat(SystemScope.INBOUND_LOOKUP.settingValue()).isEqualTo("inbound_lookup");
         assertThat(SystemScope.INTEGRATION_DISPATCH.settingValue()).isEqualTo("integration_dispatch");
+        assertThat(SystemScope.WEBHOOK_DISPATCH.settingValue()).isEqualTo("webhook_dispatch");
     }
 }

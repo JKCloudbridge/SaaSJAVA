@@ -298,7 +298,37 @@ public enum Ability {
     CLIENTS_MANAGE("clients.manage", "Manage connected applications",
             "Register a connected application (it acts as you), change what it may do, switch it off and on, make "
                     + "a new secret for it, end a secret, or remove it. Applies to every connected application of "
-                    + "the organization. Needs the ability to view connected applications as well.");
+                    + "the organization. Needs the ability to view connected applications as well."),
+
+    /**
+     * See the webhook subscriptions of the organization and their delivery log (Sprint 32, ADR-0274). Never a secret
+     * and never a record value: a delivery names a record only by its identifier.
+     */
+    WEBHOOKS_VIEW("webhooks.view", "View webhooks",
+            "See the webhook subscriptions of the organization, whom each acts as, their state, and the log of what "
+                    + "was sent to them and how each attempt ended. A signing secret can never be seen by anyone."),
+
+    /**
+     * Make, change, switch, test, remove webhook subscriptions and replace their signing secret (Sprint 32,
+     * ADR-0274). A new subscription acts as the person who makes it; nobody can change whom it acts as.
+     */
+    WEBHOOKS_MANAGE("webhooks.manage", "Manage webhooks",
+            "Make a webhook subscription (it acts as you), change it while it is switched off, switch it on and off, "
+                    + "send it a test, replace its signing secret, or remove it. Needs the ability to view "
+                    + "webhooks as well."),
+
+    /**
+     * Send deliveries that were set aside again (Sprint 32, ADR-0278). Apart from managing, because a replay sends the
+     * identifier of a record to an outside address a second time.
+     */
+    WEBHOOKS_REPLAY("webhooks.replay", "Replay webhook deliveries",
+            "Put the deliveries a webhook could not make back in the queue, one or all of them, so that they are "
+                    + "sent again. Needs the ability to view webhooks as well."),
+
+    /** See how much of the limits on the public API the organization and its connected applications have used. */
+    USAGE_VIEW("usage.view", "View API usage",
+            "See the limits on the public API that apply to the organization and to each connected application, and "
+                    + "how much of each has been used. Numbers only.");
 
     private final String key;
     private final String title;

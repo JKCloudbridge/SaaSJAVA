@@ -362,9 +362,9 @@ class SchemaConventionsIT {
         assertThat(SchemaConventions.SYSTEM_SCOPE_TABLES)
                 .containsExactlyInAnyOrder("outbox_event", "processed_event", "membership", "workflow_execution",
                         "workflow_schedule", "approval_step_timer", "integration_connection",
-                        "integration_delivery", "integration_poll");
+                        "integration_delivery", "integration_poll", "webhook_delivery");
         assertThat(SchemaConventions.SYSTEM_SCOPES).containsExactlyInAnyOrder("outbox_relay", "membership_lookup",
-                "workflow_dispatch", "approval_timers", "inbound_lookup", "integration_dispatch");
+                "workflow_dispatch", "approval_timers", "inbound_lookup", "integration_dispatch", "webhook_dispatch");
     }
 
     /**

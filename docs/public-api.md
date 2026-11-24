@@ -250,8 +250,46 @@ with fixed words.
 | conditions in a filter / values in `IN` | 50 / 100 |
 | requests in progress for one organization | a platform ceiling; over it the answer is `429` with `Retry-After` |
 
-A body over its limit is refused as soon as the limit is passed, whether or not you announced its length. Quotas and
-rate-limit headers arrive in a later release.
+A body over its limit is refused as soon as the limit is passed, whether or not you announced its length. How many requests
+you may make is section 9a.
+
+## 9a. Rate limits and quotas (the rate, the day, and the headers that tell you)
+
+Every request to an operation of this interface counts, so that one customer, or one connected application, cannot use up what
+the others share. The description document, the token address and the application's own screens are not part of it.
+
+| What | Default |
+|---|---|
+| requests a minute for **each connected application**, and for **each person's own token** | 600 |
+| requests a minute for the **whole organization**, whoever asks | 3,000 |
+| requests a day for the whole organization (the day ends at midnight UTC) | 500,000 |
+
+The platform can set other numbers for one organization. Read the organization's own numbers, and how much is used, in Setup, "API
+usage" (or `GET /api/v1/usage` with the right to see it); they are numbers only.
+
+**What counts.** A request costs 1. A **bulk call costs as many requests as it has records** (at most 200); one that does not
+fit in what is left is refused whole. A repeated request with an `Idempotency-Key` counts too, because it reached the server.
+A request refused for a missing token or scope is not counted. A request is counted against **your application**, and also against
+the **organization**, so a thousand applications cannot exceed the organization's number.
+
+**The headers.** Every answer of a counted operation says where you stand, in the form of the IETF draft on rate-limit headers:
+
+```
+RateLimit-Policy: "minute";q=600;w=60, "day";q=500000;w=86400
+RateLimit: "minute";r=120;t=33, "day";r=499000;t=40000
+```
+
+`q` is what the window allows, `w` its length in seconds, `r` what is left, `t` the seconds until it ends and the count starts
+again. The item for the minute is the tighter of your application's own number and the organization's; the answer never says
+which it is.
+
+**When a limit is reached** the answer is `429` `RATE_LIMITED` with `Retry-After` in whole seconds, the same two headers, and one
+fixed sentence that never says which limit was full. Nothing was done. Wait `Retry-After` seconds and ask again.
+
+**What a well-behaved client does:** read `RateLimit` on every answer and slow down before `r` reaches 0; wait `Retry-After`
+on a `429` and never retry at once; spread bulk calls out instead of sending them in a burst; and remember that a webhook (section
+13) is told to you so that you need not ask. A request that is refused because the organization has too many requests in
+progress at once is also a `429` with `Retry-After`, without the headers: wait the same way.
 
 ## 10. Unknown things are refused
 
@@ -286,3 +324,77 @@ silently ignored: a misspelled name is told to you at once.
   platform's own tests refuse a shorter notice.
 - The contract document is published at `/api/public/v1/openapi`, changes only by adding inside a version, and can be cached
   (`ETag`, `If-None-Match`).
+
+## 13. Webhooks: being told instead of asking
+
+A webhook is a standing instruction of your organization: "when records change, tell this https address." An administrator makes
+it in Setup, under Webhooks, chooses the events and, if wanted, the objects, and the platform calls your address with a small
+signed message. It spares you from asking over and over whether anything changed.
+
+**What is sent.** One `POST` with a JSON body of identifiers only: no field name and no value.
+
+```
+{"payloadVersion":1,"id":"<delivery>","type":"record.updated","createdAt":"<time>","object":"Employee__c",
+ "recordId":"<record>","version":5}
+```
+
+`type` is one of `record.created`, `record.updated`, `record.deleted`, `record.restored` (the screen lists them); a test sends
+`ping`, with no object and no record. A property is only ever added to the message. **Fetch the record** through this
+interface with your own credentials to read what it holds: what you learn is decided by the member behind those credentials.
+
+**Whom it tells about what.** A webhook **acts as the member who made it**, for ever. It tells you about a record only if that
+member can read it at the moment of the delivery; one that member cannot read is not sent (the administrator sees a counted skip,
+never the record). When that member can no longer act the webhook stops, and a new one is made by a member who can. The
+practice is a dedicated integration member. A removed record is announced only to a member who could read every record of the
+object.
+
+**The headers of a delivery.**
+
+| Header | Meaning |
+|---|---|
+| `Webhook-Id` | The identifier of the delivery. **Keep the ones you have handled and ignore a repeat.** |
+| `Webhook-Event` | The event, the same as `type` in the body |
+| `Webhook-Timestamp` | Whole seconds since 1970 when the delivery was signed |
+| `Webhook-Signature` | One `v1=<hex>` for every signing secret, separated by a space: two while a replaced secret overlaps |
+| `Webhook-Attempt` | The number of this attempt |
+
+**Verify the signature on every delivery**, before you trust anything in it. In steps, with no library of ours (the secret is the
+text you were shown once, `whsec_...`):
+
+```
+body       = the request body, byte for byte, exactly as it arrived (do not parse and write it again)
+timestamp  = the value of Webhook-Timestamp
+if abs(now_in_seconds - timestamp) > 300:  refuse                      # a recorded delivery sent again later
+signed     = timestamp + "." + body                                    # the number as text, a full stop, the body
+expected   = lower_case_hex( HMAC_SHA256( key = secret_as_utf8, message = signed ) )
+for each part of Webhook-Signature split on spaces:
+    if part starts with "v1=" and constant_time_equals( part after "v1=", expected ):  accept
+refuse
+```
+
+Compare with a function that takes the same time whatever the content (not `==`). Accept either signature while a secret is
+being replaced: keep both secrets until the overlap ends.
+
+**Answer quickly with a `2xx`.** Anything else is a failure. Only the status is read; the body of your answer is never read,
+kept or logged, so do not rely on it to say anything to us.
+
+**Duplicates and retries.** A delivery is sent **at least once**: an answer that is lost, or an event the platform hands on
+twice, can bring the same delivery again, with the same `Webhook-Id`. A failure that may pass (a timeout, a connection that
+failed, `408`, `429`, `500`, `502`, `503`, `504`) is tried again after a wait that doubles, with `Retry-After` honoured;
+**`410 Gone` and every other `4xx` are not tried again**; after five attempts a delivery is set aside, and an administrator may
+send it again (**replay**, which carries the same `Webhook-Id`). Several updates of one record that are still waiting become
+one. There is **no promise of order** between deliveries: treat each as "this record changed" and fetch it.
+
+**Failing for a long time.** An address that fails for seven days without one success is switched off by the platform, the
+administrators are told, and nothing is deleted; switching it on again needs a new test of the address.
+
+**The address.** It must be an https address of a public host: no address of a private network, no user name or password in it,
+no query, and it is never followed to somewhere else (a redirect is a failure). Making or changing a webhook, the administrator
+sends a **test**, a signed `ping`; a webhook is switched on only for an address that answered a test as it stands.
+
+**The signing secret** is shown once, when it is made, and the platform keeps it sealed so that it can sign, but cannot show it
+again. To replace it (or if it leaked) make a new one: you choose how long, up to 24 hours, the old one keeps signing as well so
+that you can change over without losing a delivery; **0 ends the old one at once.**
+
+**Limits.** An organization may have 50 webhooks; the platform calls one address at most 20 times a second and has 10 calls to
+it under way at once. The limits of section 9a are on what you ask of the platform, not on what it tells you.

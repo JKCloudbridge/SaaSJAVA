@@ -1,8 +1,25 @@
 "use client";
 
 import { useId, useState, type ReactNode } from "react";
-import { Icon } from "@/components/ui/Icon";
+import { Icon, type IconName } from "@/components/ui/Icon";
 import { PATTERNS, seriesNumber } from "./model";
+
+/** One way to look at a graph, offered as a button while it is not the one shown. */
+export interface ChartViewChoice {
+  key: string;
+  label: string;
+  icon: IconName;
+}
+
+/**
+ * The views of a graph that has more than one (ADR-0266): the key shown, every choice and what a click does. The key
+ * "table" shows the table of the card; any other key shows the graph, which the caller draws for that key.
+ */
+export interface ChartViews {
+  current: string;
+  choices: readonly ChartViewChoice[];
+  onChange: (key: string) => void;
+}
 
 /** The numbers of a graph as a table: what a screen reader reads and what a person copies. */
 export interface ChartTable {
@@ -24,6 +41,7 @@ export function ChartCard({
   empty,
   loading = false,
   wide = false,
+  views,
   testId,
   children,
 }: {
@@ -34,12 +52,14 @@ export function ChartCard({
   empty?: string;
   loading?: boolean;
   wide?: boolean;
+  /** More than one way to look at the numbers; without it the card has its one "View as table" switch. */
+  views?: ChartViews;
   testId: string;
   children: ReactNode;
 }) {
   const [asTable, setAsTable] = useState(false);
   const headingId = useId();
-  const showTable = asTable && empty === undefined && !loading;
+  const showTable = (views ? views.current === "table" : asTable) && empty === undefined && !loading;
   return (
     <article
       className={`chart-card${wide ? " chart-card-wide" : ""}`}
@@ -54,7 +74,19 @@ export function ChartCard({
           </h3>
           {note ? <p className="chart-note">{note}</p> : null}
         </div>
-        {empty === undefined && !loading ? (
+        {empty === undefined && !loading && views ? (
+          <div className="chart-switches">
+            {views.choices
+              .filter((choice) => choice.key !== views.current)
+              .map((choice) => (
+                <button key={choice.key} type="button" className="chart-switch" onClick={() => views.onChange(choice.key)}>
+                  <Icon name={choice.icon} className="chart-switch-icon" />
+                  {choice.label}
+                </button>
+              ))}
+          </div>
+        ) : null}
+        {empty === undefined && !loading && !views ? (
           <button
             type="button"
             className="chart-switch"

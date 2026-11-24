@@ -8,7 +8,7 @@ import org.springframework.core.env.Profiles;
 
 /** Wiring of the connector framework: its settings and the one rule about development hosts (Sprint 26). */
 @Configuration
-@EnableConfigurationProperties(IntegrationProperties.class)
+@EnableConfigurationProperties({IntegrationProperties.class, WebhookProperties.class})
 class IntegrationModuleConfiguration {
 
     /**

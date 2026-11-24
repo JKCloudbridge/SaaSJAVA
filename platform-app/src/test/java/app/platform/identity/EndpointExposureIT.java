@@ -154,6 +154,35 @@ class EndpointExposureIT {
         assertThat(token.body()).doesNotContain("access_token");
     }
 
+    /**
+     * Sprint 32 (ADR-0274, ADR-0280, ADR-0283): the webhooks, the usage page and the limits console are on none of the
+     * public lists, so the walk holds every one of them to 401 without a sign-in; each exists, so a rename cannot leave
+     * a stale entry; and a token of a connected application never reaches them (ClientTokenAccessTest).
+     */
+    @Test
+    void theWebhooksTheUsagePageAndTheLimitsConsoleAreNotPublic() {
+        Set<String> existing = new TreeSet<>();
+        endpoints().forEach(endpoint -> existing.add(endpoint.key()));
+        TestBrowser anonymous = new TestBrowser(port, TestSignIn.PLATFORM_HOST);
+
+        assertThat(PUBLIC).noneMatch(key -> key.contains("/webhooks") || key.contains("/usage")
+                || key.contains("/limits"));
+        assertThat(existing).contains("GET /api/v1/webhooks", "POST /api/v1/webhooks",
+                "GET /api/v1/webhooks/catalogue", "GET /api/v1/webhooks/x", "PUT /api/v1/webhooks/x",
+                "DELETE /api/v1/webhooks/x", "POST /api/v1/webhooks/x/test", "POST /api/v1/webhooks/x/enable",
+                "POST /api/v1/webhooks/x/disable", "POST /api/v1/webhooks/x/secret/rotate",
+                "POST /api/v1/webhooks/x/secret/end-overlap", "GET /api/v1/webhooks/x/deliveries",
+                "GET /api/v1/webhooks/x/deliveries/x/attempts", "POST /api/v1/webhooks/x/deliveries/x/replay",
+                "POST /api/v1/webhooks/x/deliveries/replay", "GET /api/v1/usage",
+                "GET /api/v1/platform/organizations/x/limits", "PUT /api/v1/platform/organizations/x/limits",
+                "POST /api/v1/platform/organizations/x/limits/reset");
+        existing.stream().filter(key -> key.contains("/webhooks") || key.contains("/usage")
+                || key.contains("/limits")).forEach(key -> {
+            String[] parts = key.split(" ");
+            assertThat(anonymous.request(parts[0], parts[1], "{}").status()).as(key).isEqualTo(401);
+        });
+    }
+
     @Test
     void aPathThatDoesNotExistIsAlsoRefusedBeforeAnythingIsSaid() {
         TestBrowser anonymous = new TestBrowser(port, TestSignIn.PLATFORM_HOST);

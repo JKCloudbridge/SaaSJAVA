@@ -64,8 +64,10 @@ class PublicApiConfiguration {
             add(operation, "404", "The organization, object or record does not exist, or the caller may not know that "
                     + "it exists. The three answer alike. Also the answer of every address when the public API is "
                     + "switched off.");
-            add(operation, "429", "The organization has too many requests in progress. Try again after the number "
-                    + "of seconds in the Retry-After header.");
+            add(operation, "429", "Too many requests: a rate or a quota was reached, or the organization has too many "
+                    + "requests in progress. The words never say which limit was full. Wait the whole number of "
+                    + "seconds in the Retry-After header and read the RateLimit headers; a bulk call counts as many "
+                    + "requests as it has records.");
             add(operation, "500", "An unexpected failure. Nothing about the cause is disclosed; quote the request ID.");
             add(operation, "503", "A dependency of the service is unavailable. Try again after the Retry-After "
                     + "header, or later.");
@@ -109,7 +111,9 @@ class PublicApiConfiguration {
                             + "scope only lets a request reach an operation, and never gives a right the member "
                             + "does not have. Software gets its tokens with a client identifier and a client secret "
                             + "(OAuth client credentials, see the security scheme clientCredentials); a person's own "
-                            + "token works too."));
+                            + "token works too. Every request is counted against a rate a minute and a quota a day, "
+                            + "stated in the RateLimit-Policy and RateLimit headers of every answer; when one is "
+                            + "reached the answer is 429 with Retry-After."));
             Components components = openApi.getComponents() == null ? new Components() : openApi.getComponents();
             openApi.setComponents(components);
             components.addSecuritySchemes(BEARER, new SecurityScheme()
@@ -152,10 +156,39 @@ class PublicApiConfiguration {
                                 && deprecation.template().equals(path))
                         .findFirst().ifPresent(deprecation -> operation.setDeprecated(true));
                 if (operation.getResponses() != null) {
-                    operation.getResponses().values().forEach(PublicApiConfiguration::addHeaders);
+                    boolean counted = !ApiPaths.PUBLIC_OPENAPI.equals(path);
+                    operation.getResponses().forEach((status, response) -> {
+                        addHeaders(response);
+                        // A request refused for a missing token or scope was never counted, so it says nothing of the
+                        // limits; every other answer of a counted operation does (ADR-0282).
+                        if (counted && !"401".equals(status)) {
+                            addRateHeaders(response);
+                        }
+                        if ("429".equals(status)) {
+                            addRetryAfter(response);
+                        }
+                    });
                 }
             }));
         };
+    }
+
+    private static void addRateHeaders(ApiResponse response) {
+        response.addHeaderObject(ApiHeaders.RATE_LIMIT_POLICY, new Header().description(
+                "The limits that apply, one item for each window: the name, q the most requests in the window and w "
+                        + "the length of the window in seconds, for example `\"minute\";q=600;w=60, "
+                        + "\"day\";q=500000;w=86400`. Absent when the platform has switched the limits off.")
+                .schema(new StringSchema()));
+        response.addHeaderObject(ApiHeaders.RATE_LIMIT, new Header().description(
+                "What is left, one item for each window: r what remains and t the seconds until the window ends, for "
+                        + "example `\"minute\";r=120;t=33, \"day\";r=499000;t=40000`. A request that fits is "
+                        + "answered; when r is 0 wait t seconds. Read it on every answer and slow down before it "
+                        + "reaches zero.").schema(new StringSchema()));
+    }
+
+    private static void addRetryAfter(ApiResponse response) {
+        response.addHeaderObject("Retry-After", new Header().description(
+                "The whole number of seconds to wait before asking again.").schema(new StringSchema()));
     }
 
     private static void addHeaders(ApiResponse response) {

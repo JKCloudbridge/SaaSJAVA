@@ -75,12 +75,25 @@ platform:
       development-hosts: [127.0.0.1]
     test:
       min-interval: 1s
+  limits:
+    public-api:
+      # The limits on the public API are far out of the way, so that tests that make many requests are not refused;
+      # the tests of the limits themselves start an instance with small numbers (Sprint 32, ADR-0280). The override
+      # of an organization is read afresh, so that a test that sets one sees it at once.
+      organization-per-minute: 1000000
+      organization-per-day: 1000000000
+      application-per-minute: 1000000
+      override-cache: 0s
   licensing:
     trial:
       # Tests drive the end of a trial themselves (runOnce), or switch it on for the one context that wants it.
       enabled: false
   outbox:
     # Tests drive the relay themselves, or switch it on for the one context that wants it to poll.
+    enabled: false
+  webhooks:
+    # The worker claims the deliveries of every organization in the shared database, so a context that did not ask for
+    # it must not run one: it could claim another test's delivery and fail it with its own (in-memory) secrets store.
     enabled: false
   workflow:
     # Tests drive the dispatcher themselves (pollExecutionsOnce, pollSchedulesOnce), or switch it on for the one

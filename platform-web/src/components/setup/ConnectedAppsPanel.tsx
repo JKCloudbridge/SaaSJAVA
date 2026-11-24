@@ -1,12 +1,13 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState, type FormEvent, type ReactNode } from "react";
+import { useCallback, useEffect, useState, type FormEvent, type ReactNode } from "react";
 import { COMMON_TEXT } from "@/components/account/messages";
 import { ActionMessages, failureText, type ActionResult } from "@/components/console/useAction";
 import { Modal } from "@/components/ui/Modal";
 import { DetailGrid, DetailItem, DetailPage, DetailSection, MissingDetail } from "@/components/ui/lists/DetailPage";
 import { ListPage } from "@/components/ui/lists/ListPage";
 import { Tag } from "@/components/ui/lists/Tag";
+import { SecretDialog } from "@/components/setup/SecretDialog";
 import { useListScreen } from "@/components/ui/lists/useListScreen";
 import { api } from "@/lib/api/client";
 import { failureFromResponse } from "@/lib/api/errors";
@@ -494,61 +495,6 @@ export function ConnectedAppsPanel() {
       />
       {dialogs}
     </>
-  );
-}
-
-/** The one place a secret is shown: once, from memory, never again. Closing it (or leaving the page) forgets it. */
-function SecretDialog({ secret, onClose }: { secret: string; onClose: () => void }) {
-  const field = useRef<HTMLInputElement>(null);
-  const [copied, setCopied] = useState<"yes" | "no" | undefined>();
-
-  const copy = async () => {
-    try {
-      await navigator.clipboard.writeText(secret);
-      setCopied("yes");
-    } catch {
-      // Without the clipboard interface the text in the box is selected and copied from there; no other copy of it is made.
-      const input = field.current;
-      input?.focus();
-      input?.select();
-      setCopied(document.execCommand("copy") ? "yes" : "no");
-    }
-  };
-
-  return (
-    <Modal title="Copy the client secret now" onClose={onClose} testId="connected-app-secret-dialog">
-      <p>
-        This is the only time the secret is shown. It is kept only as a hash and cannot be shown again. If it is lost, make
-        a new secret.
-      </p>
-      <div className="field">
-        <label htmlFor="connected-app-secret-value">Client secret</label>
-        <input
-          id="connected-app-secret-value"
-          ref={field}
-          className="mono"
-          value={secret}
-          readOnly
-          autoComplete="off"
-          spellCheck={false}
-          onFocus={(event) => event.currentTarget.select()}
-        />
-      </div>
-      {copied === "yes" ? <p role="status">Copied.</p> : null}
-      {copied === "no" ? (
-        <p className="form-message" role="alert">
-          It could not be copied. Select the text and copy it.
-        </p>
-      ) : null}
-      <div className="form-actions">
-        <button type="button" className="button button-secondary" onClick={() => void copy()}>
-          Copy
-        </button>
-        <button type="button" className="button" onClick={onClose}>
-          I have copied it
-        </button>
-      </div>
-    </Modal>
   );
 }
 

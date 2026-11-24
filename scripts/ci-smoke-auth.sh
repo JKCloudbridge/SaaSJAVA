@@ -1490,4 +1490,86 @@ if [ -n "$mail" ]; then
   status="$(client_call -X DELETE "$base/api/v1/connected-apps/$app_id")"
   [ "$status" = "200" ] || [ "$status" = "204" ] || fail "removing the application answered $status: $(cat "$body")"
   echo "ok: a connected application was registered, its secret shown once, a token with its scopes was issued, the contract was served without a token, the scope it lacks and the internal interface were refused, and after a rotation the old secret was refused"
+
+  # 38. Webhooks and the limits on the public API (Sprint 32, ADR-0274 to ADR-0285): the catalogue lists the events, a hostile
+  # address is refused without repeating what was typed, a subscription is made with its signing secret shown once and never
+  # again, a test against an address that cannot be reached fails with a stable reason and never verifies it (so it cannot be
+  # switched on), and, with the platform's override of one application number, a small limit is exceeded and the answer is a
+  # 429 with Retry-After and the rate-limit headers, which the platform's own reset takes away again. A delivery that arrives
+  # at a receiver and its signature are proved by WebhookDeliveryIT (an image in the production profile may call only public
+  # addresses, so the smoke job has no receiver to call). Written carefully and NOT claimed to work until this job has run it.
+  status="$(client_call "$base/api/v1/webhooks/catalogue")"
+  [ "$status" = "200" ] || fail "the webhook catalogue answered $status: $(cat "$body")"
+  grep -Fq '"key":"record.created"' "$body" || fail "the catalogue does not list the record events: $(cat "$body")"
+  grep -Fq '"payloadVersion":1' "$body" || fail "the catalogue does not state the version of the message: $(cat "$body")"
+  for hostile in "https://localhost/in" "https://10.0.0.5/in" "http://hooks.example.net/in" \
+      "https://user:smoke-canary-secret@hooks.example.net/in"; do
+    status="$(client_call -X POST -H "$group_json" \
+      -d '{"name":"smoke-hostile","address":"'"$hostile"'","events":["record.created"],"version":0}' "$base/api/v1/webhooks")"
+    [ "$status" = "400" ] || fail "the hostile address $hostile was accepted ($status): $(cat "$body")"
+    if grep -Fq "smoke-canary-secret" "$body"; then fail "the refusal repeats what was typed: $(cat "$body")"; fi
+  done
+  status="$(client_call -X POST -H "$group_json" \
+    -d '{"name":"smoke-hook","address":"https://smoke-no-such-host-7f3a.example.net/in","events":["record.created"],"version":0}' \
+    "$base/api/v1/webhooks")"
+  [ "$status" = "201" ] || fail "making a webhook answered $status: $(cat "$body")"
+  hook_id="$(grep -o '"id":"[^"]*"' "$body" | head -1 | cut -d'"' -f4)"
+  hook_secret="$(grep -o '"secret":"[^"]*"' "$body" | head -1 | cut -d'"' -f4)"
+  [ -n "$hook_id" ] && [ -n "$hook_secret" ] || fail "the webhook lacks an identifier or the signing secret"
+  case "$hook_secret" in whsec_*) ;; *) fail "the signing secret has an unexpected form" ;; esac
+  grep -qi '^cache-control:.*no-store' "$headers" || fail "the answer that carries the secret may be cached"
+  grep -Fq '"state":"DISABLED"' "$body" || fail "a new webhook is not switched off: $(cat "$body")"
+  status="$(client_call "$base/api/v1/webhooks/$hook_id")"
+  [ "$status" = "200" ] || fail "reading the webhook answered $status: $(cat "$body")"
+  if grep -Fq "$hook_secret" "$body"; then fail "reading the webhook showed its signing secret"; fi
+  status="$(client_call -X POST -H "$group_json" -d '{}' "$base/api/v1/webhooks/$hook_id/test")"
+  [ "$status" = "200" ] || fail "testing the webhook answered $status: $(cat "$body")"
+  grep -Fq '"delivered":false' "$body" || fail "a test against an address that cannot be reached did not fail: $(cat "$body")"
+  grep -Fq '"verified":false' "$body" || fail "an unreachable address was verified: $(cat "$body")"
+  # The words are the platform's own; they never repeat the address.
+  if grep -o '"message":"[^"]*"' "$body" | grep -Fq "smoke-no-such-host"; then fail "the test words repeat the address"; fi
+  status="$(client_call -X POST -H "$group_json" -d '{"version":0}' "$base/api/v1/webhooks/$hook_id/enable")"
+  [ "$status" = "409" ] || fail "an unverified webhook could be switched on ($status): $(cat "$body")"
+  status="$(client_call -X DELETE "$base/api/v1/webhooks/$hook_id")"
+  [ "$status" = "200" ] || fail "removing the webhook answered $status: $(cat "$body")"
+
+  org_id="$(owner_sql -c "select id from tenant where slug = '${client_host%.$host}'" | head -1 | tr -d '[:space:]')"
+  [ -n "$org_id" ] || fail "the organization of the smoke client was not found"
+  status="$(client_call -X POST -H "$group_json" \
+    -d '{"name":"Smoke limited application","description":"","scopes":["objects.read"]}' "$base/api/v1/connected-apps")"
+  [ "$status" = "201" ] || fail "registering the limited application answered $status: $(cat "$body")"
+  limited_id="$(grep -o '"id":"[^"]*"' "$body" | head -1 | cut -d'"' -f4)"
+  limited_client="$(grep -o '"clientId":"[^"]*"' "$body" | head -1 | cut -d'"' -f4)"
+  limited_secret="$(grep -o '"clientSecret":"[^"]*"' "$body" | head -1 | cut -d'"' -f4)"
+  status="$(call -X PUT -H "Authorization: Bearer $console_token" -H "$group_json" \
+    -d '{"applicationPerMinute":3,"reason":"smoke test of the limits"}' "$base/api/v1/platform/organizations/$org_id/limits")"
+  [ "$status" = "200" ] || fail "setting the limits answered $status: $(cat "$body")"
+  grep -Fq '"overridden":true' "$body" || fail "the limits were not marked as set: $(cat "$body")"
+  status="$(call_host="$client_host" call -X POST -u "$limited_client:$limited_secret" -d 'grant_type=client_credentials' \
+    "$base/api/v1/oauth2/token")"
+  [ "$status" = "200" ] || fail "the limited application got no token ($status): $(cat "$body")"
+  limited_token="$(grep -o '"access_token":"[^"]*"' "$body" | head -1 | cut -d'"' -f4)"
+  for attempt in 1 2 3; do
+    status="$(call_host="$client_host" call -H "Authorization: Bearer $limited_token" "$base/api/public/v1/objects")"
+    [ "$status" = "200" ] || fail "request $attempt of the limited application answered $status: $(cat "$body")"
+    grep -qi '^ratelimit-policy: "minute";q=3;w=60' "$headers" || fail "request $attempt carries no policy header"
+    grep -qi '^ratelimit: "minute";r=' "$headers" || fail "request $attempt carries no rate-limit header"
+  done
+  status="$(call_host="$client_host" call -H "Authorization: Bearer $limited_token" "$base/api/public/v1/objects")"
+  [ "$status" = "429" ] || fail "the request over the limit answered $status: $(cat "$body")"
+  grep -Fq '"RATE_LIMITED"' "$body" || fail "the refusal has the wrong code: $(cat "$body")"
+  grep -qi '^retry-after: [0-9][0-9]*' "$headers" || fail "the refusal carries no Retry-After in whole seconds"
+  grep -qi '^ratelimit: "minute";r=0' "$headers" || fail "the refusal does not say that nothing is left"
+  status="$(client_call "$base/api/v1/usage")"
+  [ "$status" = "200" ] || fail "the usage page answered $status: $(cat "$body")"
+  grep -Fq '"overridden":true' "$body" || fail "the usage page does not say the numbers were set: $(cat "$body")"
+  status="$(call -X POST -H "Authorization: Bearer $console_token" -H "$group_json" \
+    -d '{"reason":"smoke test done"}' "$base/api/v1/platform/organizations/$org_id/limits/reset")"
+  [ "$status" = "200" ] || fail "resetting the limits answered $status: $(cat "$body")"
+  grep -Fq '"overridden":false' "$body" || fail "the limits were not returned to the defaults: $(cat "$body")"
+  status="$(call_host="$client_host" call -H "Authorization: Bearer $limited_token" "$base/api/public/v1/objects")"
+  [ "$status" = "200" ] || fail "the application is still limited after the reset ($status): $(cat "$body")"
+  status="$(client_call -X DELETE "$base/api/v1/connected-apps/$limited_id")"
+  [ "$status" = "200" ] || [ "$status" = "204" ] || fail "removing the limited application answered $status: $(cat "$body")"
+  echo "ok: the webhook catalogue was served, hostile addresses were refused without repeating them, a webhook was made with its secret shown once and could not be switched on unverified, and a small limit was exceeded with a 429, Retry-After and the rate-limit headers and taken away again by the platform's reset"
 fi

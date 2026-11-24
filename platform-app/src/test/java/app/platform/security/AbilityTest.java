@@ -55,6 +55,23 @@ class AbilityTest {
     }
 
     @Test
+    void theAbilitiesOfWebhooksAndUsageAreTheirOwnAndAReplayIsApartFromManaging() {
+        assertThat(Ability.fromKey("webhooks.view")).contains(Ability.WEBHOOKS_VIEW);
+        assertThat(Ability.fromKey("webhooks.manage")).contains(Ability.WEBHOOKS_MANAGE);
+        assertThat(Ability.fromKey("webhooks.replay")).contains(Ability.WEBHOOKS_REPLAY);
+        assertThat(Ability.fromKey("usage.view")).contains(Ability.USAGE_VIEW);
+        assertThat(List.of(Ability.WEBHOOKS_VIEW, Ability.WEBHOOKS_MANAGE, Ability.WEBHOOKS_REPLAY,
+                Ability.USAGE_VIEW)).doesNotContainAnyElementsOf(List.of(Ability.INTEGRATIONS_VIEW,
+                Ability.INTEGRATIONS_MANAGE, Ability.INTEGRATIONS_REPLAY, Ability.CLIENTS_VIEW,
+                Ability.CLIENTS_MANAGE, Ability.CREDENTIALS_VIEW));
+        assertThat(Ability.WEBHOOKS_VIEW.description()).as("no ability can show a signing secret")
+                .contains("can never be seen");
+        assertThat(Ability.WEBHOOKS_MANAGE.description()).contains("it acts as you").contains("view webhooks");
+        assertThat(Ability.WEBHOOKS_REPLAY.description()).contains("sent again").contains("view webhooks");
+        assertThat(Ability.USAGE_VIEW.description()).contains("Numbers only");
+    }
+
+    @Test
     void everyKeyIsUniqueDocumentedAndHasTheShapeTheDatabaseAccepts() {
         List<String> keys = Arrays.stream(Ability.values()).map(Ability::key).toList();
 

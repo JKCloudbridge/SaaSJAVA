@@ -53,6 +53,35 @@ final class ResilientCounters implements Counters {
     }
 
     @Override
+    public long add(String key, Duration window, long amount) {
+        if (sharedAvailable()) {
+            try {
+                long count = shared.add(key, window, amount);
+                recovered();
+                return count;
+            } catch (RuntimeException e) {
+                failed(e);
+            }
+        }
+        meters.counter("platform.identity.ratelimit.degraded").increment();
+        return local.add(key, window, amount);
+    }
+
+    @Override
+    public long remainingMillis(String key) {
+        if (sharedAvailable()) {
+            try {
+                long left = shared.remainingMillis(key);
+                recovered();
+                return left;
+            } catch (RuntimeException e) {
+                failed(e);
+            }
+        }
+        return local.remainingMillis(key);
+    }
+
+    @Override
     public long current(String key) {
         if (sharedAvailable()) {
             try {

@@ -76,6 +76,7 @@ public final class NoticeText {
             case DOCUMENT_PUBLISHED -> "A document you made was published";
             case DOCUMENT_AT_PLANT -> "A document is available at your plant";
             case ACTION_PLAN_NEEDED -> "A fill-in needs an Action plan";
+            case WEBHOOK_STOPPED -> "A webhook was switched off";
         };
     }
 
@@ -93,6 +94,8 @@ public final class NoticeText {
             case DOCUMENT_AT_PLANT -> "A document of {object} was made available to your plant.";
             case ACTION_PLAN_NEEDED -> "A fill-in of {object} that you filled is below the limit, so an Action plan is "
                     + "needed.";
+            case WEBHOOK_STOPPED -> "A webhook of this organization was switched off because its address kept "
+                    + "failing. Nothing was deleted: open Webhooks to look at it and switch it on again.";
         };
     }
 

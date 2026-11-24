@@ -30,7 +30,8 @@ class ClientTokenAccessTest {
                 "/api/v1/integrations", "/api/v1/objects/Employee__c/records", "/api/v1/metadata/objects",
                 "/api/v1/embedded-tokens", "/api/v1/auth/sign-out-all", "/api/v1/platform/status",
                 "/api/v1/tenant/current", "/api/v1/oauth2/token", "/api/v1/oauth2/revoke", "/api/v1/audit-events",
-                "/api/v1/inbound/x/x", "/api/v1/openapi");
+                "/api/v1/inbound/x/x", "/api/v1/openapi", "/api/v1/webhooks", "/api/v1/webhooks/catalogue",
+                "/api/v1/webhooks/x/deliveries", "/api/v1/usage");
 
         internal.forEach(path -> assertThat(ClientTokenAccessFilter.permits(path)).as(path).isFalse());
     }
