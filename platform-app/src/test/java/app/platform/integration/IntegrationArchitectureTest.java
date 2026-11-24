@@ -115,6 +115,7 @@ class IntegrationArchitectureTest {
         noClasses().that().resideInAPackage("app.platform.integration..")
                 .and().haveNameNotMatching(".*EgressClient.*")
                 .and().doNotHaveSimpleName("SftpTransport")
+                .and().doNotHaveSimpleName("WebhookCaller")
                 .and().doNotHaveSimpleName("OutboundWorker").and().doNotHaveSimpleName("ConnectionTesting")
                 .should().dependOnClassesThat().haveFullyQualifiedName(
                         "app.platform.integration.internal.EgressClient")

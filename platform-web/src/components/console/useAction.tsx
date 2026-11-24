@@ -55,7 +55,7 @@ export function useAction(onDone: () => Promise<void>) {
             result = await run();
           }
         }
-        if (result.response.ok) {
+        if (result.response.ok && result.problem === undefined) {
           setNotice(result.text);
           await onDone();
         } else {

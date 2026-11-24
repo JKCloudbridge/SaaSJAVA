@@ -4964,6 +4964,50 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/platform/organizations/{organizationId}/limits": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The limits on the public API of an organization (platform console)
+         * @description The numbers in force and the defaults beside them. Numbers only. For platform administrators and support. Platform host only.
+         */
+        get: operations["getOrganizationLimits"];
+        /**
+         * Set the limits on the public API of an organization (platform console)
+         * @description Replaces the override of the organization; a number left out keeps its default and every number stays inside the ceilings of the platform's settings. Needs a reason, kept in the audit trail only. Other organizations are not touched. For platform administrators. Platform host only.
+         */
+        put: operations["setOrganizationLimits"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/platform/organizations/{organizationId}/limits/reset": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Return the limits of an organization to the defaults (platform console)
+         * @description Removes the override. Needs a reason, kept in the audit trail only. For platform administrators. Platform host only.
+         */
+        post: operations["resetOrganizationLimits"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/platform/organizations/{organizationId}/pools/{licenceType}": {
         parameters: {
             query?: never;
@@ -6308,6 +6352,278 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/usage": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The limits on the public API and how much is used
+         * @description Needs usage.view. The organization's limits and the limit of each connected application, with what has been used in the current window: numbers only. Reading it costs nothing against the limits. NOT_FOUND on the platform host.
+         */
+        get: operations["getApiUsage"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/webhooks": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The organization's webhooks
+         * @description Needs webhooks.view. Never holds a secret. NOT_FOUND on the platform host and for a webhook of another organization.
+         */
+        get: operations["listWebhooks"];
+        put?: never;
+        /**
+         * Make a webhook
+         * @description Needs webhooks.view and webhooks.manage. The webhook acts as the person who makes it, for ever, and starts switched off until its address answers a test. The answer carries the signing secret once and is never cached; the platform cannot show it again. Nothing typed is logged.
+         */
+        post: operations["createWebhook"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/webhooks/catalogue": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * What a webhook can ask for and how it works
+         * @description Needs webhooks.view. The events, the version of the message, the words about whom a webhook acts as and about duplicates. The screens draw their choices from this and hold no list of their own.
+         */
+        get: operations["getWebhookCatalogue"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/webhooks/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * One webhook
+         * @description Needs webhooks.view. NOT_FOUND on the platform host and for a webhook of another organization.
+         */
+        get: operations["getWebhook"];
+        /**
+         * Change a webhook that is switched off
+         * @description Needs webhooks.view, webhooks.manage and the version read. A change of the address, the events or the objects makes the last test void. A webhook that is switched on is switched off first. It cannot change whom the webhook acts as.
+         */
+        put: operations["updateWebhook"];
+        post?: never;
+        /**
+         * Remove a webhook
+         * @description Needs webhooks.view and webhooks.manage. What was waiting is set aside as skipped and the signing secrets are removed; the delivery log is kept for its retention.
+         */
+        delete: operations["removeWebhook"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/webhooks/{id}/deliveries": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The delivery log of a webhook, newest first
+         * @description Needs webhooks.view. Identifiers, a state and a stable reason: never a payload, a header or an answer. Filter by one or more states; pass the next value back as before to read on.
+         */
+        get: operations["listWebhookDeliveries"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/webhooks/{id}/deliveries/replay": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Send the deliveries that were set aside again
+         * @description Needs webhooks.view and webhooks.replay. At most 500 a call, oldest first; the answer says whether more remain.
+         */
+        post: operations["replayWebhookDeliveries"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/webhooks/{id}/deliveries/{delivery}/attempts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The attempts of one delivery
+         * @description Needs webhooks.view. When, how long, how it ended, a stable reason and the class of the answer.
+         */
+        get: operations["listWebhookAttempts"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/webhooks/{id}/deliveries/{delivery}/replay": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Send one delivery that was set aside again
+         * @description Needs webhooks.view and webhooks.replay. A new generation of the same delivery, with the same delivery identifier; two clicks make one. Only a delivery that was set aside can be sent again.
+         */
+        post: operations["replayWebhookDelivery"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/webhooks/{id}/disable": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Switch a webhook off
+         * @description Needs webhooks.view and webhooks.manage. Takes effect at once: what is waiting stays in the queue, which is bounded, until the webhook is switched on again.
+         */
+        post: operations["disableWebhook"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/webhooks/{id}/enable": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Switch a verified webhook on
+         * @description Needs webhooks.view, webhooks.manage and the version read. Only after a successful test of exactly the current address, and only while the member it acts as can act.
+         */
+        post: operations["enableWebhook"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/webhooks/{id}/secret/end-overlap": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Stop the old signing secret now
+         * @description Needs webhooks.view and webhooks.manage. Ends the overlap of a replaced secret at once.
+         */
+        post: operations["endWebhookSecretOverlap"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/webhooks/{id}/secret/rotate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Replace the signing secret
+         * @description Needs webhooks.view and webhooks.manage. The new secret is current at once and is shown once, never cached. The old one keeps signing too for the hours asked (0 to 24) so a receiver can change over; 0 ends it at once, which is the answer to a leaked secret.
+         */
+        post: operations["rotateWebhookSecret"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/webhooks/{id}/test": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Send a signed test message to the address
+         * @description Needs webhooks.view and webhooks.manage. One bounded call outside any transaction; at most one test of a webhook every few seconds. The answer is a stable reason and the platform's own sentence, never anything the receiver said. A success verifies the address as it stands.
+         */
+        post: operations["testWebhook"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/workflows/executions": {
         parameters: {
             query?: never;
@@ -6948,6 +7264,12 @@ export interface components {
         ApiResponseListViewView: {
             data: components["schemas"]["ListViewView"];
         };
+        ApiResponseListWebhookAttemptView: {
+            data: components["schemas"]["WebhookAttemptView"][];
+        };
+        ApiResponseListWebhookView: {
+            data: components["schemas"]["WebhookView"][];
+        };
         ApiResponseListWorkflowView: {
             data: components["schemas"]["WorkflowView"][];
         };
@@ -6974,6 +7296,9 @@ export interface components {
         };
         ApiResponseNewClientSecret: {
             data: components["schemas"]["NewClientSecret"];
+        };
+        ApiResponseNewWebhookSecret: {
+            data: components["schemas"]["NewWebhookSecret"];
         };
         ApiResponseNotificationOpenView: {
             data: components["schemas"]["NotificationOpenView"];
@@ -7025,6 +7350,9 @@ export interface components {
         };
         ApiResponseOrganizationCreated: {
             data: components["schemas"]["OrganizationCreated"];
+        };
+        ApiResponseOrganizationLimitsView: {
+            data: components["schemas"]["OrganizationLimitsView"];
         };
         ApiResponsePlanInfo: {
             data: components["schemas"]["PlanInfo"];
@@ -7149,8 +7477,26 @@ export interface components {
         ApiResponseTenantSummary: {
             data: components["schemas"]["TenantSummary"];
         };
+        ApiResponseUsageView: {
+            data: components["schemas"]["UsageView"];
+        };
         ApiResponseValidationRuleView: {
             data: components["schemas"]["ValidationRuleView"];
+        };
+        ApiResponseWebhookCatalogue: {
+            data: components["schemas"]["WebhookCatalogue"];
+        };
+        ApiResponseWebhookDeliveryPage: {
+            data: components["schemas"]["WebhookDeliveryPage"];
+        };
+        ApiResponseWebhookReplayView: {
+            data: components["schemas"]["WebhookReplayView"];
+        };
+        ApiResponseWebhookTestView: {
+            data: components["schemas"]["WebhookTestView"];
+        };
+        ApiResponseWebhookView: {
+            data: components["schemas"]["WebhookView"];
         };
         ApiResponseWorkflowBulkReplayView: {
             data: components["schemas"]["WorkflowBulkReplayView"];
@@ -7204,6 +7550,10 @@ export interface components {
         };
         ApplicationSettingsView: {
             applications: components["schemas"]["ApplicationSettingsGroupView"][];
+        };
+        ApplicationUsageView: {
+            limits: components["schemas"]["LimitUsageView"][];
+            name: string;
         };
         ApplicationView: {
             apiName: string;
@@ -8287,6 +8637,10 @@ export interface components {
             /** Format: int64 */
             version: number;
         };
+        EnableWebhookRequest: {
+            /** Format: int64 */
+            version?: number;
+        };
         EntitlementInfo: {
             enabled?: boolean;
             inPlan?: boolean;
@@ -8875,6 +9229,19 @@ export interface components {
             confirm?: string;
             reason: string;
         };
+        LimitUsageView: {
+            key: string;
+            /** Format: int64 */
+            limit?: number;
+            overridden?: boolean;
+            /** Format: int64 */
+            remaining?: number;
+            /** Format: date-time */
+            resetsAt?: string;
+            title: string;
+            /** Format: int64 */
+            used?: number;
+        };
         Limits: {
             /** Format: int32 */
             maxApproversPerStep: number;
@@ -9325,6 +9692,10 @@ export interface components {
             dimension?: number;
             rowsMode?: string;
         };
+        NewWebhookSecret: {
+            detail: components["schemas"]["WebhookView"];
+            secret: string;
+        };
         NotificationOpenView: {
             explanation?: string;
             href: string;
@@ -9508,6 +9879,23 @@ export interface components {
             displayName: string;
             host: string;
             slug: string;
+        };
+        OrganizationLimitsView: {
+            /** Format: int32 */
+            applicationPerMinute?: number;
+            /** Format: int32 */
+            defaultApplicationPerMinute?: number;
+            /** Format: int64 */
+            defaultOrganizationPerDay?: number;
+            /** Format: int32 */
+            defaultOrganizationPerMinute?: number;
+            /** Format: uuid */
+            organizationId: string;
+            /** Format: int64 */
+            organizationPerDay?: number;
+            /** Format: int32 */
+            organizationPerMinute?: number;
+            overridden?: boolean;
         };
         OrganizationSummary: {
             displayName: string;
@@ -10149,6 +10537,10 @@ export interface components {
             /** Format: int32 */
             overlapHours?: number;
         };
+        RotateWebhookSecretRequest: {
+            /** Format: int32 */
+            overlapHours?: number;
+        };
         RoutingApplicationView: {
             application: string;
             label: string;
@@ -10276,6 +10668,14 @@ export interface components {
             /** Format: int64 */
             version?: number;
         };
+        SaveWebhookRequest: {
+            address: string;
+            events: string[];
+            name: string;
+            objects?: string[];
+            /** Format: int64 */
+            version?: number;
+        };
         ScopeEntry: {
             create: boolean;
             object: string;
@@ -10306,6 +10706,15 @@ export interface components {
         };
         SetEntitlementRequest: {
             enabled?: boolean;
+            reason: string;
+        };
+        SetOrganizationLimitsRequest: {
+            /** Format: int32 */
+            applicationPerMinute?: number;
+            /** Format: int64 */
+            organizationPerDay?: number;
+            /** Format: int32 */
+            organizationPerMinute?: number;
             reason: string;
         };
         SetPoolRequest: {
@@ -11254,6 +11663,12 @@ export interface components {
             /** Format: int64 */
             version: number;
         };
+        UsageView: {
+            applications: components["schemas"]["ApplicationUsageView"][];
+            enabled?: boolean;
+            organization: components["schemas"]["LimitUsageView"][];
+            words: string;
+        };
         ValidateRecordRequest: {
             clear?: string[];
             fields?: {
@@ -11309,6 +11724,138 @@ export interface components {
             operator?: "EQUALS" | "NOT_EQUALS" | "IS_EMPTY" | "IS_NOT_EMPTY";
             value?: string | number | boolean;
         } & (unknown & unknown)) & (unknown | unknown | unknown | unknown);
+        WebhookAttemptView: {
+            /** Format: int32 */
+            attemptNo?: number;
+            /** Format: int32 */
+            durationMs?: number;
+            /** Format: int32 */
+            generation?: number;
+            /** Format: int32 */
+            httpStatus?: number;
+            outcome: string;
+            reason?: string;
+            reasonWords?: string;
+            /** Format: date-time */
+            startedAt: string;
+            statusClass: string;
+        };
+        WebhookCatalogue: {
+            acting: string;
+            deliveryStates: components["schemas"]["WebhookStateView"][];
+            duplicates: string;
+            events: components["schemas"]["WebhookEventView"][];
+            /** Format: int32 */
+            maxObjects?: number;
+            /** Format: int32 */
+            maxOverlapHours?: number;
+            /** Format: int32 */
+            maxSubscriptions?: number;
+            /** Format: int32 */
+            payloadVersion?: number;
+            secretOnce: string;
+            stopped: string;
+            /** Format: int32 */
+            toleranceSeconds?: number;
+        };
+        WebhookDeliveryPage: {
+            items: components["schemas"]["WebhookDeliveryView"][];
+            /** Format: uuid */
+            next?: string;
+        };
+        WebhookDeliveryView: {
+            /** Format: int32 */
+            attempts?: number;
+            /** Format: date-time */
+            createdAt: string;
+            eventType: string;
+            /** Format: date-time */
+            finishedAt?: string;
+            /** Format: int32 */
+            generation?: number;
+            /** Format: uuid */
+            id: string;
+            lastStatusClass?: string;
+            /** Format: date-time */
+            nextAttemptAt?: string;
+            object: string;
+            queuedReason?: string;
+            queuedReasonWords?: string;
+            reason?: string;
+            reasonWords?: string;
+            /** Format: uuid */
+            recordId?: string;
+            /** Format: int64 */
+            recordVersion?: number;
+            state: string;
+        };
+        WebhookEventView: {
+            description: string;
+            key: string;
+            title: string;
+        };
+        WebhookQueueView: {
+            /** Format: int64 */
+            deadLettered?: number;
+            /** Format: int64 */
+            done?: number;
+            /** Format: date-time */
+            oldestOpen?: string;
+            /** Format: int64 */
+            pending?: number;
+            /** Format: int64 */
+            skipped?: number;
+        };
+        WebhookReplayView: {
+            more?: boolean;
+            /** Format: int32 */
+            replayed?: number;
+        };
+        WebhookStateView: {
+            description: string;
+            key: string;
+            title: string;
+        };
+        WebhookTestView: {
+            delivered?: boolean;
+            message: string;
+            reason: string;
+            statusClass: string;
+            verified?: boolean;
+        };
+        WebhookView: {
+            actsAs?: string;
+            actsAsYou?: boolean;
+            address: string;
+            circuit: string;
+            /** Format: date-time */
+            createdAt: string;
+            disabledReason?: string;
+            events: string[];
+            /** Format: date-time */
+            failingSince?: string;
+            /** Format: uuid */
+            id: string;
+            /** Format: date-time */
+            lastFailureAt?: string;
+            /** Format: date-time */
+            lastSuccessAt?: string;
+            name: string;
+            objects?: string[];
+            /** Format: date-time */
+            previousSecretUntil?: string;
+            queue: components["schemas"]["WebhookQueueView"];
+            running?: boolean;
+            /** Format: date-time */
+            secretMadeAt: string;
+            /** Format: int32 */
+            secretNumber?: number;
+            state: string;
+            stoppedReason?: string;
+            verified?: boolean;
+            /** Format: int64 */
+            version?: number;
+        };
         WorkflowActionSpec: {
             assignments?: components["schemas"]["WorkflowAssignmentSpec"][];
             /** Format: int32 */
@@ -21540,6 +22087,107 @@ export interface operations {
             };
         };
     };
+    getOrganizationLimits: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                organizationId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseOrganizationLimitsView"];
+                };
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    setOrganizationLimits: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                organizationId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SetOrganizationLimitsRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseOrganizationLimitsView"];
+                };
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    resetOrganizationLimits: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                organizationId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReasonRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseOrganizationLimitsView"];
+                };
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
     setOrganizationLicencePool: {
         parameters: {
             query?: never;
@@ -24226,6 +24874,516 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ApiResponseTenantSummary"];
+                };
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    getApiUsage: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseUsageView"];
+                };
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    listWebhooks: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseListWebhookView"];
+                };
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    createWebhook: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SaveWebhookRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseNewWebhookSecret"];
+                };
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    getWebhookCatalogue: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseWebhookCatalogue"];
+                };
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    getWebhook: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseWebhookView"];
+                };
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    updateWebhook: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SaveWebhookRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseWebhookView"];
+                };
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    removeWebhook: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseBoolean"];
+                };
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    listWebhookDeliveries: {
+        parameters: {
+            query?: {
+                state?: string[];
+                before?: string;
+                limit?: number;
+            };
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseWebhookDeliveryPage"];
+                };
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    replayWebhookDeliveries: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseWebhookReplayView"];
+                };
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    listWebhookAttempts: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+                delivery: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseListWebhookAttemptView"];
+                };
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    replayWebhookDelivery: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+                delivery: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseWebhookReplayView"];
+                };
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    disableWebhook: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseWebhookView"];
+                };
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    enableWebhook: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["EnableWebhookRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseWebhookView"];
+                };
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    endWebhookSecretOverlap: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseWebhookView"];
+                };
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    rotateWebhookSecret: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RotateWebhookSecretRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseNewWebhookSecret"];
+                };
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    testWebhook: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseWebhookTestView"];
                 };
             };
             /** @description Error. The code says what went wrong; the message is safe to show. */

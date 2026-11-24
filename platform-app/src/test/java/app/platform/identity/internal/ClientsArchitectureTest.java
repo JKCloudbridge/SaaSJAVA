@@ -113,6 +113,8 @@ class ClientsArchitectureTest {
                 .and().doNotHaveFullyQualifiedName("app.platform.integration.internal.CredentialHeaders")
                 .and().doNotHaveFullyQualifiedName("app.platform.integration.internal.InboundSignatures")
                 .and().doNotHaveFullyQualifiedName("app.platform.integration.internal.CredentialLogins")
+                // Sprint 32 (ADR-0277): the webhook signer, the only place a signing secret is read.
+                .and().doNotHaveFullyQualifiedName("app.platform.integration.internal.WebhookSigner")
                 .and().resideOutsideOfPackage("app.platform.sharedkernel.secrets..")
                 .should().callMethod(SecretValue.class, "reveal")
                 .check(platform);

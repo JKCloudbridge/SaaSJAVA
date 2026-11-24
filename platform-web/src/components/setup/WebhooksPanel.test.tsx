@@ -96,16 +96,20 @@ async function openHook(name = "reporting-hook") {
   return screen.findByTestId("webhook");
 }
 
-function signedIn(abilities: string[], children: ReactNode) {
-  fakeApi({
+function me(abilities: string[]): Record<string, Handler> {
+  return {
     "GET /api/v1/auth/me": () =>
       json({ data: { id: "u1", email: "user-a@example.test", displayName: "User A", platformRoles: [], abilities } }),
-    "GET /api/v1/webhooks": () => json({ data: [HOOK] }),
-    "GET /api/v1/webhooks/catalogue": () => json({ data: CATALOGUE }),
-    [`GET /api/v1/webhooks/${HOOK.id}`]: () => json({ data: HOOK }),
-    [`GET /api/v1/webhooks/${HOOK.id}/deliveries`]: () => json({ data: { items: [SET_ASIDE] } }),
-  });
+  };
+}
+
+function show(children: ReactNode) {
   return render(<SessionProvider>{children}</SessionProvider>);
+}
+
+function signedIn(abilities: string[], children: ReactNode) {
+  api([HOOK], me(abilities), HOOK, [SET_ASIDE]);
+  return show(children);
 }
 
 describe("WebhooksPanel", () => {
@@ -331,8 +335,11 @@ describe("the delivery log", () => {
   });
 
   it("offers to send a delivery again only for one that was set aside, and only to those who may replay", async () => {
-    const calls = api([HOOK], { [`POST /api/v1/webhooks/${HOOK.id}/deliveries/d-2/replay`]: () => json({ data: { replayed: 1, more: false } }) });
-    signedIn(["webhooks.view", "webhooks.manage", "webhooks.replay"], <WebhooksPanel />);
+    const calls = api([HOOK], {
+      ...me(["webhooks.view", "webhooks.manage", "webhooks.replay"]),
+      [`POST /api/v1/webhooks/${HOOK.id}/deliveries/d-2/replay`]: () => json({ data: { replayed: 1, more: false } }),
+    });
+    show(<WebhooksPanel />);
     const page = await openHook();
     const rows = await within(page).findAllByTestId("webhook-delivery");
 
@@ -345,9 +352,10 @@ describe("the delivery log", () => {
 
   it("sends every delivery that was set aside again and says what happened, including that more remain", async () => {
     const calls = api([HOOK], {
+      ...me(["webhooks.view", "webhooks.manage", "webhooks.replay"]),
       [`POST /api/v1/webhooks/${HOOK.id}/deliveries/replay`]: () => json({ data: { replayed: 500, more: true } }),
     });
-    signedIn(["webhooks.view", "webhooks.manage", "webhooks.replay"], <WebhooksPanel />);
+    show(<WebhooksPanel />);
     const page = await openHook();
 
     fireEvent.click(await within(page).findByRole("button", { name: /that were set aside again/ }));

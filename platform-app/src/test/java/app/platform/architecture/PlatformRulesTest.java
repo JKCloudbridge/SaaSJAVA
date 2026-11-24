@@ -107,6 +107,8 @@ class PlatformRulesTest {
                 .and().doNotHaveFullyQualifiedName("app.platform.integration.internal.InboundDirectory")
                 // Sprint 29 (ADR-0228): the one class that claims queued deliveries and polls across organizations.
                 .and().doNotHaveFullyQualifiedName("app.platform.integration.internal.OutboundWorker")
+                // Sprint 32 (ADR-0278): the one class that claims queued webhook deliveries across organizations.
+                .and().doNotHaveFullyQualifiedName("app.platform.integration.internal.WebhookWorker")
                 .should().dependOnClassesThat().haveFullyQualifiedName("app.platform.tenant.SystemScope")
                 .because("system scopes are platform infrastructure")
                 .allowEmptyShould(true)
