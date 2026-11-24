@@ -3,8 +3,15 @@
 #   docker build -t platform-edge:local deploy/edge
 # It holds no secret and no address: the one setting, TRUSTED_CIDR, is the network of the load balancer, given by the
 # deployment. The same rules file is used by the rehearsal's ingress (infra/rehearsal), so what is tried there is what runs.
-# 2.11 is built with a Go release that has the fixes the image scan asks for (2.10 was built with an older one).
+
+# The proxy is built here, from the release the builder image carries, with the one library that the release still ships
+# in a vulnerable version replaced by the fixed one (the image scan names it). Remove the replace line when a proxy
+# release ships the fixed version itself. The builder's own Go release has the standard-library fixes.
+FROM caddy:2.11-builder-alpine AS build
+RUN xcaddy build --replace golang.org/x/net=golang.org/x/net@v0.62.0 --output /usr/bin/caddy
+
 FROM caddy:2.11-alpine
+COPY --from=build /usr/bin/caddy /usr/bin/caddy
 # Pick up operating-system security fixes published after the base image was built.
 RUN apk upgrade --no-cache \
  && addgroup -S edge && adduser -S -G edge edge
