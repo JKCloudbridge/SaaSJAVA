@@ -9,8 +9,8 @@ import org.springframework.boot.context.properties.bind.DefaultValue;
  *
  * <p><strong>Two ways to be known to the store (Sprint 33, ADR-0290).</strong> {@code keys} (the default, and what a
  * developer machine and a self-hosted store use): an access key and its secret are given. {@code role}: neither is
- * given and the platform the application runs on supplies short-lived credentials to the process (a role attached to the
- * container), found by the library's standard lookup. The two never mix: a key with {@code role}, or a bucket with
+ * given and the platform the application runs on supplies short-lived credentials to the process (a role attached to
+ * the container), found by the library's standard lookup. The two never mix: a key with {@code role}, or a bucket with
  * {@code keys} and no key, stops the start with a message that says which, so a forgotten secret cannot silently turn
  * into "use whatever role is there".
  *

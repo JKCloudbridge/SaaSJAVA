@@ -25,10 +25,10 @@ import org.springframework.core.io.support.ResourcePatternResolver;
  * on purpose: it runs before any other bean exists, so the message is the first thing an operator sees and not the
  * tenth failure of a bean that needs a table which is not there yet.
  *
- * <p>It does something only when {@code platform.deployment.schema.verify} is on (the {@code prod} profile) <em>and</em>
- * this process does not migrate ({@code spring.flyway.enabled=false}, set by {@code PLATFORM_MIGRATE_ON_START=false}
- * in a deployment). A process that migrates itself leaves the schema current by construction, and the {@code local}
- * profile and the tests are untouched.
+ * <p>It does something only when {@code platform.deployment.schema.verify} is on (the {@code prod} profile)
+ * <em>and</em> this process does not migrate ({@code spring.flyway.enabled=false}, set by {@code
+ * PLATFORM_MIGRATE_ON_START=false} in a deployment). A process that migrates itself leaves the schema current by
+ * construction, and the {@code local} profile and the tests are untouched.
  *
  * <p>It connects with the credentials of the application role, which cannot read the migration tool's history table
  * (ADR-0003, M001). The one thing it asks is the probe function created by migration V097. It never logs a host, a

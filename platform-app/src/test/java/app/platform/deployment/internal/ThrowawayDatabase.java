@@ -12,9 +12,9 @@ import org.flywaydb.core.Flyway;
 import org.testcontainers.postgresql.PostgreSQLContainer;
 
 /**
- * A real PostgreSQL of this test class's own, in which a test makes databases at chosen schema versions (the shared test
- * database is always fully migrated, so it cannot stand for "a release that has not been migrated yet"). The roles are
- * those of a deployment: an owner and the application role of the real manual migration M001.
+ * A real PostgreSQL of this test class's own, in which a test makes databases at chosen schema versions (the shared
+ * test database is always fully migrated, so it cannot stand for "a release that has not been migrated yet"). The roles
+ * are those of a deployment: an owner and the application role of the real manual migration M001.
  */
 final class ThrowawayDatabase implements AutoCloseable {
 

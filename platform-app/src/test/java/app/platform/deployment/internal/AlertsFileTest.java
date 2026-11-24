@@ -11,9 +11,10 @@ import java.util.Set;
 import org.junit.jupiter.api.Test;
 
 /**
- * The alert set parses, is complete, and is the same list a person reads in the runbook (Sprint 33, ADR-0294). The file is
- * the source: the infrastructure code makes an alarm from every entry, and docs/runbooks/alerts.md has a section for every
- * entry, so an alert that exists without an explanation, or an explanation of an alert that does not, fails the build.
+ * The alert set parses, is complete, and is the same list a person reads in the runbook (Sprint 33, ADR-0294). The file
+ * is the source: the infrastructure code makes an alarm from every entry, and docs/runbooks/alerts.md has a section for
+ * every entry, so an alert that exists without an explanation, or an explanation of an alert that does not, fails the
+ * build.
  */
 class AlertsFileTest {
 
@@ -126,8 +127,8 @@ class AlertsFileTest {
                 "$.alerts[*].id"));
         ids.addAll(JsonPath.<List<String>>read(DeploymentFiles.read(DeploymentFiles.ALERTS), "$.events[*].id"));
 
-        // readiness, 5xx, latency, database (connections, cpu, storage), Redis, outbox, mail, workflow, integration, webhook,
-        // crash loop (task count), certificate, backup (database events), budget.
+        // readiness, 5xx, latency, database (connections, cpu, storage), Redis, outbox, mail, workflow, integration,
+        // webhook, crash loop (task count), certificate, backup (database events), budget.
         assertThat(ids).contains("api-unhealthy", "http-5xx", "latency-p95", "database-connections", "database-cpu",
                 "database-storage", "cache-unreachable", "outbox-dead", "mail-dead", "workflow-queue",
                 "workflow-dead-letters", "integration-queue", "integration-dead", "webhook-disabled",

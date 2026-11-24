@@ -12,9 +12,9 @@ import java.util.stream.Stream;
 import org.junit.jupiter.api.Test;
 
 /**
- * Environments are separate for real (Sprint 33, ADR-0291): no database, bucket, key, name or state is shared, no file of
- * one environment names a resource of the other, and staging is a copy of production in everything but size and the few
- * things that make it safe to test in (a mail catcher, no outbound traffic).
+ * Environments are separate for real (Sprint 33, ADR-0291): no database, bucket, key, name or state is shared, no file
+ * of one environment names a resource of the other, and staging is a copy of production in everything but size and the
+ * few things that make it safe to test in (a mail catcher, no outbound traffic).
  */
 class EnvironmentIsolationTest {
 
@@ -47,7 +47,8 @@ class EnvironmentIsolationTest {
     @Test
     void theStateOfEachEnvironmentIsItsOwnBucketAndObject() {
         Map<String, String> staging = DeploymentFiles.values(DeploymentFiles.VALUES.resolve("staging.backend.hcl"));
-        Map<String, String> production = DeploymentFiles.values(DeploymentFiles.VALUES.resolve("production.backend.hcl"));
+        Map<String, String> production =
+                DeploymentFiles.values(DeploymentFiles.VALUES.resolve("production.backend.hcl"));
 
         assertThat(staging.get("bucket")).isNotEqualTo(production.get("bucket"));
         assertThat(staging.get("key")).isNotEqualTo(production.get("key"));
@@ -60,10 +61,12 @@ class EnvironmentIsolationTest {
     @Test
     void noValueOfOneEnvironmentNamesTheOther() {
         for (Map.Entry<String, String> entry : staging().entrySet()) {
-            assertThat(entry.getValue().toLowerCase()).as("staging value " + entry.getKey()).doesNotContain("production");
+            assertThat(entry.getValue().toLowerCase())
+                    .as("staging value " + entry.getKey()).doesNotContain("production");
         }
         for (Map.Entry<String, String> entry : production().entrySet()) {
-            assertThat(entry.getValue().toLowerCase()).as("production value " + entry.getKey()).doesNotContain("staging");
+            assertThat(entry.getValue().toLowerCase())
+                    .as("production value " + entry.getKey()).doesNotContain("staging");
         }
     }
 
@@ -73,7 +76,8 @@ class EnvironmentIsolationTest {
         try (Stream<Path> files = Files.walk(DeploymentFiles.INFRA)) {
             for (Path file : files.filter(path -> path.toString().endsWith(".tf")).toList()) {
                 String relative = DeploymentFiles.INFRA.relativize(file).toString().replace('\\', '/');
-                // The bootstrap folder makes the two state buckets by name; the stack validates the name of the environment.
+                // The bootstrap folder makes the two state buckets by name; the stack validates the name of the
+                // environment.
                 if (relative.startsWith("bootstrap/") || relative.equals("stack/variables.tf")) {
                     continue;
                 }

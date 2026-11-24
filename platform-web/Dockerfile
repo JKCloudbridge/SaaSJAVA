@@ -22,9 +22,13 @@ RUN npm run build
 
 # Stage 3: runtime. Only the traced server, the static files and the public folder; a user without rights.
 FROM node:24-alpine AS run
-# Pick up operating-system security fixes published after the base image was built.
+# Pick up operating-system security fixes published after the base image was built. The package manager and corepack that
+# the base image carries are not used at run time (the server is started with node alone); removing them also removes the
+# vulnerable copies of their own dependencies that the image scan finds in them.
 RUN apk upgrade --no-cache \
- && addgroup -S web && adduser -S -G web web
+ && addgroup -S web && adduser -S -G web web \
+ && rm -rf /usr/local/lib/node_modules/npm /usr/local/lib/node_modules/corepack \
+           /usr/local/bin/npm /usr/local/bin/npx /usr/local/bin/corepack
 WORKDIR /app
 # Which release this is (Sprint 33, ADR-0287): a label only, so a running image can be traced to its source. Not a secret.
 ARG GIT_COMMIT=unknown

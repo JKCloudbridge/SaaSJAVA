@@ -12,7 +12,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.jupiter.api.Test;
 
-/** The drain contract of a background worker (ADR-0289): finish what is held, exit within the time, cut off the rest. */
+/** The drain contract of a background worker (ADR-0289): finish what is held, exit in time, cut off the rest. */
 class WorkerStopTest {
 
     private static final Duration SHORT = Duration.ofMillis(300);

@@ -14,14 +14,14 @@ import org.junit.jupiter.params.provider.ValueSource;
 
 /**
  * The numbers of a release are in one rule, and the rule is checked here against the files that set them (Sprint 33,
- * ADR-0289). A release drops requests when the numbers are in the wrong order, and the failure only shows under load, so
- * the order is not left to care.
+ * ADR-0289). A release drops requests when the numbers are in the wrong order, and the failure only shows under load,
+ * so the order is not left to care.
  *
  * <p>What happens when an instance is stopped, and what each number is for:
  * <pre>
  *   t = 0                 the container platform sends the stop signal; the load balancer takes the target out
- *   0 .. shutdown delay   the instance says "not ready" and keeps serving; the workers drain at the same time (worker grace)
- *   then                  the web server stops accepting and finishes what is in flight (phase timeout)
+ *   0 .. shutdown delay   the instance says "not ready" and keeps serving; the workers drain at the same time (worker
+ * grace)   then                  the web server stops accepting and finishes what is in flight (phase timeout)
  *   the stop timeout      the container platform kills what is left
  * </pre>
  */
@@ -112,10 +112,10 @@ class DrainNumbersTest {
 
     @Test
     void stagingAndProductionUseTheSameNumbersSoWhatStagingProvesIsWhatProductionDoes() {
-        for (String key : List.of("shutdown_delay_seconds", "shutdown_phase_timeout_seconds", "web_shutdown_delay_seconds",
-                "api_stop_timeout_seconds", "edge_stop_timeout_seconds", "web_stop_timeout_seconds",
-                "health_check_interval_seconds", "unhealthy_threshold", "deregistration_delay_seconds",
-                "idle_timeout_seconds")) {
+        for (String key : List.of("shutdown_delay_seconds", "shutdown_phase_timeout_seconds",
+                "web_shutdown_delay_seconds", "api_stop_timeout_seconds", "edge_stop_timeout_seconds",
+                "web_stop_timeout_seconds", "health_check_interval_seconds", "unhealthy_threshold",
+                "deregistration_delay_seconds", "idle_timeout_seconds")) {
             assertThat(staging().get(key)).as(key).isEqualTo(production().get(key));
         }
     }

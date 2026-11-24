@@ -154,8 +154,8 @@ class S3ObjectStore implements ObjectStore {
     }
 
     /**
-     * A key and a secret, or, with {@code platform.storage.credentials=role} (ADR-0290), the short-lived credentials the
-     * platform the process runs on hands to it (a role attached to the container), found by the library's standard
+     * A key and a secret, or, with {@code platform.storage.credentials=role} (ADR-0290), the short-lived credentials
+     * the platform the process runs on hands to it (a role attached to the container), found by the library's standard
      * lookup and renewed by it. Nothing is read from a table or written to a log in either case.
      */
     private AwsCredentialsProvider credentials() {

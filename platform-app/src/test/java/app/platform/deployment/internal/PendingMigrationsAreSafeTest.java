@@ -40,7 +40,8 @@ class PendingMigrationsAreSafeTest {
         }
 
         assertThat(problems).as("migrations that hold a heavy lock or break the release before them "
-                + "(fix them, or add '-- long-lock-reviewed: <reason>' to the file: docs/runbooks/deploy.md)").isEmpty();
+                + "(fix them, or add '-- long-lock-reviewed: <reason>' to the file: docs/runbooks/deploy.md)")
+                .isEmpty();
     }
 
     @Test

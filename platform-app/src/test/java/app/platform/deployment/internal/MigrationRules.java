@@ -26,8 +26,8 @@ import java.util.regex.Pattern;
  *       validate a {@code not valid} check constraint);</li>
  *   <li>{@code create index} without {@code concurrently}, a foreign key or check constraint that is not
  *       {@code not valid}: each blocks writes while it builds or checks;</li>
- *   <li>{@code drop table}, {@code drop column}, a rename: these break the release before this one (contract steps; they
- *       belong to a later release than the one that stopped using the thing);</li>
+ *   <li>{@code drop table}, {@code drop column}, a rename: these break the release before this one (contract steps;
+ * they       belong to a later release than the one that stopped using the thing);</li>
  *   <li>{@code lock table}, {@code truncate}, {@code vacuum full}, {@code cluster}, a plain {@code reindex}.</li>
  * </ul>
  */

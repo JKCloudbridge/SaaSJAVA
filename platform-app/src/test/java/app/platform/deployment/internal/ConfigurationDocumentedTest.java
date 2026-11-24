@@ -18,10 +18,10 @@ import org.junit.jupiter.api.Test;
  * Keeps three lists in step (Sprint 33, ADR-0286): what the application reads from its environment, what the runbook
  * says an operator must set, and what the deployment files really set.
  *
- * <p>The failure this prevents is a quiet one. A variable that is misspelled in a deployment file is not an error to the
- * application, it is simply never read: the setting falls back to its default, and a default is chosen for a developer
- * machine. So a file that names a variable the application does not know fails here, and so does a variable the
- * application cannot start without that no deployment file sets.
+ * <p>The failure this prevents is a quiet one. A variable that is misspelled in a deployment file is not an error to
+ * the application, it is simply never read: the setting falls back to its default, and a default is chosen for a
+ * developer machine. So a file that names a variable the application does not know fails here, and so does a variable
+ * the application cannot start without that no deployment file sets.
  */
 class ConfigurationDocumentedTest {
 
@@ -43,8 +43,8 @@ class ConfigurationDocumentedTest {
             Pattern.compile("PLATFORM_KEYFILE__[A-Z0-9_]+"),
             Pattern.compile("PLATFORM_KEYFILE_B64__[A-Z0-9_]+"),
             Pattern.compile("PLATFORM_KEYFILE_DIR"),
-            // The switches of the two outbound workers are bound by name from their settings records, whose defaults are
-            // in the records and not in a configuration file.
+            // The switches of the two outbound workers are bound by name from their settings records, whose defaults
+            // are in the records and not in a configuration file.
             Pattern.compile("PLATFORM_INTEGRATION_(RELIABILITY|FILES)_ENABLED"));
 
     /** Variables a real environment must set although the application has a default (a default is for a laptop). */

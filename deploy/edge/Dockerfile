@@ -3,7 +3,8 @@
 #   docker build -t platform-edge:local deploy/edge
 # It holds no secret and no address: the one setting, TRUSTED_CIDR, is the network of the load balancer, given by the
 # deployment. The same rules file is used by the rehearsal's ingress (infra/rehearsal), so what is tried there is what runs.
-FROM caddy:2.10-alpine
+# 2.11 is built with a Go release that has the fixes the image scan asks for (2.10 was built with an older one).
+FROM caddy:2.11-alpine
 # Pick up operating-system security fixes published after the base image was built.
 RUN apk upgrade --no-cache \
  && addgroup -S edge && adduser -S -G edge edge

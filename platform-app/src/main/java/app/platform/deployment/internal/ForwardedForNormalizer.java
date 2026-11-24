@@ -17,18 +17,18 @@ import org.springframework.web.filter.OncePerRequestFilter;
  * Makes {@code X-Forwarded-For} true before anything reads it (Sprint 33, ADR-0286).
  *
  * <p><strong>The problem.</strong> The application takes the caller's address, for the sign-in limits and for the audit
- * trail, from the <em>first</em> entry of {@code X-Forwarded-For} when it is told to trust the header, and says so: only
- * behind a proxy that <em>overwrites</em> the header. The load balancer of a cloud platform does not overwrite: it
- * <em>appends</em> the address it saw to whatever the client sent. Behind it, the first entry is the client's own choice,
- * so a caller could name any source, spread its failures over thousands of them and never meet a limit, and write a
- * false source into the trail.
+ * trail, from the <em>first</em> entry of {@code X-Forwarded-For} when it is told to trust the header, and says so:
+ * only behind a proxy that <em>overwrites</em> the header. The load balancer of a cloud platform does not overwrite: it
+ * <em>appends</em> the address it saw to whatever the client sent. Behind it, the first entry is the client's own
+ * choice, so a caller could name any source, spread its failures over thousands of them and never meet a limit, and
+ * write a false source into the trail.
  *
- * <p><strong>The fix, in one place.</strong> {@code hops} says how many trusted proxies appended an entry. The entry the
- * outermost trusted proxy added is the one that many places from the right; everything to its left was supplied by
- * someone the platform does not trust. This filter replaces the header with that one entry (or removes it when the chain
- * is shorter than expected, which sends the reader to the connection's own address), so every reader, present and future,
- * sees the same single value an overwriting proxy would have given. With {@code hops} 0 (the default, and what a developer
- * machine and the tests use) it does nothing at all.
+ * <p><strong>The fix, in one place.</strong> {@code hops} says how many trusted proxies appended an entry. The entry
+ * the outermost trusted proxy added is the one that many places from the right; everything to its left was supplied by
+ * someone the platform does not trust. This filter replaces the header with that one entry (or removes it when the
+ * chain is shorter than expected, which sends the reader to the connection's own address), so every reader, present and
+ * future, sees the same single value an overwriting proxy would have given. With {@code hops} 0 (the default, and what
+ * a developer machine and the tests use) it does nothing at all.
  *
  * <p>It runs before every other filter. It never logs an address.
  */

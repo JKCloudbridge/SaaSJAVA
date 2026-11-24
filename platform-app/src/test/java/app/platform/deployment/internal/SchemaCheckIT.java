@@ -19,9 +19,9 @@ import org.springframework.core.io.support.ResourcePatternResolver;
 import org.springframework.mock.env.MockEnvironment;
 
 /**
- * The start-up check of the schema against a real database, as the application role (ADR-0288): it refuses a schema that
- * is behind the release, accepts one that is current or ahead (the rollback case), and the role it runs as can ask the
- * version but can neither read the migration history nor change the schema.
+ * The start-up check of the schema against a real database, as the application role (ADR-0288): it refuses a schema
+ * that is behind the release, accepts one that is current or ahead (the rollback case), and the role it runs as can ask
+ * the version but can neither read the migration history nor change the schema.
  */
 class SchemaCheckIT {
 

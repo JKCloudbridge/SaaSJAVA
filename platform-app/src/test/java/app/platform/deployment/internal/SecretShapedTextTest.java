@@ -13,8 +13,8 @@ import org.junit.jupiter.api.Test;
 
 /**
  * No file the platform commits holds anything shaped like a secret (Sprint 33, ADR-0290): the deployment files, the
- * scripts, the workflow, the documents and the configuration. The scan's own tests plant fakes and see them flagged, so a
- * scan that quietly stopped finding anything would fail here instead of passing for the wrong reason.
+ * scripts, the workflow, the documents and the configuration. The scan's own tests plant fakes and see them flagged, so
+ * a scan that quietly stopped finding anything would fail here instead of passing for the wrong reason.
  *
  * <p>The throw-away files of the rehearsal and of the local services are made on a machine and ignored by git; they are
  * not scanned, because they are not committed.
@@ -27,8 +27,9 @@ class SecretShapedTextTest {
     private static final Set<String> IGNORED_BY_GIT = Set.of("infra/rehearsal/.env", "infra/local/.env");
     private static final List<String> IGNORED_FOLDERS = List.of("infra/rehearsal/secrets/", "infra/rehearsal/.run/",
             "node_modules/", "/target/", "/.terraform/");
-    private static final Set<String> TEXT_ENDINGS = Set.of(".tf", ".tfvars", ".hcl", ".json", ".md", ".yml", ".yaml", ".sh",
-            ".ps1", ".java", ".properties", ".sql", ".txt", ".caddy", ".mjs", ".ts", "Dockerfile", "Caddyfile");
+    private static final Set<String> TEXT_ENDINGS = Set.of(".tf", ".tfvars", ".hcl", ".json", ".md", ".yml",
+            ".yaml", ".sh", ".ps1", ".java", ".properties", ".sql", ".txt", ".caddy", ".mjs", ".ts", "Dockerfile",
+            "Caddyfile");
 
     // ---- the scan's own tests: fakes it must flag, and references it must let through ----
 
@@ -73,7 +74,8 @@ class SecretShapedTextTest {
 
     @Test
     void aFindingNamesTheRuleAndTheLineAndNeverTheValue() {
-        List<SecretShapes.Finding> findings = SecretShapes.scan("first line\ndb_password = \"Zx9Qm4Vt7Lp2Rk8Wn3Yb6Hc1Js5\"");
+        List<SecretShapes.Finding> findings =
+                SecretShapes.scan("first line\ndb_password = \"Zx9Qm4Vt7Lp2Rk8Wn3Yb6Hc1Js5\"");
 
         assertThat(findings).hasSize(1);
         assertThat(findings.get(0).line()).isEqualTo(2);

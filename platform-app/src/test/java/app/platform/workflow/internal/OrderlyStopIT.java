@@ -21,9 +21,9 @@ import org.springframework.test.context.TestPropertySource;
  * {@link WorkerCrashIT}: there the process dies without a word, here it is told to stop, as a rolling release tells it.
  *
  * <p>The promises are three. The stop is bounded: it ends within the grace period and so well inside the time the
- * container platform allows. Nothing is lost: whatever the leaving instance had claimed and did not finish is finished by
- * the one that stays (immediately when it released the claim, after the lease when it did not). Nothing is repeated: a
- * record the leaving instance had already changed is not changed a second time, so every record carries exactly one
+ * container platform allows. Nothing is lost: whatever the leaving instance had claimed and did not finish is finished
+ * by the one that stays (immediately when it released the claim, after the lease when it did not). Nothing is repeated:
+ * a record the leaving instance had already changed is not changed a second time, so every record carries exactly one
  * change and exactly one change was announced for each.
  */
 @PlatformIntegrationTest

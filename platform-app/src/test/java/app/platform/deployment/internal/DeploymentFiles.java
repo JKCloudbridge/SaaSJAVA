@@ -8,7 +8,10 @@ import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-/** Reads the deployment files for the tests that hold them to their rules (Sprint 33). Paths are relative to platform-app. */
+/**
+ * Reads the deployment files for the tests that hold them to their rules (Sprint 33). Paths are relative to
+ * platform-app.
+ */
 final class DeploymentFiles {
 
     static final Path DEPLOY = Path.of("../deploy");
