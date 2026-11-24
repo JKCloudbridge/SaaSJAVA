@@ -13122,6 +13122,141 @@
         "tags" : [ "Platform organizations" ]
       }
     },
+    "/api/v1/platform/organizations/{organizationId}/limits" : {
+      "get" : {
+        "description" : "The numbers in force and the defaults beside them. Numbers only. For platform administrators and support. Platform host only.",
+        "operationId" : "getOrganizationLimits",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "organizationId",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseOrganizationLimitsView"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "The limits on the public API of an organization (platform console)",
+        "tags" : [ "Platform organizations" ]
+      },
+      "put" : {
+        "description" : "Replaces the override of the organization; a number left out keeps its default and every number stays inside the ceilings of the platform's settings. Needs a reason, kept in the audit trail only. Other organizations are not touched. For platform administrators. Platform host only.",
+        "operationId" : "setOrganizationLimits",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "organizationId",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/SetOrganizationLimitsRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseOrganizationLimitsView"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "Set the limits on the public API of an organization (platform console)",
+        "tags" : [ "Platform organizations" ]
+      }
+    },
+    "/api/v1/platform/organizations/{organizationId}/limits/reset" : {
+      "post" : {
+        "description" : "Removes the override. Needs a reason, kept in the audit trail only. For platform administrators. Platform host only.",
+        "operationId" : "resetOrganizationLimits",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "organizationId",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/ReasonRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseOrganizationLimitsView"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "Return the limits of an organization to the defaults (platform console)",
+        "tags" : [ "Platform organizations" ]
+      }
+    },
     "/api/v1/platform/organizations/{organizationId}/pools/{licenceType}" : {
       "put" : {
         "description" : "Not below the licences in use (CONFLICT). For platform administrators.",
@@ -16843,6 +16978,671 @@
         "tags" : [ "Tenant" ]
       }
     },
+    "/api/v1/usage" : {
+      "get" : {
+        "description" : "Needs usage.view. The organization's limits and the limit of each connected application, with what has been used in the current window: numbers only. Reading it costs nothing against the limits. NOT_FOUND on the platform host.",
+        "operationId" : "getApiUsage",
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseUsageView"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "The limits on the public API and how much is used",
+        "tags" : [ "Connected applications" ]
+      }
+    },
+    "/api/v1/webhooks" : {
+      "get" : {
+        "description" : "Needs webhooks.view. Never holds a secret. NOT_FOUND on the platform host and for a webhook of another organization.",
+        "operationId" : "listWebhooks",
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseListWebhookView"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "The organization's webhooks",
+        "tags" : [ "Webhooks" ]
+      },
+      "post" : {
+        "description" : "Needs webhooks.view and webhooks.manage. The webhook acts as the person who makes it, for ever, and starts switched off until its address answers a test. The answer carries the signing secret once and is never cached; the platform cannot show it again. Nothing typed is logged.",
+        "operationId" : "createWebhook",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/SaveWebhookRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseNewWebhookSecret"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "Make a webhook",
+        "tags" : [ "Webhooks" ]
+      }
+    },
+    "/api/v1/webhooks/catalogue" : {
+      "get" : {
+        "description" : "Needs webhooks.view. The events, the version of the message, the words about whom a webhook acts as and about duplicates. The screens draw their choices from this and hold no list of their own.",
+        "operationId" : "getWebhookCatalogue",
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseWebhookCatalogue"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "What a webhook can ask for and how it works",
+        "tags" : [ "Webhooks" ]
+      }
+    },
+    "/api/v1/webhooks/{id}" : {
+      "delete" : {
+        "description" : "Needs webhooks.view and webhooks.manage. What was waiting is set aside as skipped and the signing secrets are removed; the delivery log is kept for its retention.",
+        "operationId" : "removeWebhook",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseBoolean"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "Remove a webhook",
+        "tags" : [ "Webhooks" ]
+      },
+      "get" : {
+        "description" : "Needs webhooks.view. NOT_FOUND on the platform host and for a webhook of another organization.",
+        "operationId" : "getWebhook",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseWebhookView"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "One webhook",
+        "tags" : [ "Webhooks" ]
+      },
+      "put" : {
+        "description" : "Needs webhooks.view, webhooks.manage and the version read. A change of the address, the events or the objects makes the last test void. A webhook that is switched on is switched off first. It cannot change whom the webhook acts as.",
+        "operationId" : "updateWebhook",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/SaveWebhookRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseWebhookView"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "Change a webhook that is switched off",
+        "tags" : [ "Webhooks" ]
+      }
+    },
+    "/api/v1/webhooks/{id}/deliveries" : {
+      "get" : {
+        "description" : "Needs webhooks.view. Identifiers, a state and a stable reason: never a payload, a header or an answer. Filter by one or more states; pass the next value back as before to read on.",
+        "operationId" : "listWebhookDeliveries",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "in" : "query",
+          "name" : "state",
+          "required" : false,
+          "schema" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
+          }
+        }, {
+          "in" : "query",
+          "name" : "before",
+          "required" : false,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "in" : "query",
+          "name" : "limit",
+          "required" : false,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32",
+            "default" : 50
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseWebhookDeliveryPage"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "The delivery log of a webhook, newest first",
+        "tags" : [ "Webhooks" ]
+      }
+    },
+    "/api/v1/webhooks/{id}/deliveries/replay" : {
+      "post" : {
+        "description" : "Needs webhooks.view and webhooks.replay. At most 500 a call, oldest first; the answer says whether more remain.",
+        "operationId" : "replayWebhookDeliveries",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseWebhookReplayView"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "Send the deliveries that were set aside again",
+        "tags" : [ "Webhooks" ]
+      }
+    },
+    "/api/v1/webhooks/{id}/deliveries/{delivery}/attempts" : {
+      "get" : {
+        "description" : "Needs webhooks.view. When, how long, how it ended, a stable reason and the class of the answer.",
+        "operationId" : "listWebhookAttempts",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "in" : "path",
+          "name" : "delivery",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseListWebhookAttemptView"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "The attempts of one delivery",
+        "tags" : [ "Webhooks" ]
+      }
+    },
+    "/api/v1/webhooks/{id}/deliveries/{delivery}/replay" : {
+      "post" : {
+        "description" : "Needs webhooks.view and webhooks.replay. A new generation of the same delivery, with the same delivery identifier; two clicks make one. Only a delivery that was set aside can be sent again.",
+        "operationId" : "replayWebhookDelivery",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "in" : "path",
+          "name" : "delivery",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseWebhookReplayView"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "Send one delivery that was set aside again",
+        "tags" : [ "Webhooks" ]
+      }
+    },
+    "/api/v1/webhooks/{id}/disable" : {
+      "post" : {
+        "description" : "Needs webhooks.view and webhooks.manage. Takes effect at once: what is waiting stays in the queue, which is bounded, until the webhook is switched on again.",
+        "operationId" : "disableWebhook",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseWebhookView"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "Switch a webhook off",
+        "tags" : [ "Webhooks" ]
+      }
+    },
+    "/api/v1/webhooks/{id}/enable" : {
+      "post" : {
+        "description" : "Needs webhooks.view, webhooks.manage and the version read. Only after a successful test of exactly the current address, and only while the member it acts as can act.",
+        "operationId" : "enableWebhook",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/EnableWebhookRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseWebhookView"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "Switch a verified webhook on",
+        "tags" : [ "Webhooks" ]
+      }
+    },
+    "/api/v1/webhooks/{id}/secret/end-overlap" : {
+      "post" : {
+        "description" : "Needs webhooks.view and webhooks.manage. Ends the overlap of a replaced secret at once.",
+        "operationId" : "endWebhookSecretOverlap",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseWebhookView"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "Stop the old signing secret now",
+        "tags" : [ "Webhooks" ]
+      }
+    },
+    "/api/v1/webhooks/{id}/secret/rotate" : {
+      "post" : {
+        "description" : "Needs webhooks.view and webhooks.manage. The new secret is current at once and is shown once, never cached. The old one keeps signing too for the hours asked (0 to 24) so a receiver can change over; 0 ends it at once, which is the answer to a leaked secret.",
+        "operationId" : "rotateWebhookSecret",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/RotateWebhookSecretRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseNewWebhookSecret"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "Replace the signing secret",
+        "tags" : [ "Webhooks" ]
+      }
+    },
+    "/api/v1/webhooks/{id}/test" : {
+      "post" : {
+        "description" : "Needs webhooks.view and webhooks.manage. One bounded call outside any transaction; at most one test of a webhook every few seconds. The answer is a stable reason and the platform's own sentence, never anything the receiver said. A success verifies the address as it stands.",
+        "operationId" : "testWebhook",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseWebhookTestView"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "Send a signed test message to the address",
+        "tags" : [ "Webhooks" ]
+      }
+    },
     "/api/v1/workflows/executions" : {
       "get" : {
         "description" : "Newest first, one page at a time, with filters for the workflow, the object, the status, the trigger, the record and the time the execution was queued. dead=true lists the dead letters (the same as status=DEAD_LETTERED). For members who may view workflows. NOT_FOUND on the platform host, FORBIDDEN without the ability, VALIDATION_ERROR for a filter that is malformed.",
@@ -18836,6 +19636,30 @@
         },
         "required" : [ "data" ]
       },
+      "ApiResponseListWebhookAttemptView" : {
+        "type" : "object",
+        "properties" : {
+          "data" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/WebhookAttemptView"
+            }
+          }
+        },
+        "required" : [ "data" ]
+      },
+      "ApiResponseListWebhookView" : {
+        "type" : "object",
+        "properties" : {
+          "data" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/WebhookView"
+            }
+          }
+        },
+        "required" : [ "data" ]
+      },
       "ApiResponseListWorkflowView" : {
         "type" : "object",
         "properties" : {
@@ -18916,6 +19740,15 @@
         "properties" : {
           "data" : {
             "$ref" : "#/components/schemas/NewClientSecret"
+          }
+        },
+        "required" : [ "data" ]
+      },
+      "ApiResponseNewWebhookSecret" : {
+        "type" : "object",
+        "properties" : {
+          "data" : {
+            "$ref" : "#/components/schemas/NewWebhookSecret"
           }
         },
         "required" : [ "data" ]
@@ -19069,6 +19902,15 @@
         "properties" : {
           "data" : {
             "$ref" : "#/components/schemas/OrganizationCreated"
+          }
+        },
+        "required" : [ "data" ]
+      },
+      "ApiResponseOrganizationLimitsView" : {
+        "type" : "object",
+        "properties" : {
+          "data" : {
+            "$ref" : "#/components/schemas/OrganizationLimitsView"
           }
         },
         "required" : [ "data" ]
@@ -19442,11 +20284,65 @@
         },
         "required" : [ "data" ]
       },
+      "ApiResponseUsageView" : {
+        "type" : "object",
+        "properties" : {
+          "data" : {
+            "$ref" : "#/components/schemas/UsageView"
+          }
+        },
+        "required" : [ "data" ]
+      },
       "ApiResponseValidationRuleView" : {
         "type" : "object",
         "properties" : {
           "data" : {
             "$ref" : "#/components/schemas/ValidationRuleView"
+          }
+        },
+        "required" : [ "data" ]
+      },
+      "ApiResponseWebhookCatalogue" : {
+        "type" : "object",
+        "properties" : {
+          "data" : {
+            "$ref" : "#/components/schemas/WebhookCatalogue"
+          }
+        },
+        "required" : [ "data" ]
+      },
+      "ApiResponseWebhookDeliveryPage" : {
+        "type" : "object",
+        "properties" : {
+          "data" : {
+            "$ref" : "#/components/schemas/WebhookDeliveryPage"
+          }
+        },
+        "required" : [ "data" ]
+      },
+      "ApiResponseWebhookReplayView" : {
+        "type" : "object",
+        "properties" : {
+          "data" : {
+            "$ref" : "#/components/schemas/WebhookReplayView"
+          }
+        },
+        "required" : [ "data" ]
+      },
+      "ApiResponseWebhookTestView" : {
+        "type" : "object",
+        "properties" : {
+          "data" : {
+            "$ref" : "#/components/schemas/WebhookTestView"
+          }
+        },
+        "required" : [ "data" ]
+      },
+      "ApiResponseWebhookView" : {
+        "type" : "object",
+        "properties" : {
+          "data" : {
+            "$ref" : "#/components/schemas/WebhookView"
           }
         },
         "required" : [ "data" ]
@@ -19614,6 +20510,21 @@
           }
         },
         "required" : [ "applications" ]
+      },
+      "ApplicationUsageView" : {
+        "type" : "object",
+        "properties" : {
+          "limits" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/LimitUsageView"
+            }
+          },
+          "name" : {
+            "type" : "string"
+          }
+        },
+        "required" : [ "limits", "name" ]
       },
       "ApplicationView" : {
         "type" : "object",
@@ -22983,6 +23894,15 @@
         },
         "required" : [ "version" ]
       },
+      "EnableWebhookRequest" : {
+        "type" : "object",
+        "properties" : {
+          "version" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }
+      },
       "EntitlementInfo" : {
         "type" : "object",
         "properties" : {
@@ -24613,6 +25533,37 @@
         },
         "required" : [ "reason" ]
       },
+      "LimitUsageView" : {
+        "type" : "object",
+        "properties" : {
+          "key" : {
+            "type" : "string"
+          },
+          "limit" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "overridden" : {
+            "type" : "boolean"
+          },
+          "remaining" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "resetsAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "title" : {
+            "type" : "string"
+          },
+          "used" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        },
+        "required" : [ "key", "title" ]
+      },
       "Limits" : {
         "type" : "object",
         "properties" : {
@@ -26045,6 +26996,18 @@
           }
         }
       },
+      "NewWebhookSecret" : {
+        "type" : "object",
+        "properties" : {
+          "detail" : {
+            "$ref" : "#/components/schemas/WebhookView"
+          },
+          "secret" : {
+            "type" : "string"
+          }
+        },
+        "required" : [ "detail", "secret" ]
+      },
       "NotificationOpenView" : {
         "type" : "object",
         "properties" : {
@@ -26621,6 +27584,43 @@
           }
         },
         "required" : [ "displayName", "host", "slug" ]
+      },
+      "OrganizationLimitsView" : {
+        "type" : "object",
+        "properties" : {
+          "applicationPerMinute" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "defaultApplicationPerMinute" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "defaultOrganizationPerDay" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "defaultOrganizationPerMinute" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "organizationId" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "organizationPerDay" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "organizationPerMinute" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "overridden" : {
+            "type" : "boolean"
+          }
+        },
+        "required" : [ "organizationId" ]
       },
       "OrganizationSummary" : {
         "type" : "object",
@@ -28681,6 +29681,17 @@
           }
         }
       },
+      "RotateWebhookSecretRequest" : {
+        "type" : "object",
+        "properties" : {
+          "overlapHours" : {
+            "type" : "integer",
+            "format" : "int32",
+            "maximum" : 24,
+            "minimum" : 0
+          }
+        }
+      },
       "RoutingApplicationView" : {
         "type" : "object",
         "properties" : {
@@ -29142,6 +30153,46 @@
         },
         "required" : [ "accessLevel", "name", "targetId", "targetType" ]
       },
+      "SaveWebhookRequest" : {
+        "type" : "object",
+        "properties" : {
+          "address" : {
+            "type" : "string",
+            "maxLength" : 2048,
+            "minLength" : 0
+          },
+          "events" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string",
+              "maxLength" : 60,
+              "minLength" : 0
+            },
+            "maxItems" : 20,
+            "minItems" : 0
+          },
+          "name" : {
+            "type" : "string",
+            "maxLength" : 80,
+            "minLength" : 0
+          },
+          "objects" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string",
+              "maxLength" : 80,
+              "minLength" : 0
+            },
+            "maxItems" : 50,
+            "minItems" : 0
+          },
+          "version" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        },
+        "required" : [ "address", "events", "name" ]
+      },
       "ScopeEntry" : {
         "type" : "object",
         "properties" : {
@@ -29230,6 +30281,35 @@
         "properties" : {
           "enabled" : {
             "type" : "boolean"
+          },
+          "reason" : {
+            "type" : "string",
+            "maxLength" : 200,
+            "minLength" : 0
+          }
+        },
+        "required" : [ "reason" ]
+      },
+      "SetOrganizationLimitsRequest" : {
+        "type" : "object",
+        "properties" : {
+          "applicationPerMinute" : {
+            "type" : "integer",
+            "format" : "int32",
+            "maximum" : 10000000,
+            "minimum" : 1
+          },
+          "organizationPerDay" : {
+            "type" : "integer",
+            "format" : "int64",
+            "maximum" : 1000000000,
+            "minimum" : 1
+          },
+          "organizationPerMinute" : {
+            "type" : "integer",
+            "format" : "int32",
+            "maximum" : 10000000,
+            "minimum" : 1
           },
           "reason" : {
             "type" : "string",
@@ -31962,6 +33042,30 @@
         },
         "required" : [ "actions", "active", "label", "trigger", "version" ]
       },
+      "UsageView" : {
+        "type" : "object",
+        "properties" : {
+          "applications" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/ApplicationUsageView"
+            }
+          },
+          "enabled" : {
+            "type" : "boolean"
+          },
+          "organization" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/LimitUsageView"
+            }
+          },
+          "words" : {
+            "type" : "string"
+          }
+        },
+        "required" : [ "applications", "organization", "words" ]
+      },
       "ValidateRecordRequest" : {
         "type" : "object",
         "properties" : {
@@ -32251,6 +33355,347 @@
             "maxLength" : 255
           }
         }
+      },
+      "WebhookAttemptView" : {
+        "type" : "object",
+        "properties" : {
+          "attemptNo" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "durationMs" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "generation" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "httpStatus" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "outcome" : {
+            "type" : "string"
+          },
+          "reason" : {
+            "type" : "string"
+          },
+          "reasonWords" : {
+            "type" : "string"
+          },
+          "startedAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "statusClass" : {
+            "type" : "string"
+          }
+        },
+        "required" : [ "outcome", "startedAt", "statusClass" ]
+      },
+      "WebhookCatalogue" : {
+        "type" : "object",
+        "properties" : {
+          "acting" : {
+            "type" : "string"
+          },
+          "deliveryStates" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/WebhookStateView"
+            }
+          },
+          "duplicates" : {
+            "type" : "string"
+          },
+          "events" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/WebhookEventView"
+            }
+          },
+          "maxObjects" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "maxOverlapHours" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "maxSubscriptions" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "payloadVersion" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "secretOnce" : {
+            "type" : "string"
+          },
+          "stopped" : {
+            "type" : "string"
+          },
+          "toleranceSeconds" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        },
+        "required" : [ "acting", "deliveryStates", "duplicates", "events", "secretOnce", "stopped" ]
+      },
+      "WebhookDeliveryPage" : {
+        "type" : "object",
+        "properties" : {
+          "items" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/WebhookDeliveryView"
+            }
+          },
+          "next" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        },
+        "required" : [ "items" ]
+      },
+      "WebhookDeliveryView" : {
+        "type" : "object",
+        "properties" : {
+          "attempts" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "createdAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "eventType" : {
+            "type" : "string"
+          },
+          "finishedAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "generation" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "id" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "lastStatusClass" : {
+            "type" : "string"
+          },
+          "nextAttemptAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "object" : {
+            "type" : "string"
+          },
+          "queuedReason" : {
+            "type" : "string"
+          },
+          "queuedReasonWords" : {
+            "type" : "string"
+          },
+          "reason" : {
+            "type" : "string"
+          },
+          "reasonWords" : {
+            "type" : "string"
+          },
+          "recordId" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "recordVersion" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "state" : {
+            "type" : "string"
+          }
+        },
+        "required" : [ "createdAt", "eventType", "id", "object", "state" ]
+      },
+      "WebhookEventView" : {
+        "type" : "object",
+        "properties" : {
+          "description" : {
+            "type" : "string"
+          },
+          "key" : {
+            "type" : "string"
+          },
+          "title" : {
+            "type" : "string"
+          }
+        },
+        "required" : [ "description", "key", "title" ]
+      },
+      "WebhookQueueView" : {
+        "type" : "object",
+        "properties" : {
+          "deadLettered" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "done" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "oldestOpen" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "pending" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "skipped" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }
+      },
+      "WebhookReplayView" : {
+        "type" : "object",
+        "properties" : {
+          "more" : {
+            "type" : "boolean"
+          },
+          "replayed" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        }
+      },
+      "WebhookStateView" : {
+        "type" : "object",
+        "properties" : {
+          "description" : {
+            "type" : "string"
+          },
+          "key" : {
+            "type" : "string"
+          },
+          "title" : {
+            "type" : "string"
+          }
+        },
+        "required" : [ "description", "key", "title" ]
+      },
+      "WebhookTestView" : {
+        "type" : "object",
+        "properties" : {
+          "delivered" : {
+            "type" : "boolean"
+          },
+          "message" : {
+            "type" : "string"
+          },
+          "reason" : {
+            "type" : "string"
+          },
+          "statusClass" : {
+            "type" : "string"
+          },
+          "verified" : {
+            "type" : "boolean"
+          }
+        },
+        "required" : [ "message", "reason", "statusClass" ]
+      },
+      "WebhookView" : {
+        "type" : "object",
+        "properties" : {
+          "actsAs" : {
+            "type" : "string"
+          },
+          "actsAsYou" : {
+            "type" : "boolean"
+          },
+          "address" : {
+            "type" : "string"
+          },
+          "circuit" : {
+            "type" : "string"
+          },
+          "createdAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "disabledReason" : {
+            "type" : "string"
+          },
+          "events" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
+          },
+          "failingSince" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "id" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "lastFailureAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "lastSuccessAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "name" : {
+            "type" : "string"
+          },
+          "objects" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
+          },
+          "previousSecretUntil" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "queue" : {
+            "$ref" : "#/components/schemas/WebhookQueueView"
+          },
+          "running" : {
+            "type" : "boolean"
+          },
+          "secretMadeAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "secretNumber" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "state" : {
+            "type" : "string"
+          },
+          "stoppedReason" : {
+            "type" : "string"
+          },
+          "verified" : {
+            "type" : "boolean"
+          },
+          "version" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        },
+        "required" : [ "address", "circuit", "createdAt", "events", "id", "name", "queue", "secretMadeAt", "state" ]
       },
       "WorkflowActionSpec" : {
         "type" : "object",

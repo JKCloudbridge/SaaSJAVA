@@ -67,8 +67,10 @@ class NoticeRequestTest {
     void theCategoriesAndTheFloorAreAsTheDecisionsSay() {
         assertThat(NoticeKind.TRIAL_NOTICE.category()).isEqualTo(NoticeKind.Category.ACCOUNT);
         assertThat(NoticeKind.TRIAL_NOTICE.floor()).isTrue();
+        assertThat(NoticeKind.WEBHOOK_STOPPED.category()).isEqualTo(NoticeKind.Category.ACCOUNT);
+        assertThat(NoticeKind.WEBHOOK_STOPPED.floor()).isTrue();
         for (NoticeKind kind : NoticeKind.values()) {
-            if (kind != NoticeKind.TRIAL_NOTICE) {
+            if (kind != NoticeKind.TRIAL_NOTICE && kind != NoticeKind.WEBHOOK_STOPPED) {
                 assertThat(kind.floor()).as(kind.name()).isFalse();
                 assertThat(kind.category()).isNotEqualTo(NoticeKind.Category.ACCOUNT);
             }

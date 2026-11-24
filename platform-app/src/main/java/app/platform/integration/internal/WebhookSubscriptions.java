@@ -386,8 +386,12 @@ class WebhookSubscriptions {
     static String fingerprintOf(String address, List<String> events, List<String> objects) {
         StringBuilder text = new StringBuilder();
         part(text, address);
-        part(text, String.join(",", events));
-        part(text, objects == null ? "-" : String.join(",", objects));
+        part(text, String.valueOf(events.size()));
+        events.forEach(event -> part(text, event));
+        part(text, objects == null ? "-" : String.valueOf(objects.size()));
+        if (objects != null) {
+            objects.forEach(object -> part(text, object));
+        }
         try {
             return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256")
                     .digest(text.toString().getBytes(StandardCharsets.UTF_8)));

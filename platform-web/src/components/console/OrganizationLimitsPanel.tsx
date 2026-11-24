@@ -119,7 +119,7 @@ export function OrganizationLimitsPanel({ organizationId }: { organizationId: st
                   <td>{limits.defaultOrganizationPerDay}</td>
                 </tr>
                 <tr>
-                  <th scope="row">Requests a minute, each application and each person's token</th>
+                  <th scope="row">Requests a minute, each application and each person&apos;s token</th>
                   <td>{limits.applicationPerMinute}</td>
                   <td>{limits.defaultApplicationPerMinute}</td>
                 </tr>
@@ -150,7 +150,7 @@ export function OrganizationLimitsPanel({ organizationId }: { organizationId: st
                 />
               </div>
               <div className="field">
-                <label htmlFor="limit-application">Requests a minute, each application and each person's token</label>
+                <label htmlFor="limit-application">Requests a minute, each application and each person&apos;s token</label>
                 <input
                   id="limit-application"
                   type="number"

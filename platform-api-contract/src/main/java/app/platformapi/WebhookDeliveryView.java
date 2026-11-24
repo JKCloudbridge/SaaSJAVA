@@ -5,8 +5,8 @@ import java.time.Instant;
 import java.util.UUID;
 
 /**
- * One delivery of a webhook subscription: identifiers, a state and a stable reason, never a payload body, a header or an
- * answer (Sprint 32, ADR-0278).
+ * One delivery of a webhook subscription: identifiers, a state and a stable reason, never a payload body, a header
+ * or an answer (Sprint 32, ADR-0278).
  *
  * @param id the delivery identifier, which is also sent to the receiver as the key to deduplicate on
  * @param eventType the event that caused it
