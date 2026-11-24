@@ -91,6 +91,10 @@ platform:
   outbox:
     # Tests drive the relay themselves, or switch it on for the one context that wants it to poll.
     enabled: false
+  webhooks:
+    # The worker claims the deliveries of every organization in the shared database, so a context that did not ask for
+    # it must not run one: it could claim another test's delivery and fail it with its own (in-memory) secrets store.
+    enabled: false
   workflow:
     # Tests drive the dispatcher themselves (pollExecutionsOnce, pollSchedulesOnce), or switch it on for the one
     # context that wants it to run by itself.

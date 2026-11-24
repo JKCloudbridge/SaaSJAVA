@@ -154,9 +154,64 @@ describe("Option 1 of the Management Core home: the plant board", () => {
     expect(screen.queryByTestId("change-P1")).toBeNull();
   });
 
+  it("shows the bar graph first and offers the line and the table, never the view that is shown", async () => {
+    open();
+    const chart = await screen.findByTestId("board-chart");
+
+    expect(within(chart).getByTestId("bars-P1")).toBeInTheDocument();
+    expect(within(chart).queryByTestId("line-P1")).toBeNull();
+    expect(within(chart).queryByRole("button", { name: /view as bar graph/i })).toBeNull();
+    expect(within(chart).getByRole("button", { name: /view as line/i })).toBeInTheDocument();
+    expect(within(chart).getByRole("button", { name: /view as table/i })).toBeInTheDocument();
+
+    fireEvent.click(within(chart).getByRole("button", { name: /view as line/i }));
+    expect(within(chart).getByTestId("line-P1")).toBeInTheDocument();
+    expect(within(chart).queryByRole("button", { name: /view as line/i })).toBeNull();
+    expect(within(chart).getByRole("button", { name: /view as bar graph/i })).toBeInTheDocument();
+
+    fireEvent.click(within(chart).getByRole("button", { name: /view as table/i }));
+    expect(within(chart).getByRole("table")).toBeInTheDocument();
+    expect(within(chart).queryByRole("button", { name: /view as table/i })).toBeNull();
+    fireEvent.click(within(chart).getByRole("button", { name: /view as bar graph/i }));
+    expect(within(chart).getByTestId("bars-P1")).toBeInTheDocument();
+  });
+
+  it("draws a bar for each score on a scale from 0 to 100 in steps of 10, a cross for each month with none, and no bar of zero height", async () => {
+    open();
+    const chart = await screen.findByTestId("board-chart");
+
+    expect(within(chart).getAllByTestId("bar-P1")).toHaveLength(10);
+    expect(within(chart).getAllByTestId("bar-P2")).toHaveLength(9);
+    expect(within(chart).getAllByTestId("bar-P3")).toHaveLength(8);
+    expect(within(chart).getAllByTestId("cross-P2")).toHaveLength(1);
+    expect(within(chart).getAllByTestId("cross-P3")).toHaveLength(2);
+    const ticks = Array.from(chart.querySelectorAll("text.pb-axis")).map((tick) => tick.textContent);
+    expect(ticks).toEqual(expect.arrayContaining(["0", "10", "50", "90", "100"]));
+    // A bar's height is its score on the 0 to 100 scale: 91 is taller than 83, and a score of 100 would fill the plot.
+    const heights = (plant: string) => within(chart).getAllByTestId(`bar-${plant}`).map((bar) => Number(bar.getAttribute("height")));
+    expect(heights("P1")[9]!).toBeGreaterThan(heights("P1")[2]!);
+    expect(Math.round(heights("P1")[9]! / heights("P1")[0]! * 100)).toBe(Math.round((91 / 82) * 100));
+  });
+
+  it("opens the same tip over a bar as over a dot, with Missed for a month with no score", async () => {
+    open();
+    const chart = await screen.findByTestId("board-chart");
+
+    fireEvent.pointerEnter(within(chart).getAllByTestId("bar-P1")[2]!.parentElement!);
+
+    expect(screen.getByTestId("board-tip")).toHaveTextContent("Mar");
+    expect(screen.getByTestId("board-tip")).toHaveTextContent("Plant 2 - Missed");
+    fireEvent.pointerLeave(within(chart).getAllByTestId("bar-P1")[2]!.parentElement!);
+    expect(screen.queryByTestId("board-tip")).toBeNull();
+    const area = screen.getByTestId("board-chart-area");
+    fireEvent.keyDown(area, { key: "Home" });
+    expect(screen.getByTestId("board-tip")).toHaveTextContent("Jan");
+  });
+
   it("draws one line with dots for each plant, a cross for each missing month, a dotted piece across each gap and no limit line", async () => {
     const { container } = open();
     const chart = await screen.findByTestId("board-chart");
+    fireEvent.click(within(chart).getByRole("button", { name: /view as line/i }));
 
     expect(within(chart).getByTestId("line-P1").querySelectorAll("circle.pb-point")).toHaveLength(10);
     expect(within(chart).queryAllByTestId("cross-P1")).toHaveLength(0);
@@ -176,6 +231,7 @@ describe("Option 1 of the Management Core home: the plant board", () => {
   it("shows a tip beside a dot while it is hovered and removes it when the pointer leaves, with no highlight or line of numbers under the chart", async () => {
     open();
     await screen.findByTestId("board-chart");
+    fireEvent.click(screen.getByRole("button", { name: /view as line/i }));
     const area = screen.getByTestId("board-chart-area");
 
     expect(screen.queryByTestId("board-tip")).toBeNull();

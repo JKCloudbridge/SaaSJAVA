@@ -38,7 +38,13 @@ class WebhookSecretLifecycleIT extends WebhookSupport {
     private Received deliverOne(Organization organization, TestBrowser admin, Hook hook, String name) {
         int before = receiver.of("record.created").size();
         createdEmployee(administrator(organization), name);
-        await("the delivery of " + name, () -> receiver.of("record.created").size() > before);
+        try {
+            await("the delivery of " + name, () -> receiver.of("record.created").size() > before);
+        } catch (org.awaitility.core.ConditionTimeoutException lost) {
+            // Say what the queue holds (states, stable reasons, attempts: no value) so that a failure explains itself.
+            throw new AssertionError("no delivery of " + name + " arrived; the delivery log says: "
+                    + deliveries(admin, hook).body(), lost);
+        }
         return receiver.of("record.created").get(before);
     }
 
@@ -123,7 +129,8 @@ class WebhookSecretLifecycleIT extends WebhookSupport {
         Organization organization = webhookOrganization();
         TestBrowser admin = adminOf(organization);
         Hook hook = live(admin, receiver, EVENTS_CREATED);
-        try (TestApplication second = TestApplication.start("platform.webhooks.worker.poll-interval=100ms")) {
+        try (TestApplication second = TestApplication.start("platform.webhooks.enabled=true",
+                "platform.webhooks.worker.poll-interval=100ms")) {
             TestBrowser onSecond = TestOrganizations.signedIn(second.port(), organization.host(),
                     organization.admin().person());
 

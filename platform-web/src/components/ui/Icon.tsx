@@ -43,6 +43,9 @@ const PATHS = {
   arrowRight: "M5 12h14M13 6l6 6-6 6",
   refresh: "M21 12a9 9 0 1 1-3-6.7L21 8M21 3v5h-5",
   table: "M3 5h18v14H3ZM3 10h18M9 5v14",
+  // The ways to look at a graph (ADR-0266): bars and a line.
+  barChart: "M4 20V10h4v10ZM10 20V4h4v16ZM16 20v-7h4v7Z",
+  lineChart: "M3 3v18h18M7 15l4-5 3 3 5-7",
   clock: "M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18ZM12 7v5l3 2",
   // An attachment cell of a sheet (SH5.1).
   paperclip:

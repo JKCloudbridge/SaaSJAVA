@@ -20,6 +20,7 @@ import org.springframework.test.context.TestPropertySource;
 @PlatformIntegrationTest
 @TestPropertySource(properties = {
         "platform.outbox.enabled=true",
+        "platform.webhooks.enabled=true",
         "platform.webhooks.worker.poll-interval=100ms",
         "platform.webhooks.retry.max-attempts=6",
         "platform.webhooks.retry.initial-delay=300ms",

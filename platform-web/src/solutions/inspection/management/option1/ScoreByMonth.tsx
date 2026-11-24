@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, type KeyboardEvent } from "react";
-import { ChartCard } from "../../home/ChartCard";
+import { ChartCard, type ChartViewChoice } from "../../home/ChartCard";
 import {
   bridgePath,
   bridges,
@@ -23,6 +23,16 @@ const TOP = 14;
 const PLOT = 220;
 const STRIP = 28;
 const EDGE = 8;
+const BAR_MAX = 22;
+const BAR_SCALE = { low: 0, high: 100, ticks: [0, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100] };
+
+type ChartView = "bar" | "line" | "table";
+
+const CHOICES: readonly ChartViewChoice[] = [
+  { key: "bar", label: "View as bar graph", icon: "barChart" },
+  { key: "line", label: "View as line", icon: "lineChart" },
+  { key: "table", label: "View as table", icon: "table" },
+];
 
 /**
  * Score by month: one line with a dot for each plant over the months that have ended, on a scale that fits the scores. A
@@ -32,15 +42,24 @@ const EDGE = 8;
  */
 export function ScoreByMonth({ months, plants, loading }: { months: readonly string[]; plants: readonly BoardPlant[]; loading: boolean }) {
   const [tip, setTip] = useState<{ index: number; px: number; py: number } | undefined>(undefined);
+  const [view, setView] = useState<ChartView>("bar");
+  const bars = view === "bar";
   const count = months.length;
   const selected = tip !== undefined && tip.index < count ? tip.index : undefined;
   const anyScore = plants.some((plant) => plant.points.some((score) => score !== null && score !== undefined));
-  const scale = fitScale(plants.flatMap((plant) => plant.points));
+  // Bars start at zero and stop at 100, so a bar is never taller than its score says; the line chart fits its scores.
+  const scale = bars ? BAR_SCALE : fitScale(plants.flatMap((plant) => plant.points));
   const inner = WIDTH - LEFT - RIGHT - 2 * EDGE;
   const x = (index: number, plant: number) =>
     LEFT + EDGE + (count <= 1 ? inner / 2 : (index * inner) / (count - 1)) + (plant - (plants.length - 1) / 2) * 5;
   const y = (score: number) => TOP + ((scale.high - score) / (scale.high - scale.low)) * PLOT;
   const stripY = TOP + PLOT + 6 + (STRIP - 6) / 2;
+  // Bars sit in a band of the width for each month, side by side; the line chart spreads its months edge to edge.
+  const band = (WIDTH - LEFT - RIGHT) / Math.max(count, 1);
+  const barWidth = Math.min(BAR_MAX, (band * 0.8) / Math.max(plants.length, 1));
+  const centre = (index: number) => LEFT + band * (index + 0.5);
+  const barX = (index: number, plant: number) => centre(index) + (plant - (plants.length - 1) / 2) * barWidth;
+  const mid = (index: number) => (bars ? centre(index) : x(index, (plants.length - 1) / 2));
 
   const move = (event: KeyboardEvent<HTMLDivElement>) => {
     if (event.key === "Escape") {
@@ -53,7 +72,7 @@ export function ScoreByMonth({ months, plants, loading }: { months: readonly str
     if (next !== undefined) {
       event.preventDefault();
       const month = Math.max(0, Math.min(count - 1, next));
-      setTip({ index: month, px: x(month, (plants.length - 1) / 2), py: TOP });
+      setTip({ index: month, px: mid(month), py: TOP });
     }
   };
 
@@ -69,6 +88,7 @@ export function ScoreByMonth({ months, plants, loading }: { months: readonly str
         rows: plants.map((plant) => [plant.label, ...plant.points.map((score) => (score === null || score === undefined ? "No score" : scoreText(score)))]),
       }}
       wide
+      views={{ current: view, choices: CHOICES, onChange: (key) => { setTip(undefined); setView(key as ChartView); } }}
     >
       <div className="pb-legend">
         {plants.map((plant) => (
@@ -92,7 +112,7 @@ export function ScoreByMonth({ months, plants, loading }: { months: readonly str
         data-testid="board-chart-area"
       >
         <div className="pb-chart-inner">
-        <svg viewBox={`0 0 ${WIDTH} ${HEIGHT}`} className="pb-chart-svg" role="img" aria-label="Line chart of the monthly score of each plant, with months without a score marked under the chart">
+        <svg viewBox={`0 0 ${WIDTH} ${HEIGHT}`} className="pb-chart-svg" role="img" aria-label={`${bars ? "Bar" : "Line"} chart of the monthly score of each plant, with months without a score marked under the chart`}>
           {scale.ticks.map((tick) => (
             <g key={tick}>
               <line x1={LEFT} x2={WIDTH - RIGHT} y1={y(tick)} y2={y(tick)} className="pb-grid" />
@@ -104,13 +124,40 @@ export function ScoreByMonth({ months, plants, loading }: { months: readonly str
           <rect x={LEFT} y={TOP + PLOT + 6} width={WIDTH - LEFT - RIGHT} height={STRIP - 6} rx={4} className="pb-strip" />
           {months.map((month, index) =>
             count > 12 && index % 2 === 1 ? null : (
-              <text key={month} x={x(index, (plants.length - 1) / 2)} y={HEIGHT - 6} textAnchor="middle" className="pb-axis">
+              <text key={month} x={mid(index)} y={HEIGHT - 6} textAnchor="middle" className="pb-axis">
                 {count > 12 ? monthAbbreviation(month) : columnLabel(months, index)}
               </text>
             ),
           )}
           {plants.map((plant, k) => {
             const colour = seriesVar(plant.colour);
+            if (bars) {
+              return (
+                <g key={plant.plant} data-testid={`bars-${plant.plant}`}>
+                  {plant.points.map((score, index) => {
+                    const left = barX(index, k) - barWidth / 2;
+                    if (score === null || score === undefined) {
+                      return (
+                        <path
+                          key={index}
+                          d={`M${barX(index, k) - 3.5},${stripY - 3.5} L${barX(index, k) + 3.5},${stripY + 3.5} M${barX(index, k) - 3.5},${stripY + 3.5} L${barX(index, k) + 3.5},${stripY - 3.5}`}
+                          className="pb-cross"
+                          stroke={colour}
+                          data-testid={`cross-${plant.plant}`}
+                        />
+                      );
+                    }
+                    const top = y(score);
+                    return (
+                      <g key={index} onPointerEnter={() => setTip({ index, px: barX(index, k), py: top })} onPointerLeave={() => setTip(undefined)}>
+                        <rect x={left} y={top} width={barWidth} height={TOP + PLOT - top} fill={colour} className="pb-bar" data-testid={`bar-${plant.plant}`} />
+                        <rect x={left} y={TOP} width={barWidth} height={PLOT} fill="transparent" className="pb-hit" />
+                      </g>
+                    );
+                  })}
+                </g>
+              );
+            }
             const runs = runsOfScores(plant.points);
             const at = (index: number) => ({ x: x(index, k), y: y(plant.points[index] as number) });
             return (
