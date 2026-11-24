@@ -43,7 +43,7 @@ abstract class RateLimitSupport extends ClientSupport {
     }
 
     private static long number(String header, String window, String key) {
-        Matcher item = Pattern.compile("\"" + window + "\";" + key + "=([0-9]+)").matcher(header);
+        Matcher item = Pattern.compile("\"" + window + "\";(?:[a-z]=[0-9]+;)*" + key + "=([0-9]+)").matcher(header);
         return item.find() ? Long.parseLong(item.group(1)) : -1;
     }
 

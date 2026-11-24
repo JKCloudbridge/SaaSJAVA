@@ -183,10 +183,15 @@ class WebhookSubscriptionStore {
                 .param("tenant", tenant()).param("id", id).query((rs, row) -> subscription(rs)).optional();
     }
 
-    /** The subscription, held until the end of the transaction so that decisions about it are made one at a time. */
+    /**
+     * The subscription, held until the end of the transaction so that decisions about it are made one at a time. The
+     * lock is "no key update", not "update": an attempt row that was written in the same transaction holds a shared
+     * key lock on this row (its foreign key), and two deliveries that finish together would each wait for the other's
+     * key lock and deadlock. This lock still excludes every other decision and changes no key.
+     */
     Optional<Subscription> lock(UUID id) {
         return jdbc.sql("select " + COLUMNS + " from webhook_subscription where tenant_id = :tenant and id = :id "
-                        + "and deleted_at is null for update")
+                        + "and deleted_at is null for no key update")
                 .param("tenant", tenant()).param("id", id).query((rs, row) -> subscription(rs)).optional();
     }
 

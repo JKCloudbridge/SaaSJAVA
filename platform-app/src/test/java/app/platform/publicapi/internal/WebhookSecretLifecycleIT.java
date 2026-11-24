@@ -86,7 +86,7 @@ class WebhookSecretLifecycleIT extends WebhookSupport {
         Received delivery = deliverOne(organization, admin, hook, "After the overlap");
 
         assertThat(ended.status()).as(ended.body()).isEqualTo(200);
-        assertThat(JsonPath.<String>read(ended.body(), "$.data.previousSecretUntil")).isNull();
+        assertThat(WebhookSupport.<String>optional(ended.body(), "$.data.previousSecretUntil")).isNull();
         assertThat(WebhookReceiver.signatures(delivery)).isEqualTo(1);
         assertThat(WebhookReceiver.verify(delivery, replacement, 300)).isTrue();
         assertThat(WebhookReceiver.verify(delivery, hook.secret(), 300)).as("the old secret").isFalse();

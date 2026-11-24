@@ -817,9 +817,16 @@ public final class TenantScopedTables {
 
     /** The numbers of the limits on the public API that the platform set for one organization (Sprint 32). */
     public static final TenantScopedTable RATE_LIMIT_OVERRIDE = new TenantScopedTable("rate_limit_override",
-            (connection, tenant) -> TenantFixtures.update(connection,
-                    "insert into rate_limit_override (tenant_id, organization_per_minute, created_by, updated_by) "
-                            + "values (?, 100, ?, ?)", tenant, ActorId.SYSTEM.value(), ActorId.SYSTEM.value()));
+            (connection, tenant) -> {
+                // One live row per organization: a probe retires the one before it, as the version counter does.
+                TenantFixtures.update(connection,
+                        "update rate_limit_override set deleted_at = now(), deleted_by = ?, version = version + 1, "
+                                + "updated_by = ? where tenant_id = ? and deleted_at is null",
+                        ActorId.SYSTEM.value(), ActorId.SYSTEM.value(), tenant);
+                TenantFixtures.update(connection,
+                        "insert into rate_limit_override (tenant_id, organization_per_minute, created_by, updated_by) "
+                                + "values (?, 100, ?, ?)", tenant, ActorId.SYSTEM.value(), ActorId.SYSTEM.value());
+            });
 
     /**
      * A connected application of an organization (Sprint 31, V095). A probe row needs a user and a membership of the

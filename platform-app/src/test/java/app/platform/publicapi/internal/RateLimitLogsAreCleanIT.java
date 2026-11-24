@@ -62,13 +62,14 @@ class RateLimitLogsAreCleanIT extends RateLimitSupport {
         String metrics = meters.getMeters().stream().map(meter -> meter.getId().toString())
                 .collect(Collectors.joining("\n"));
 
-        List<String> secrets = List.of(program.caller().token(), program.app().secret(), program.app().clientId(),
-                key, value);
+        // The client identifier is not a secret: the log context and the audit record carry it on purpose (Sprint 31).
+        List<String> secrets = List.of(program.caller().token(), program.app().secret(), key, value);
         for (String leaked : secrets) {
             assertThat(log).as("log: " + leaked.substring(0, 8)).doesNotContain(leaked);
             assertThat(trail).as("trail: " + leaked.substring(0, 8)).doesNotContain(leaked);
             assertThat(metrics).as("metrics: " + leaked.substring(0, 8)).doesNotContain(leaked);
         }
+        assertThat(metrics).as("metrics: the client is never a tag").doesNotContain(program.app().clientId());
         assertThat(metrics).contains("platform.limits.requests");
         assertThat(metrics).doesNotContain(organization.id().value().toString()).doesNotContain(program.app().id());
         assertThat(refused.body()).doesNotContain(program.app().id()).doesNotContain("organization-per-minute");

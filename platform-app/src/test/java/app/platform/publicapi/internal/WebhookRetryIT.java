@@ -62,8 +62,9 @@ class WebhookRetryIT extends WebhookSupport {
         Response attempts = attemptsOf(admin, hook, delivery);
         assertThat(JsonPath.<List<String>>read(attempts.body(), "$.data[*].outcome")).containsExactly("RETRY", "RETRY",
                 "SUCCESS");
-        assertThat(JsonPath.<List<String>>read(attempts.body(), "$.data[*].reason")).containsExactly("unavailable",
-                "unavailable", null);
+        assertThat(JsonPath.<List<String>>read(attempts.body(), "$.data[?(@.outcome=='RETRY')].reason"))
+                .containsExactly("unavailable", "unavailable");
+        assertThat(JsonPath.<List<String>>read(attempts.body(), "$.data[?(@.outcome=='SUCCESS')].reason")).isEmpty();
         assertThat(JsonPath.<List<String>>read(attempts.body(), "$.data[*].statusClass")).containsExactly("5xx", "5xx",
                 "2xx");
         assertThat(count(admin, hook, "DEAD_LETTERED")).isZero();

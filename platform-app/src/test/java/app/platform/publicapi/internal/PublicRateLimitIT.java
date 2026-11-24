@@ -173,15 +173,20 @@ class PublicRateLimitIT extends RateLimitSupport {
 
         assertThat(usage.status()).as(usage.body()).isEqualTo(200);
         assertThat(JsonPath.<Boolean>read(usage.body(), "$.data.enabled")).isTrue();
-        assertThat(JsonPath.<Integer>read(usage.body(), "$.data.organization[?(@.key=='minute')].limit[0]"))
-                .isEqualTo(12);
-        assertThat(JsonPath.<Integer>read(usage.body(), "$.data.organization[?(@.key=='day')].limit[0]"))
-                .isEqualTo(1000);
-        assertThat(JsonPath.<Integer>read(usage.body(), "$.data.organization[?(@.key=='minute')].used[0]"))
-                .isEqualTo(2);
+        assertThat(organization(usage.body(), "minute", "limit"))
+                .containsExactly(12);
+        assertThat(organization(usage.body(), "day", "limit"))
+                .containsExactly(1000);
+        assertThat(organization(usage.body(), "minute", "used"))
+                .containsExactly(2);
         assertThat(JsonPath.<Integer>read(usage.body(), "$.data.applications[0].limits[0].used")).isEqualTo(2);
         assertThat(JsonPath.<Integer>read(again.body(), "$.data.applications[0].limits[0].used"))
                 .as("looking costs nothing").isEqualTo(2);
         assertThat(usage.body()).doesNotContain(program.app().secret());
+    }
+
+    /** The numbers of one window of the organization (a filter gives a list). */
+    private static java.util.List<Integer> organization(String body, String window, String field) {
+        return JsonPath.read(body, "$.data.organization[?(@.key=='" + window + "')]." + field);
     }
 }

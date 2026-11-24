@@ -65,7 +65,7 @@ class WebhookVisibilityIT extends WebhookSupport {
         Response skipped = deliveries(member, hook, "SKIPPED");
         assertThat(JsonPath.<String>read(skipped.body(), "$.data.items[0].reason")).isEqualTo("not_visible");
         assertThat(skipped.body()).as("the log never names a record the member cannot read").doesNotContain(hidden);
-        assertThat(JsonPath.<String>read(skipped.body(), "$.data.items[0].recordId")).isNull();
+        assertThat(WebhookSupport.<String>optional(skipped.body(), "$.data.items[0].recordId")).isNull();
         assertThat(JsonPath.<Integer>read(read(member, hook).body(), "$.data.queue.skipped")).isGreaterThanOrEqualTo(1);
     }
 
@@ -108,7 +108,7 @@ class WebhookVisibilityIT extends WebhookSupport {
         Response shown = read(admin, hook);
         assertThat(JsonPath.<Boolean>read(shown.body(), "$.data.running")).isFalse();
         assertThat(JsonPath.<String>read(shown.body(), "$.data.stoppedReason")).isEqualTo("member_not_active");
-        assertThat(JsonPath.<String>read(shown.body(), "$.data.actsAs")).isNull();
+        assertThat(WebhookSupport.<String>optional(shown.body(), "$.data.actsAs")).isNull();
         assertThat(JsonPath.<String>read(deliveries(admin, hook, "SKIPPED").body(), "$.data.items[0].reason"))
                 .isEqualTo("member_inactive");
         assertThat(receiver.of("record.created")).isEmpty();

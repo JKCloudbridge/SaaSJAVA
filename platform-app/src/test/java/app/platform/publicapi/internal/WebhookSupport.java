@@ -139,6 +139,15 @@ abstract class WebhookSupport extends ClientSupport {
                 .until(condition::getAsBoolean);
     }
 
+    /** What the JSON holds at the path, or null when the answer leaves it out (an absent value is not written). */
+    protected static <T> T optional(String body, String path) {
+        try {
+            return JsonPath.read(body, path);
+        } catch (com.jayway.jsonpath.PathNotFoundException absent) {
+            return null;
+        }
+    }
+
     /** An organization with the feature, the employee object and an administrator; the shape most tests start from. */
     protected Organization webhookOrganization() {
         return organizationWithClients();

@@ -19,6 +19,8 @@ export interface ActionResult {
   text?: string;
   /** Words to show instead of the standard ones when it did not work (for example a refusal that lists the invalid fields). */
   problem?: string;
+  /** True when the call itself worked (a 2xx) but its answer says the action did not: the problem is then shown. */
+  failed?: boolean;
 }
 
 /**
@@ -55,7 +57,7 @@ export function useAction(onDone: () => Promise<void>) {
             result = await run();
           }
         }
-        if (result.response.ok && result.problem === undefined) {
+        if (result.response.ok && !result.failed) {
           setNotice(result.text);
           await onDone();
         } else {

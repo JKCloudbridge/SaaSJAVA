@@ -72,7 +72,9 @@ class RateLimitOverrideIT extends RateLimitSupport {
         assertThat(JsonPath.<Boolean>read(reset.body(), "$.data.overridden")).isFalse();
         assertThat(JsonPath.<Integer>read(reset.body(), "$.data.organizationPerMinute")).isEqualTo(12);
         String trail = administrator.get("/api/v1/platform/audit-events?limit=200").body();
-        assertThat(trail).contains("limits.override_set").contains("limits.override_removed").contains(reason);
+        assertThat(trail).contains("limits.override_set").contains("limits.override_removed");
+        assertThat(trail).as("the viewer never returns the typed reason").doesNotContain(reason);
+        assertThat(storedAuditText(organization)).as("the reason is kept in the record").contains(reason);
         assertThat(adminOf(organization).get("/api/v1/audit-events?limit=200").body())
                 .as("the organization's own trail does not carry the platform's reason").doesNotContain(reason);
     }
@@ -112,6 +114,22 @@ class RateLimitOverrideIT extends RateLimitSupport {
         assertThat(organizationAdmin.request("PUT", limits(organization), body).status()).isIn(401, 403, 404);
         assertThat(JsonPath.<Boolean>read(platform(PlatformRole.PLATFORM_ADMIN).get(limits(organization)).body(),
                 "$.data.overridden")).isFalse();
+    }
+
+    /** What the platform keeps as the attributes of the limit records about this organization (read as the owner). */
+    private static String storedAuditText(Organization organization) {
+        try (java.sql.Connection connection = app.platform.testsupport.TestDatabase.ownerConnection();
+                java.sql.PreparedStatement statement = connection.prepareStatement("select coalesce(string_agg("
+                        + "attributes::text, ' '), '') from audit_record where context_tenant_id = ? "
+                        + "and event_type like 'limits.%'")) {
+            statement.setObject(1, organization.id().value());
+            try (java.sql.ResultSet rows = statement.executeQuery()) {
+                rows.next();
+                return rows.getString(1);
+            }
+        } catch (java.sql.SQLException e) {
+            throw new IllegalStateException(e);
+        }
     }
 
     @Test

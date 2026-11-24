@@ -58,12 +58,29 @@ class WebhookEntitlementIT extends WebhookSupport {
         assertThat(receiver.requests()).isZero();
     }
 
+    private void changePlan(Organization organization, String... features) {
+        int admins = Math.max(3, TestPlatform.adminLicencesInUse(organization.id()));
+        String key = TestPlatform.plan(entitlementPlans, 8, admins, features);
+        entitlementSubscriptions.change(organization.id(),
+                new app.platform.licensing.SubscriptionChange(key, null, null, null),
+                app.platform.sharedkernel.ActorId.SYSTEM);
+    }
+
+    private void loseTheFeature(Organization organization) {
+        changePlan(organization);
+    }
+
+    private void regainTheFeature(Organization organization) {
+        changePlan(organization, FEATURE);
+    }
+
     @Test
     void anOrganizationThatLosesTheFeatureIsNotToldAnythingUntilItHasItAgain() {
         Organization organization = webhookOrganization();
         TestBrowser admin = adminOf(organization);
         Hook hook = live(admin, receiver, EVENTS_CREATED);
-        TestPlatform.subscribe(entitlementPlans, entitlementSubscriptions, organization.id(), 8, 3);
+        loseTheFeature(organization);
+        int beforeTheChange = receiver.requests();
 
         createdEmployee(administrator(organization), "While the plan lacks the feature");
         try {
@@ -72,9 +89,9 @@ class WebhookEntitlementIT extends WebhookSupport {
             Thread.currentThread().interrupt();
         }
 
-        assertThat(receiver.requests()).as("nothing is sent for a plan without the feature").isZero();
+        assertThat(receiver.requests()).as("nothing is sent for a plan without the feature").isEqualTo(beforeTheChange);
         assertThat(admin.get(WEBHOOKS).status()).isEqualTo(409);
-        TestPlatform.subscribe(entitlementPlans, entitlementSubscriptions, organization.id(), 8, 3, FEATURE);
+        regainTheFeature(organization);
         assertThat(read(admin, hook).status()).isEqualTo(200);
     }
 }

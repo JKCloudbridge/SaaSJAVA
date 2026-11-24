@@ -163,8 +163,9 @@ class WebhookAccessIT extends WebhookSupport {
             assertThat(answer.status()).as(call + " " + answer.body()).isEqualTo(404);
         }
         // Nor through the host of the organization: a platform role is not membership.
-        TestBrowser onTheOrganizationHost = TestOrganizations.signedIn(port, organization.host(), person);
-        assertThat(onTheOrganizationHost.get(WEBHOOKS).status()).isIn(401, 403, 404);
+        org.assertj.core.api.Assertions
+                .assertThatThrownBy(() -> TestOrganizations.signedIn(port, organization.host(), person))
+                .hasMessageContaining("401");
     }
 
     @Test

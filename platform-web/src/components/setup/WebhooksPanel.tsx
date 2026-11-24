@@ -167,6 +167,7 @@ export function WebhooksPanel() {
         response: result.response,
         text: said?.delivered ? said.message : undefined,
         problem: said ? (said.delivered ? undefined : said.message) : await refusal(result.error, result.response),
+        failed: said ? !said.delivered : false,
       };
     });
 

@@ -45,4 +45,10 @@ public record WebhookView(@NotNull UUID id, @NotNull String name, @NotNull Strin
         events = List.copyOf(events);
         objects = objects == null ? null : List.copyOf(objects);
     }
+
+    /** Prints nothing: the name and the address are the organization's own words and must not reach a log. */
+    @Override
+    public String toString() {
+        return "WebhookView[redacted]";
+    }
 }

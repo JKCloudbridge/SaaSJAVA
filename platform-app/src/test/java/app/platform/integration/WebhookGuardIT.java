@@ -96,13 +96,39 @@ class WebhookGuardIT {
     }
 
     private static UUID delivery(World world, UUID subscription, String state) throws SQLException {
+        return delivery(world, subscription, state, "0 seconds");
+    }
+
+    /** A delivery that is as old as the interval says (made so by {@code makeOlder}). */
+    private static UUID delivery(World world, UUID subscription, String state, String age) throws SQLException {
         UUID id = UUID.randomUUID();
         run(Role.APP, world.tenant(), "insert into webhook_delivery (id, tenant_id, subscription_id, event_id, "
-                + "event_type, object_api_name, record_id, state, finished_at, created_by, updated_by) values "
-                + "(?, ?, ?, ?, 'record.created', 'ObjectA__c', ?, ?, case when ? = 'PENDING' then null else now() "
-                + "end, ?, ?)", id, world.tenant().value(), subscription, UUID.randomUUID(), UUID.randomUUID(), state,
-                state, ACTOR, ACTOR);
+                + "event_type, object_api_name, record_id, state, finished_at, created_by, updated_by) "
+                + "values (?, ?, ?, ?, 'record.created', 'ObjectA__c', ?, ?, case when ? = 'PENDING' then null "
+                + "else now() end, ?, ?)", id, world.tenant().value(), subscription, UUID.randomUUID(),
+                UUID.randomUUID(), state, state, ACTOR, ACTOR);
+        if (!"0 seconds".equals(age)) {
+            makeOlder(world, id, age);
+        }
         return id;
+    }
+
+    /** The row guard fixes the creation time, so a test that needs an old row turns the triggers off for one update. */
+    private static void makeOlder(World world, UUID id, String age) throws SQLException {
+        try (Connection connection = TestDatabase.ownerConnection()) {
+            connection.setAutoCommit(false);
+            TenantFixtures.setTenant(connection, world.tenant());
+            try (java.sql.Statement statement = connection.createStatement()) {
+                statement.execute("alter table webhook_delivery disable trigger user");
+                try {
+                    TenantFixtures.update(connection, "update webhook_delivery set created_at = now() - ?::interval "
+                            + "where id = ?", age, id);
+                } finally {
+                    statement.execute("alter table webhook_delivery enable trigger user");
+                }
+            }
+            connection.commit();
+        }
     }
 
     private static String move(String set) {
@@ -301,9 +327,7 @@ class WebhookGuardIT {
             UUID subscription = subscription(world);
             UUID open = delivery(world, subscription, "PENDING");
             UUID recent = delivery(world, subscription, "SKIPPED");
-            UUID old = delivery(world, subscription, "SKIPPED");
-            run(role, world.tenant(), "update webhook_delivery set created_at = now() - interval '2 days' where id "
-                    + "= ?", old);
+            UUID old = delivery(world, subscription, "SKIPPED", "2 days");
 
             assertThat(stateOf(role, world.tenant(), "delete from webhook_delivery where id = ?", open))
                     .as(role + " cannot delete an open delivery").isEqualTo(CHECK_VIOLATION);
