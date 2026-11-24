@@ -66,12 +66,15 @@ final class SchemaCheck implements BeanFactoryPostProcessor, EnvironmentAware {
         int needed = SchemaVersions.needed(migrationFileNames(resolver));
         int actual = versionOf(environment);
         Verdict verdict = SchemaVersions.judge(actual, needed);
-        switch (verdict) {
-            case CURRENT -> LOG.info("The database schema is at version {}, as this release needs", actual);
-            case AHEAD -> LOG.info("The database schema (version {}) is newer than this release needs (version {}); "
+        if (verdict == Verdict.BEHIND) {
+            throw new IllegalStateException(SchemaVersions.behindMessage(actual, needed));
+        }
+        if (verdict == Verdict.AHEAD) {
+            LOG.info("The database schema (version {}) is newer than this release needs (version {}); "
                     + "this is the case after a rollback and is safe because migrations are backward compatible",
                     actual, needed);
-            case BEHIND -> throw new IllegalStateException(SchemaVersions.behindMessage(actual, needed));
+        } else {
+            LOG.info("The database schema is at version {}, as this release needs", actual);
         }
     }
 
