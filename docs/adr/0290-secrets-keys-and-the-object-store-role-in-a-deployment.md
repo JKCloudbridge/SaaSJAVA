@@ -20,7 +20,9 @@
    signs); (2) move it first (it signs, the old one verifies); (3) remove the old one after the longest token life. One release
    would sign with a key the instances not yet released cannot verify. A list given from the environment replaces the one in the
    configuration file as a whole, so with two keys both are given in the indexed form (`PLATFORM_IDENTITY_SIGNING_KEYS_<n>_...`).
-   `rotate-signing-key.ps1` proves it under load: no token that should work is refused, the retired key's tokens stop.
+   The keys sign ID tokens only (published through the key set); access tokens are opaque and stored as hashes (ADR-0019), so a
+   rotation never affects them. `rotate-signing-key.ps1` proves it under load: sign-ins work through all three releases, the key
+   set lists exactly the keys expected and no private part, and an access token issued before the rotation keeps working.
 4. **The key-encryption key of the secrets store** is rotated as `runbooks/secrets.md` already says (new active, old previous, wait
    until no row needs the old one, remove it); `rotate-kek.ps1` proves it under load.
 5. **The object store: a role, not a key.** `platform.storage.credentials` is `keys` (default; an access key and its secret) or

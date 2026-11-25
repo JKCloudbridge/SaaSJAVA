@@ -16,10 +16,12 @@ refused at once: people would be signed out without reason. So:
 1. **Add the new key second** (it verifies, the old one still signs). Release. Nothing changes for anyone, and every instance can now
    verify the new key before anything is signed with it.
 2. **Move the new key first** (it signs, the old one still verifies). Release. Tokens signed before keep working.
-3. **Remove the old key**, after the longest life of a token signed by it has passed (the access-token life in the settings; a few
-   minutes by default; keep the refresh time in mind). Release. Tokens signed by the retired key stop working, as they must.
+3. **Remove the old key**, after the longest life of an ID token signed by it has passed (the ID-token life in the settings).
+   Release. An ID token signed by the retired key no longer verifies, as it must.
 
-If the old key leaked, do steps 1 and 2 at once and step 3 right after step 2: the people with a token signed by it sign in again.
+The keys sign **ID tokens only**. Access tokens are opaque and stored as hashes, so a rotation never signs anyone out and never
+changes what an access token can do. If the old key leaked, do steps 1 and 2 at once and step 3 right after step 2: anything that
+holds an ID token signed by it must fetch a new one by signing in again.
 
 ## Steps in a deployment *(cloud)*
 
@@ -37,5 +39,6 @@ Never reuse an identifier for a different key.
 ## How I know it worked
 
 After each release: `GET /api/v1/oauth2/jwks` on the platform host lists the keys you expect and no private part; a fresh sign-in
-works; the identifier in the header of a new token (`kid`) is the one that signs. After release 3 only the new key is listed and a
-token from before the rotation answers 401. The load of the rehearsal shows zero failed requests through all three releases.
+works; the identifier in the header of a new ID token (`kid`) is the one that signs. After release 3 only the new key is listed, and
+an access token from before the rotation still works (it is not signed by the keys). The load of the rehearsal shows zero failed
+requests through all three releases.

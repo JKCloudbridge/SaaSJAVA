@@ -58,3 +58,17 @@ timeout, a 5xx or a 401), and a release-time p95 of at most 2 times the steady-s
 A real certificate, a real secret store, a database with a standby and its failover time, the provider's backups and point-in-time
 recovery, a real mail provider, the fixed outbound address. Those are the staging environment's job and the owner's manual steps
 (`Sprint 33 manual steps.md`).
+
+## How the rehearsal is built, and what to know before changing it
+
+- **The ingress has fixed slots, not DNS names.** Replicas are given the aliases `backend-1` to `backend-8` and `web-1` to `web-8`, and the
+  ingress health-checks every slot actively. A proxy that resolves names without health checks sends traffic to a replica that is still
+  starting; the first rolling release failed that way (502s) before this was changed. The pass rule of the release was not touched.
+- **Only the ingress is a trusted hop.** It has the fixed address `172.31.77.250` on a fixed subnet, and the edge trusts that one address
+  (`$script:TrustedHop` in `lib.ps1`). Trusting the whole network would also trust the host gateway, and a forged forwarded-for would pass.
+- **The previous image is built from `git archive`,** into a folder of the rehearsal's own, so no branch, worktree or stash is created or
+  changed (`build-previous-image.ps1`). It runs Maven and Docker and takes a few minutes.
+- **A load generator can outlive an aborted run.** `Stop-StrayLoads` ends them at the start of a run; a result taken while one was still
+  running is not trusted. Limits are reset (`Reset-Limits`) at the start of the checks and of every load run, because the sign-in limiter
+  is shared state and works as intended on a burst.
+- **Size limits are decimal.** The proxy's `MB` is 1,000,000 bytes, not 1,048,576; the size tests use the decimal figure.
