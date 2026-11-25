@@ -5,9 +5,11 @@ import static org.assertj.core.api.Assertions.assertThat;
 import app.platform.testsupport.PlatformIntegrationTest;
 import app.platform.testsupport.TestBrowser;
 import app.platform.testsupport.TestHttp.Response;
+import app.platform.testsupport.TestOutbox;
 import app.platform.testsupport.TestOrganizations.Organization;
 import io.micrometer.core.instrument.MeterRegistry;
 import java.util.List;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.test.context.TestPropertySource;
@@ -23,6 +25,16 @@ import org.springframework.test.context.TestPropertySource;
     "platform.outbox.poll-interval=50ms",
     "platform.workflow.enabled=false"})
 class WorkflowLoopsIT extends ActionsSupport {
+
+    /**
+     * Starts from an empty outbox. The relay of this context works through the events that earlier classes left waiting
+     * (oldest first) before it reaches those of a test, and the test that counts events would count them too: it saw
+     * 1313 where it expected 5, after the whole suite had run before it.
+     */
+    @BeforeAll
+    static void startFromAnEmptyOutbox() {
+        TestOutbox.discardWaiting();
+    }
 
     @Autowired
     private MeterRegistry meters;
