@@ -1,2 +1,3 @@
 *
 !target/platform-app-*.jar
+!entrypoint.sh

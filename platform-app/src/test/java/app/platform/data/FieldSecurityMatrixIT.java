@@ -214,7 +214,9 @@ class FieldSecurityMatrixIT extends PipelineSupport {
                 .allSatisfy(fields -> assertThat(fields).isEmpty());
         assertThat(JsonPath.<List<Map<String, Object>>>read(bin.body(), "$.data[*].fields")).hasSize(1)
                 .allSatisfy(fields -> assertThat(fields).isEmpty());
-        assertThat(single.body() + list.body() + bin.body()).doesNotContain("M-0001").doesNotContain("abc")
+        // The text value is looked for as a whole JSON string: the bare letters also turn up inside a random
+        // hexadecimal identifier now and then (about one run in fifty), which is not a leak.
+        assertThat(single.body() + list.body() + bin.body()).doesNotContain("M-0001").doesNotContain("\"abc\"")
                 .doesNotContain("user-a@example.test");
     }
 

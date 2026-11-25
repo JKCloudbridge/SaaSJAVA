@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import app.platform.integration.WebhookReceiver;
 import app.platform.testsupport.TestBrowser;
 import app.platform.testsupport.TestHttp.Response;
+import app.platform.testsupport.TestOutbox;
 import app.platform.testsupport.TestOrganizations.Organization;
 import com.jayway.jsonpath.JsonPath;
 import java.time.Duration;
@@ -13,6 +14,7 @@ import java.util.List;
 import java.util.UUID;
 import java.util.function.BooleanSupplier;
 import org.awaitility.Awaitility;
+import org.junit.jupiter.api.BeforeAll;
 
 /**
  * What the tests of the webhooks share (Sprint 32): an organization on a plan that has the feature, the short ways to
@@ -21,6 +23,16 @@ import org.awaitility.Awaitility;
  * starts on this machine.
  */
 abstract class WebhookSupport extends ClientSupport {
+
+    /**
+     * Starts every webhook class from an empty outbox. The relay of this context works through the events that earlier
+     * classes left waiting before it reaches the event of a test, so the first delivery a class waits for arrived later
+     * the more classes had run before it (about 50 seconds after five classes, past the wait after the whole suite).
+     */
+    @BeforeAll
+    static void startFromAnEmptyOutbox() {
+        TestOutbox.discardWaiting();
+    }
 
     protected static final String WEBHOOKS = "/api/v1/webhooks";
     protected static final String EVENTS_CREATED = "[\"record.created\"]";

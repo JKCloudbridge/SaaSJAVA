@@ -7,6 +7,7 @@ import app.platform.sharedkernel.TenantId;
 import app.platform.sharedkernel.audit.AuditOutcome;
 import app.platform.sharedkernel.audit.AuditRecord;
 import app.platform.sharedkernel.audit.AuditRecorder;
+import app.platform.sharedkernel.lifecycle.WorkerStop;
 import app.platform.tenant.Tenant;
 import app.platform.tenant.TenantContext;
 import app.platform.tenant.TenantContexts;
@@ -383,9 +384,14 @@ class IndexBackfill implements SmartLifecycle {
     @Override
     public void stop() {
         if (executor != null) {
-            executor.shutdownNow();
+            WorkerStop.drain("index backfill", executor);
             executor = null;
         }
+    }
+
+    @Override
+    public void stop(Runnable callback) {
+        WorkerStop.concurrently("index backfill", this::stop, callback);
     }
 
     @Override

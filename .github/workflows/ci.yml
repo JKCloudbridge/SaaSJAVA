@@ -166,8 +166,12 @@ jobs:
           name: platform-app-jar
           path: platform-app/target
 
+      # The release stamp (ADR-0287): the commit and the build time are shown by /actuator/info and in one log line at start.
+      # Neither is a secret. The tag is the commit: an image is never tagged latest (ADR-0287).
       - name: Build image
-        run: docker build -t platform-app:${{ github.sha }} platform-app
+        run: |
+          docker build -t platform-app:${{ github.sha }} \
+            --build-arg GIT_COMMIT=${{ github.sha }} --build-arg BUILD_TIME="$(date -u +%Y-%m-%dT%H:%M:%SZ)" platform-app
 
       # Starts the image the way a deployment does: production profile, settings from environment variables, a real
       # database with two roles. The application role is created by the real manual migration M001 (run as the owner,
@@ -244,6 +248,9 @@ jobs:
               echo
               bash ./scripts/ci-smoke-tenants.sh smoke-db "$app_password"
               bash ./scripts/ci-smoke-auth.sh smoke-db smoke-redis "$redis_password" http://localhost:8025
+              # Sprint 33: the migration job, the start without the right to migrate, a database that is behind, an orderly stop.
+              bash ./scripts/ci-smoke-deploy.sh platform-app:${{ github.sha }} "$owner_password" "$app_password" \
+                "$redis_password" "$store_key" "$store_secret" "$keys"
               exit 0
             fi
             sleep 2
@@ -260,4 +267,102 @@ jobs:
           ignore-unfixed: true
           exit-code: "1"
 
-      # Publishing the image to a registry is added with the deployment work (Sprint 33).
+      # Publishing an image to a registry is done by the release procedure of the owner (docs/runbooks/deploy.md), never by CI:
+      # CI holds no cloud credentials (Sprint 33, ADR-0292).
+
+  # The web image (Sprint 33, ADR-0287): a production build in an image that runs as a user without rights, answers its health
+  # check, holds no secret, and passes the scan like the application image. The build runs `next build` inside Docker.
+  web-image:
+    name: Web image
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v7.0.1
+
+      - name: Build image
+        run: |
+          docker build -t platform-web:${{ github.sha }} \
+            --build-arg GIT_COMMIT=${{ github.sha }} --build-arg BUILD_TIME="$(date -u +%Y-%m-%dT%H:%M:%SZ)" platform-web
+
+      - name: Runs without rights, answers its health check, drains on a stop, holds no secret
+        run: |
+          user="$(docker run --rm --entrypoint id platform-web:${{ github.sha }} -u)"
+          [ "$user" != "0" ] || { echo "the web image runs as root"; exit 1; }
+          docker run -d --name web-check -e WEB_SHUTDOWN_DELAY=3 -p 3000:3000 platform-web:${{ github.sha }}
+          for _ in $(seq 1 30); do
+            if curl -fsS http://localhost:3000/healthz | grep -q '^ok$'; then ok=yes; break; fi
+            sleep 1
+          done
+          [ -n "${ok:-}" ] || { docker logs web-check; exit 1; }
+          docker kill --signal=TERM web-check
+          sleep 1
+          [ "$(curl -s -o /dev/null -w '%{http_code}' http://localhost:3000/healthz)" = "503" ] \
+            || { echo "the health route did not turn to 503 when the stop began"; exit 1; }
+          for _ in $(seq 1 20); do
+            if [ "$(docker inspect -f '{{.State.Running}}' web-check)" = "false" ]; then stopped=yes; break; fi
+            sleep 1
+          done
+          [ -n "${stopped:-}" ] || { echo "the web server did not stop after its delay"; exit 1; }
+          if docker run --rm --entrypoint sh platform-web:${{ github.sha }} -c 'env' | grep -Ei 'password|secret|token|key'; then
+            echo "the web image's environment holds something shaped like a secret"
+            exit 1
+          fi
+          docker rm web-check
+
+      - name: Scan image
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          image-ref: platform-web:${{ github.sha }}
+          scanners: vuln
+          severity: HIGH,CRITICAL
+          ignore-unfixed: true
+          exit-code: "1"
+
+  # The edge sidecar (Sprint 33, ADR-0286): the rules file must be valid for the proxy that runs it, and the image is scanned.
+  edge-image:
+    name: Edge image
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7.0.1
+
+      - name: Build image
+        run: |
+          docker build -t platform-edge:${{ github.sha }} \
+            --build-arg GIT_COMMIT=${{ github.sha }} --build-arg BUILD_TIME="$(date -u +%Y-%m-%dT%H:%M:%SZ)" deploy/edge
+
+      - name: The configuration is valid and the image runs without rights
+        run: |
+          docker run --rm -e TRUSTED_CIDR=10.0.0.0/16 platform-edge:${{ github.sha }} \
+            caddy validate --config /etc/caddy/Caddyfile --adapter caddyfile
+          user="$(docker run --rm --entrypoint id platform-edge:${{ github.sha }} -u)"
+          [ "$user" != "0" ] || { echo "the edge image runs as root"; exit 1; }
+
+      - name: Scan image
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          image-ref: platform-edge:${{ github.sha }}
+          scanners: vuln
+          severity: HIGH,CRITICAL
+          ignore-unfixed: true
+          exit-code: "1"
+
+  # The infrastructure files (Sprint 33, ADR-0292): formatted, valid, and nothing applied. CI holds no cloud credentials, makes no
+  # plan against a cloud and applies nothing; a plan is made and read by the owner. The rules about the numbers of a release, about
+  # environments, about alerts and about secret-shaped text are unit tests of the build above.
+  infrastructure:
+    name: Infrastructure files
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7.0.1
+
+      - name: Format
+        run: docker run --rm -v "$PWD/deploy/infra:/work" -w /work ghcr.io/opentofu/opentofu:1.10 fmt -check -recursive -diff
+
+      - name: Validate (without a backend and without credentials)
+        run: |
+          for folder in stack bootstrap; do
+            docker run --rm -v "$PWD/deploy/infra:/work" -w "/work/$folder" ghcr.io/opentofu/opentofu:1.10 init -backend=false -input=false
+            docker run --rm -v "$PWD/deploy/infra:/work" -w "/work/$folder" ghcr.io/opentofu/opentofu:1.10 validate
+          done

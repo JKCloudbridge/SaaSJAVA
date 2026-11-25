@@ -10,6 +10,7 @@ import app.platform.licensing.Subscriptions.TrialEnd;
 import app.platform.platformadmin.internal.TrialEndPolicy.Stage;
 import app.platform.security.MemberAccess;
 import app.platform.sharedkernel.ActorId;
+import app.platform.sharedkernel.lifecycle.WorkerStop;
 import app.platform.sharedkernel.mail.MailQueue;
 import app.platform.sharedkernel.mail.MailRequest;
 import app.platform.sharedkernel.mail.MailTemplate;
@@ -201,9 +202,14 @@ class TrialEndJob implements SmartLifecycle {
     @Override
     public synchronized void stop() {
         if (executor != null) {
-            executor.shutdownNow();
+            WorkerStop.drain("trial end job", executor);
             executor = null;
         }
+    }
+
+    @Override
+    public void stop(Runnable callback) {
+        WorkerStop.concurrently("trial end job", this::stop, callback);
     }
 
     @Override

@@ -1,5 +1,6 @@
 package app.platform.identity.internal;
 
+import app.platform.sharedkernel.lifecycle.WorkerStop;
 import java.time.Clock;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
@@ -74,9 +75,14 @@ class IdentityCleanup implements SmartLifecycle {
     @Override
     public void stop() {
         if (executor != null) {
-            executor.shutdownNow();
+            WorkerStop.drain("identity clean-up", executor);
             executor = null;
         }
+    }
+
+    @Override
+    public void stop(Runnable callback) {
+        WorkerStop.concurrently("identity clean-up", this::stop, callback);
     }
 
     @Override

@@ -1,8 +1,25 @@
-# Production-like rehearsal on one machine (transition plan, step 1): the built images, the production profile and an
-# ingress with https and fake domain names. Usage and what it proves: README.md in this folder.
-# Everything is separate from infra/local (own project name, own volumes); only the ingress publishes ports, on 127.0.0.1.
-# Credentials come from .env and the keys from secrets/, both made by init.ps1 (and both ignored by git).
+# Production-like rehearsal on one machine (transition plan, step 1; Sprint 33, ADR-0286 to ADR-0291): the built images, the
+# production profile, an ingress that behaves like the cloud load balancer, a migration job that runs first, and several
+# application replicas that the scripts start, replace and stop the way a deployment does.
+# Usage and what it proves: README.md in this folder. Start it with ./up.ps1 (not with `docker compose up`).
+#
+# This file holds the fixed part: the data services, the one-shot steps, the migration job and the ingress. The application
+# replicas (each an application container with its edge sidecar beside it, as in a task) and the web replicas are started by
+# the scripts, because releasing, rolling back and scaling them is the point.
+#
+# Everything is separate from infra/local (own project name, own network, own volumes); only the ingress publishes the
+# standard ports, and only on 127.0.0.1. Credentials come from .env and the keys from secrets/, both made by init.ps1 (and
+# both ignored by git).
 name: platform-rehearsal
+
+networks:
+  default:
+    # A fixed range, so the edge sidecars can be told which addresses are the trusted hop (the ingress), as they are told the
+    # network of the load balancer in a deployment.
+    name: platform-rehearsal
+    ipam:
+      config:
+        - subnet: 172.31.77.0/24
 
 services:
   postgres:
@@ -45,7 +62,8 @@ services:
       timeout: 3s
       retries: 20
 
-  # The real environment sends mail through a provider with a login; the rehearsal catches it (http://localhost:8026).
+  # The real environment sends mail through a provider with a login; the rehearsal catches it (http://localhost:8026), the way
+  # staging does.
   mail-catcher:
     image: axllent/mailpit:v1.31
     ports:
@@ -56,9 +74,11 @@ services:
       timeout: 3s
       retries: 20
 
-  # One-time steps a deployment does before the first start: the application role (manual migration M001) and the bucket.
+  # One-time steps a deployment does before the first start: the application role (manual migration M001, run as the owner)
+  # and the bucket. Run by up.ps1, before the migration job.
   role-init:
     image: postgres:18
+    profiles: ["jobs"]
     depends_on:
       postgres:
         condition: service_healthy
@@ -77,6 +97,7 @@ services:
 
   bucket-init:
     image: amazon/aws-cli:latest
+    profiles: ["jobs"]
     depends_on:
       object-storage:
         condition: service_healthy
@@ -88,64 +109,29 @@ services:
     entrypoint: ["sh", "-c"]
     command: ["aws --endpoint-url http://object-storage:8333 s3 mb s3://platform-files || true"]
 
-  # The platform application from its image, with the production profile. Build the image first (README.md).
-  backend:
-    image: platform-app:local
+  # The migration job (ADR-0288): the application image's `migrate` command, as the owner, before any replica starts. It needs
+  # three values and nothing else. A release runs it with the NEW image (MIGRATE_IMAGE) before it replaces a replica.
+  migrate:
+    image: ${MIGRATE_IMAGE:-platform-app:local}
+    profiles: ["jobs"]
+    command: ["migrate"]
+    restart: "no"
     depends_on:
       postgres:
         condition: service_healthy
-      redis:
-        condition: service_healthy
-      mail-catcher:
-        condition: service_healthy
-      role-init:
-        condition: service_completed_successfully
-      bucket-init:
-        condition: service_completed_successfully
     environment:
-      SPRING_PROFILES_ACTIVE: prod
-      PLATFORM_ENVIRONMENT: rehearsal
       PLATFORM_DB_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB}
       PLATFORM_DB_OWNER_USER: ${POSTGRES_USER}
       PLATFORM_DB_OWNER_PASSWORD: ${POSTGRES_PASSWORD}
-      PLATFORM_DB_APP_USER: platform_app
-      PLATFORM_DB_APP_PASSWORD: ${APP_DB_PASSWORD}
-      PLATFORM_BASE_DOMAIN: ${BASE_DOMAIN}
-      PLATFORM_PUBLIC_BASE_URL: https://${BASE_DOMAIN}
-      # The ingress overwrites both headers, so they may be trusted (and only because of that).
-      PLATFORM_TRUST_FORWARDED_HOST: "true"
-      PLATFORM_TRUST_FORWARDED_FOR: "true"
-      PLATFORM_REDIS_HOST: redis
-      PLATFORM_REDIS_PASSWORD: ${REDIS_PASSWORD}
-      PLATFORM_SMTP_HOST: mail-catcher
-      PLATFORM_SMTP_PORT: "1025"
-      PLATFORM_SMTP_AUTH: "false"
-      PLATFORM_SMTP_STARTTLS_REQUIRED: "false"
-      PLATFORM_MAIL_SENDER: no-reply@${BASE_DOMAIN}
-      PLATFORM_SIGNING_KEY_ID: rehearsal-1
-      PLATFORM_SIGNING_PRIVATE_KEY_FILE: /run/keys/signing-private.pem
-      PLATFORM_SIGNING_PUBLIC_KEY_FILE: /run/keys/signing-public.pem
-      PLATFORM_SECRETS_KEK_ACTIVE_ID: rehearsal-1
-      PLATFORM_SECRETS_KEK_ACTIVE_KEY: ${SECRETS_KEK}
-      PLATFORM_STORAGE_ENDPOINT: http://object-storage:8333
-      PLATFORM_STORAGE_PATH_STYLE: "true"
-      PLATFORM_STORAGE_BUCKET: platform-files
-      PLATFORM_STORAGE_ACCESS_KEY: ${S3_ACCESS_KEY}
-      PLATFORM_STORAGE_SECRET_KEY: ${S3_SECRET_KEY}
-    volumes:
-      - ./secrets:/run/keys:ro
 
-  web:
-    image: platform-web:local
-    depends_on:
-      - backend
-
-  # The only published ports. The management port of the application is not routed at all.
+  # The load balancer of the rehearsal: https with the rehearsal's own certificate authority, the host preserved, http sent to
+  # https, the management port never routed, and (like a cloud balancer, and unlike a proxy that overwrites) X-Forwarded-For
+  # APPENDED to and a client's X-Forwarded-Host passed through. The application and its sidecar have to cope with that.
   ingress:
     image: caddy:2
-    depends_on:
-      - web
-      - backend
+    networks:
+      default:
+        ipv4_address: 172.31.77.250
     ports:
       - "127.0.0.1:80:80"
       - "127.0.0.1:443:443"

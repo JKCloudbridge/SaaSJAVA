@@ -1,2 +1,5 @@
 .env
 secrets/
+# Throw-away state of a run: the seeded organization's sign-in, the rehearsal's certificate authority root, load results,
+# a second key pair for the rotation test. Never committed.
+.run/

@@ -3,6 +3,7 @@ package app.platform.notification.internal;
 import app.platform.sharedkernel.audit.AuditOutcome;
 import app.platform.sharedkernel.audit.AuditRecord;
 import app.platform.sharedkernel.audit.AuditRecorder;
+import app.platform.sharedkernel.lifecycle.WorkerStop;
 import app.platform.tenant.Tenant;
 import app.platform.tenant.TenantContext;
 import app.platform.tenant.TenantContexts;
@@ -124,9 +125,14 @@ class NoticeRetention implements SmartLifecycle {
     @Override
     public synchronized void stop() {
         if (executor != null) {
-            executor.shutdownNow();
+            WorkerStop.drain("notice retention", executor);
             executor = null;
         }
+    }
+
+    @Override
+    public void stop(Runnable callback) {
+        WorkerStop.concurrently("notice retention", this::stop, callback);
     }
 
     @Override

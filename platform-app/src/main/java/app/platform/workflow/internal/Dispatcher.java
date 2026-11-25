@@ -4,6 +4,7 @@ import app.platform.sharedkernel.TenantId;
 import app.platform.sharedkernel.audit.AuditOutcome;
 import app.platform.sharedkernel.audit.AuditRecord;
 import app.platform.sharedkernel.audit.AuditRecorder;
+import app.platform.sharedkernel.lifecycle.WorkerStop;
 import app.platform.tenant.SystemScope;
 import app.platform.tenant.TenantContext;
 import app.platform.tenant.TenantContexts;
@@ -37,7 +38,6 @@ import org.springframework.transaction.support.TransactionTemplate;
 class Dispatcher implements SmartLifecycle {
 
     private static final Logger LOG = LoggerFactory.getLogger(Dispatcher.class);
-    private static final Duration SHUTDOWN_WAIT = Duration.ofSeconds(25);
     private static final Duration MAINTENANCE_INTERVAL = Duration.ofSeconds(30);
     private static final int SCHEDULE_BATCH = 10;
     private static final int ORGANIZATIONS_PER_PASS = 50;
@@ -208,18 +208,15 @@ class Dispatcher implements SmartLifecycle {
         if (executor == null) {
             return;
         }
-        executor.shutdown();
-        try {
-            if (!executor.awaitTermination(SHUTDOWN_WAIT.toMillis(), TimeUnit.MILLISECONDS)) {
-                // A claim that was never completed expires and the execution is claimed again by any instance.
-                executor.shutdownNow();
-            }
-        } catch (InterruptedException e) {
-            executor.shutdownNow();
-            Thread.currentThread().interrupt();
-        }
+        // The execution in hand is finished; a claim that is never completed expires and is claimed again.
+        WorkerStop.drain("workflow dispatcher", executor);
         executor = null;
         LOG.info("The workflow dispatcher stopped");
+    }
+
+    @Override
+    public void stop(Runnable callback) {
+        WorkerStop.concurrently("workflow dispatcher", this::stop, callback);
     }
 
     @Override

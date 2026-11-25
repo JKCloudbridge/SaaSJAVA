@@ -169,6 +169,13 @@ springdoc:
   writer-with-default-pretty-printer: true
 
 platform:
+  deployment:
+    # Which release is running (Sprint 33, ADR-0287): shown in /actuator/info and in one log line at start. The image
+    # build supplies both; they are only ever displayed, never a secret. The shutdown delay and the schema check are
+    # off here and turned on by the prod profile (ADR-0288, ADR-0289).
+    build:
+      commit: ${PLATFORM_BUILD_COMMIT:unknown}
+      time: ${PLATFORM_BUILD_TIME:unknown}
   tenancy:
     # The platform domain: an organization lives at <slug>.<base-domain> (ADR-0017). No default on purpose; the local
     # and test profiles set one, every deployment must (PLATFORM_BASE_DOMAIN).

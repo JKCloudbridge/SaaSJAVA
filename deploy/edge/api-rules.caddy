@@ -1,0 +1,71 @@
+# The rules for everything under /api (Sprint 33, ADR-0286). ONE file, imported by the edge sidecar that runs next to every
+# application task AND by the rehearsal's ingress, so the limits proven on a laptop are the limits that run in a deployment.
+#
+# What it does, in the order it matters:
+#   1. The headers the application trusts are made true here. X-Forwarded-For becomes the one address of the real caller
+#      (the first address that is not a trusted hop, see "trusted_proxies" in the file that imports this one), and a
+#      client-supplied X-Forwarded-Host is deleted. The host name is the tenant: the application reads the original Host
+#      header (it is preserved) and must never be offered another one.
+#   2. Every body has a size limit that holds for a chunked body too (a body with no announced length is bounded here and
+#      nowhere else: the application bounds only what the client announces, Sprint 14).
+#   3. Every kind of request has its own time limit.
+#
+# The file that imports this one defines the snippet `proxy_to <timeout>`, which forwards to the application with the
+# header rules below and that response-header timeout. The limits follow the application's own settings with a little room
+# for the envelope; the application stays the authority (it answers its own refusal in its own words).
+#
+#   path class                                        body limit   time limit   application setting it follows
+#   files on a record                                 27 MB        120 s        platform.data.files.max-bytes (25 MiB)
+#   spreadsheet upload                                 6 MB         60 s        platform.sheets.imports.max-file-bytes (5 MB)
+#   imports (resumable, in pieces)                    30 MB        120 s        platform.data.imports.*
+#   bulk (internal and public)                         9 MB         60 s        platform.data.bulk.* (8 MiB)
+#   inbound receiver of an external system             2 MB         15 s        a signed message is small
+#   a sheet grid save                                  2 MB         30 s        platform.sheets.limits.max-bytes (1,000,000)
+#   everything else under /api (records, public API)   2 MB         30 s        platform.data.limits.max-record-bytes (1 MiB)
+
+@files path /api/v1/objects/*/records/*/files /api/v1/objects/*/records/*/files/*
+handle @files {
+	request_body {
+		max_size 27MB
+	}
+	import proxy_to 120s
+}
+
+@sheetUpload path /api/v1/sheets/*/*/versions/import
+handle @sheetUpload {
+	request_body {
+		max_size 6MB
+	}
+	import proxy_to 60s
+}
+
+@imports path /api/v1/objects/*/imports /api/v1/objects/*/imports/*
+handle @imports {
+	request_body {
+		max_size 30MB
+	}
+	import proxy_to 120s
+}
+
+@bulk path /api/v1/objects/*/records/bulk /api/public/v1/objects/*/records/bulk
+handle @bulk {
+	request_body {
+		max_size 9MB
+	}
+	import proxy_to 60s
+}
+
+@inbound path /api/v1/inbound/*
+handle @inbound {
+	request_body {
+		max_size 2MB
+	}
+	import proxy_to 15s
+}
+
+handle {
+	request_body {
+		max_size 2MB
+	}
+	import proxy_to 30s
+}

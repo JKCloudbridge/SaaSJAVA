@@ -6,6 +6,7 @@ import app.platform.outbox.internal.OutboxStore.ClaimedEvent;
 import app.platform.sharedkernel.TenantId;
 import app.platform.sharedkernel.events.EventEnvelope;
 import app.platform.sharedkernel.events.EventHandler;
+import app.platform.sharedkernel.lifecycle.WorkerStop;
 import app.platform.sharedkernel.logging.LogContext;
 import app.platform.tenant.SystemScope;
 import app.platform.tenant.TenantContext;
@@ -51,7 +52,6 @@ class OutboxRelay implements SmartLifecycle {
     private static final Logger LOG = LoggerFactory.getLogger(OutboxRelay.class);
     private static final int MAX_ERROR_TYPE = 200;
     private static final Duration PURGE_INTERVAL = Duration.ofMinutes(10);
-    private static final Duration SHUTDOWN_WAIT = Duration.ofSeconds(25);
 
     private final OutboxStore store;
     private final EventMarkers markers;
@@ -223,18 +223,15 @@ class OutboxRelay implements SmartLifecycle {
             return;
         }
         running = false;
-        executor.shutdown();
-        try {
-            if (!executor.awaitTermination(SHUTDOWN_WAIT.toMillis(), TimeUnit.MILLISECONDS)) {
-                // A claim that was never completed expires and the event is claimed again by any instance.
-                executor.shutdownNow();
-            }
-        } catch (InterruptedException e) {
-            executor.shutdownNow();
-            Thread.currentThread().interrupt();
-        }
+        // The event in hand is finished; a claim that is never completed expires and is claimed again by any instance.
+        WorkerStop.drain("outbox relay", executor);
         executor = null;
         LOG.info("The outbox relay stopped");
+    }
+
+    @Override
+    public void stop(Runnable callback) {
+        WorkerStop.concurrently("outbox relay", this::stop, callback);
     }
 
     @Override

@@ -29,6 +29,7 @@ import app.platform.sharedkernel.TenantId;
 import app.platform.sharedkernel.audit.AuditOutcome;
 import app.platform.sharedkernel.audit.AuditRecord;
 import app.platform.sharedkernel.audit.AuditRecorder;
+import app.platform.sharedkernel.lifecycle.WorkerStop;
 import app.platform.tenant.SystemScope;
 import app.platform.tenant.TenantContext;
 import app.platform.tenant.TenantContexts;
@@ -88,7 +89,6 @@ class OutboundWorker implements SmartLifecycle {
     private static final UUID ACTOR = ActorId.SYSTEM.value();
     private static final int PURGE_BATCH = 50;
     private static final int DEFER_BATCH = 2000;
-    private static final long SHUTDOWN_WAIT_SECONDS = 20;
 
     /** What the first transaction decides: nothing more to do, or a request ready to make. */
     private record Begun(Ready ready) {
@@ -892,29 +892,18 @@ class OutboundWorker implements SmartLifecycle {
     @Override
     public synchronized void stop() {
         running = false;
-        if (scheduler != null) {
-            scheduler.shutdown();
-            try {
-                if (!scheduler.awaitTermination(SHUTDOWN_WAIT_SECONDS, TimeUnit.SECONDS)) {
-                    scheduler.shutdownNow();
-                }
-            } catch (InterruptedException e) {
-                scheduler.shutdownNow();
-                Thread.currentThread().interrupt();
-            }
-            scheduler = null;
-        }
-        // Work under way is given the time of one send; what is cut off is claimed again when its lease ends.
-        workers.shutdown();
-        try {
-            if (!workers.awaitTermination(flow.sendTimeout().toSeconds() + 2, TimeUnit.SECONDS)) {
-                workers.shutdownNow();
-            }
-        } catch (InterruptedException e) {
-            workers.shutdownNow();
-            Thread.currentThread().interrupt();
-        }
+        ScheduledExecutorService polling = scheduler;
+        scheduler = null;
+        // The poll and the sends in hand share one grace period (they used to wait one after the other, which made the
+        // stop longer than the application's phase timeout). What is cut off is claimed again when its lease ends, and
+        // the key of an attempt makes a repeat safe.
+        WorkerStop.drain("integration outbound worker", polling, workers);
         calls.shutdownNow();
+    }
+
+    @Override
+    public void stop(Runnable callback) {
+        WorkerStop.concurrently("integration outbound worker", this::stop, callback);
     }
 
     @Override

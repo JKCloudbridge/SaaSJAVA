@@ -1,6 +1,7 @@
 package app.platform.data.internal;
 
 import app.platform.data.StorageStrategy;
+import app.platform.sharedkernel.lifecycle.WorkerStop;
 import app.platform.tenant.Tenant;
 import app.platform.tenant.TenantContext;
 import app.platform.tenant.TenantContexts;
@@ -114,9 +115,14 @@ class RecycleBinRetention implements SmartLifecycle {
     @Override
     public void stop() {
         if (executor != null) {
-            executor.shutdownNow();
+            WorkerStop.drain("recycle bin retention", executor);
             executor = null;
         }
+    }
+
+    @Override
+    public void stop(Runnable callback) {
+        WorkerStop.concurrently("recycle bin retention", this::stop, callback);
     }
 
     @Override

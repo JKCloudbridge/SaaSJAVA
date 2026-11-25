@@ -9,6 +9,7 @@ import app.platform.sharedkernel.TenantId;
 import app.platform.sharedkernel.audit.AuditOutcome;
 import app.platform.sharedkernel.audit.AuditRecord;
 import app.platform.sharedkernel.audit.AuditRecorder;
+import app.platform.sharedkernel.lifecycle.WorkerStop;
 import app.platform.tenant.Tenant;
 import app.platform.tenant.TenantContext;
 import app.platform.tenant.TenantContexts;
@@ -396,9 +397,14 @@ class FormulaRecalculation implements SmartLifecycle {
     @Override
     public void stop() {
         if (executor != null) {
-            executor.shutdownNow();
+            WorkerStop.drain("formula recalculation", executor);
             executor = null;
         }
+    }
+
+    @Override
+    public void stop(Runnable callback) {
+        WorkerStop.concurrently("formula recalculation", this::stop, callback);
     }
 
     @Override

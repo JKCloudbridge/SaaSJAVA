@@ -7,6 +7,7 @@ import app.platform.observability.ErrorTracker;
 import app.platform.sharedkernel.audit.AuditOutcome;
 import app.platform.sharedkernel.audit.AuditRecord;
 import app.platform.sharedkernel.audit.AuditRecorder;
+import app.platform.sharedkernel.lifecycle.WorkerStop;
 import app.platform.sharedkernel.logging.LogContext;
 import io.micrometer.core.instrument.MeterRegistry;
 import java.time.Clock;
@@ -49,7 +50,6 @@ class MailRelay implements SmartLifecycle {
     private static final Logger LOG = LoggerFactory.getLogger(MailRelay.class);
     private static final int MAX_ERROR_TYPE = 200;
     private static final Duration PURGE_INTERVAL = Duration.ofMinutes(10);
-    private static final Duration SHUTDOWN_WAIT = Duration.ofSeconds(25);
 
     private final MailStore store;
     private final MailComposer composer;
@@ -236,18 +236,15 @@ class MailRelay implements SmartLifecycle {
             return;
         }
         running = false;
-        executor.shutdown();
-        try {
-            if (!executor.awaitTermination(SHUTDOWN_WAIT.toMillis(), TimeUnit.MILLISECONDS)) {
-                // A claim that was never completed expires and the mail is claimed again by any instance.
-                executor.shutdownNow();
-            }
-        } catch (InterruptedException e) {
-            executor.shutdownNow();
-            Thread.currentThread().interrupt();
-        }
+        // The mail in hand is sent; a claim that is never completed expires and the mail is claimed again.
+        WorkerStop.drain("mail relay", executor);
         executor = null;
         LOG.info("The mail relay stopped");
+    }
+
+    @Override
+    public void stop(Runnable callback) {
+        WorkerStop.concurrently("mail relay", this::stop, callback);
     }
 
     @Override

@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- The log of the migration job (app.platform.deployment.internal.MigrationJob), used only when the image runs its
+     "migrate" command: -Dlogback.configurationFile=migration-job-logback.xml. The job is not the Spring application, so it
+     does not read application.yml. The migration library's own lines are held back to warnings because its start-up line
+     names the database address; the job writes its own two lines (started, finished) and nothing else. -->
+<configuration>
+  <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
+    <encoder>
+      <pattern>%d{yyyy-MM-dd'T'HH:mm:ss.SSS'Z',UTC} %-5level migration-job %msg%n</pattern>
+    </encoder>
+  </appender>
+  <logger name="org.flywaydb" level="WARN"/>
+  <root level="INFO">
+    <appender-ref ref="CONSOLE"/>
+  </root>
+</configuration>

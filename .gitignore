@@ -36,3 +36,9 @@ scripts/demo-seed-data/
 scripts/demo-names.ps1
 scripts/demo-backdate.ps1
 scripts/demo-seed-fills.mjs
+
+# OpenTofu working folders (provider binaries are hundreds of MB); the lock files are kept
+.terraform/
+*.tfstate
+*.tfstate.*
+*.tfplan
