@@ -28,20 +28,31 @@ final class ShutdownDelay implements SmartLifecycle {
     private final Duration delay;
     private final ApplicationEventPublisher publisher;
     private volatile boolean running;
+    private volatile boolean stopped;
 
     ShutdownDelay(Duration delay, ApplicationEventPublisher publisher) {
         this.delay = delay;
         this.publisher = publisher;
     }
 
+    /**
+     * A context that was stopped and is started again (a paused application context of a test suite is) must say it is
+     * ready again: the stop said it was not. The first start says nothing, because the framework itself turns readiness
+     * on when the application is up, and saying it earlier would report ready before it is.
+     */
     @Override
     public void start() {
         running = true;
+        if (stopped) {
+            stopped = false;
+            AvailabilityChangeEvent.publish(publisher, this, ReadinessState.ACCEPTING_TRAFFIC);
+        }
     }
 
     @Override
     public void stop() {
         running = false;
+        stopped = true;
         // Said here and not left to the framework alone, so the order does not depend on when it says it.
         AvailabilityChangeEvent.publish(publisher, this, ReadinessState.REFUSING_TRAFFIC);
         if (delay.isZero() || delay.isNegative()) {

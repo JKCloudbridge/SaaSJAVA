@@ -67,6 +67,39 @@ class DeploymentBehaviourTest {
         assertThat(published).hasSize(1);
     }
 
+    @Test
+    void aFirstStartSaysNothingAboutReadiness() {
+        CopyOnWriteArrayList<Object> published = new CopyOnWriteArrayList<>();
+        ShutdownDelay delay = new ShutdownDelay(Duration.ZERO, published::add);
+
+        delay.start();
+
+        assertThat(published).isEmpty();
+        assertThat(delay.isRunning()).isTrue();
+    }
+
+    @Test
+    void aStopFollowedByAStartIsReadyAgain() throws Exception {
+        // A paused and restarted context (a test suite does this to cached contexts) must not stay "not ready".
+        CopyOnWriteArrayList<Object> published = new CopyOnWriteArrayList<>();
+        ShutdownDelay delay = new ShutdownDelay(Duration.ZERO, published::add);
+        delay.start();
+        CountDownLatch done = new CountDownLatch(1);
+        delay.stop(done::countDown);
+        assertThat(done.await(2, TimeUnit.SECONDS)).isTrue();
+
+        delay.start();
+
+        assertThat(published).hasSize(2);
+        assertThat(((AvailabilityChangeEvent<?>) published.get(0)).getState())
+                .isEqualTo(ReadinessState.REFUSING_TRAFFIC);
+        assertThat(((AvailabilityChangeEvent<?>) published.get(1)).getState())
+                .isEqualTo(ReadinessState.ACCEPTING_TRAFFIC);
+        // And a second plain start says nothing more.
+        delay.start();
+        assertThat(published).hasSize(2);
+    }
+
     // ---- the build stamp ----
 
     @Test
